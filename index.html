@@ -167,15 +167,23 @@
   padding: 4px 10px; font-size: 11px; font-family: 'DM Mono', monospace; color: var(--accent2);
 }
 /* Manager cash entry form styles */
-.form-section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 24px; margin-bottom: 20px; }
-.form-section h3 { font-size: 13px; color: var(--accent2); margin-bottom: 18px; font-family: 'DM Mono', monospace; letter-spacing: 1px; text-transform: uppercase; }
+.form-section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 24px; margin-bottom: 16px; }
+.form-section h3 { font-size: 13px; color: var(--accent2); margin-bottom: 18px; font-family: 'DM Mono', monospace; letter-spacing: 1px; text-transform: uppercase; display: flex; align-items: center; }
+.step-num { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; background: var(--accent); color: var(--bg); border-radius: 50%; font-size: 11px; font-weight: 700; margin-right: 10px; flex-shrink: 0; }
 .field-label { font-size: 10px; color: var(--text3); display: block; margin-bottom: 5px; font-family: 'DM Mono', monospace; letter-spacing: 1px; text-transform: uppercase; }
 .field-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: 10px 14px; font-size: 14px; font-family: 'DM Sans', sans-serif; outline: none; transition: border-color 0.2s; }
 .field-input:focus { border-color: var(--accent); }
 .field-input-mono { font-family: 'DM Mono', monospace; font-size: 16px; }
-.calc-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 7px; padding: 12px 14px; font-size: 12px; color: var(--text2); font-family: 'DM Mono', monospace; min-height: 36px; margin-top: 8px; }
-#form-errors { display:none; background: rgba(224,82,82,0.1); border: 1px solid rgba(224,82,82,0.3); border-radius:7px; padding:14px; font-size:12px; color:var(--red); font-family:'DM Mono',monospace; line-height:2; margin-bottom:16px; }
-#form-success { display:none; background: rgba(76,175,125,0.1); border: 1px solid rgba(76,175,125,0.3); border-radius:7px; padding:16px; font-size:13px; color:var(--text); margin-bottom:16px; }
+.field-select { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: 10px 14px; font-size: 13px; font-family: 'DM Sans', sans-serif; outline: none; transition: border-color 0.2s; appearance: none; -webkit-appearance: none; cursor: pointer; }
+.field-select:focus { border-color: var(--accent); }
+.calc-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 7px; padding: 12px 14px; font-size: 12px; color: var(--text2); font-family: 'DM Mono', monospace; min-height: 36px; line-height: 1.8; }
+.exp-note { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; margin-bottom: 14px; line-height: 1.6; }
+.add-expense-btn { width: 100%; margin-top: 4px; padding: 10px; background: transparent; border: 1px dashed var(--border); color: var(--text3); border-radius: 7px; cursor: pointer; font-size: 13px; transition: all 0.2s; font-family: 'DM Sans', sans-serif; }
+.add-expense-btn:hover { border-color: var(--accent); color: var(--accent); }
+.expenses-total-row { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text2); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 1px; }
+.expenses-total-row .exp-total-val { font-family: 'Playfair Display', serif; font-size: 22px; letter-spacing: 0; text-transform: none; color: var(--red); }
+#form-errors { display: none; background: rgba(224,82,82,0.1); border: 1px solid rgba(224,82,82,0.3); border-radius: 7px; padding: 14px; font-size: 12px; color: var(--red); font-family: 'DM Mono', monospace; line-height: 2; margin-bottom: 16px; }
+#form-success { display: none; background: rgba(76,175,125,0.1); border: 1px solid rgba(76,175,125,0.3); border-radius: 7px; padding: 16px; font-size: 13px; color: var(--text); margin-bottom: 16px; }
 </style>
 
 <!-- PIN SCREEN -->
@@ -709,80 +717,73 @@
 
 <!-- ===================== DAILY ENTRY (Manager) ===================== -->
 <div id="panel-entry" class="panel content">
-  <div class="note">
-    <strong>Manager Daily Cash Entry</strong> — Fill this in at end of each day. All fields are validated before submission. Cash + Card + UPI must equal Total Sales. Closing Balance is auto-checked against your calculation.
-  </div>
 
   <div id="form-errors"></div>
   <div id="form-success"></div>
 
-  <div class="two-col">
-    <div>
-      <div class="form-section">
-        <h3>📅 Date & Sales Summary</h3>
-        <div style="margin-bottom:14px;">
-          <label class="field-label">Date *</label>
-          <input id="entry-date" type="date" class="field-input" onchange="recalc()">
-        </div>
-        <div style="margin-bottom:14px;">
-          <label class="field-label">Total Sales of the Day (₹) *</label>
-          <input id="f-total" type="number" class="field-input field-input-mono" placeholder="e.g. 27500" oninput="recalc()">
-        </div>
-        <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:6px;">
-          <div>
-            <label class="field-label">Cash ₹</label>
-            <input id="f-cash" type="number" class="field-input field-input-mono" placeholder="0" oninput="recalc()">
-          </div>
-          <div>
-            <label class="field-label">Card ₹</label>
-            <input id="f-card" type="number" class="field-input field-input-mono" placeholder="0" oninput="recalc()">
-          </div>
-          <div>
-            <label class="field-label">UPI ₹</label>
-            <input id="f-upi" type="number" class="field-input field-input-mono" placeholder="0" oninput="recalc()">
-          </div>
-        </div>
-        <div id="chan-valid" class="calc-box"></div>
-      </div>
-
-      <div class="form-section">
-        <h3>💰 Cash Balance</h3>
-        <div style="margin-bottom:14px;">
-          <label class="field-label">Opening Cash Balance (₹) *</label>
-          <input id="f-opening" type="number" class="field-input field-input-mono" placeholder="e.g. 5000" oninput="recalc()">
-        </div>
-        <div style="margin-bottom:8px;">
-          <label class="field-label">Calculated Closing Balance (auto)</label>
-          <div id="closing-preview" class="calc-box">Enter opening balance and cash sales above</div>
-        </div>
-        <div style="margin-top:12px;">
-          <label class="field-label">Actual Closing Balance in hand (₹) *</label>
-          <input id="f-closing" type="number" class="field-input field-input-mono" placeholder="Count cash and enter here" oninput="recalc()">
-        </div>
-      </div>
+  <!-- SECTION 1: Date & Opening -->
+  <div class="form-section">
+    <h3><span class="step-num">1</span> Date &amp; Opening Balance</h3>
+    <div style="margin-bottom:14px;">
+      <label class="field-label">Date</label>
+      <input id="entry-date" type="date" class="field-input">
     </div>
-
     <div>
-      <div class="form-section" style="height:fit-content;">
-        <h3>🧾 Cash Expenses</h3>
-        <div class="note" style="margin-bottom:16px; font-size:11px;">Every expense needs a description. No blank entries. Add one row per item purchased with cash.</div>
-        <div id="expense-rows"></div>
-        <button onclick="addExpenseRow()" style="width:100%; margin-top:4px; padding:10px; background:transparent; border:1px dashed var(--border); color:var(--text3); border-radius:7px; cursor:pointer; font-size:13px; transition:all 0.2s;" onmouseover="this.style.borderColor='var(--accent)'; this.style.color='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'; this.style.color='var(--text3)'">
-          + Add Expense Item
-        </button>
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; padding-top:14px; border-top:1px solid var(--border);">
-          <span style="font-size:12px; color:var(--text2); font-family:'DM Mono',monospace; text-transform:uppercase; letter-spacing:1px;">Total Cash Expenses</span>
-          <span id="total-expenses-display" style="font-family:'Playfair Display',serif; font-size:20px; color:var(--red);">₹0</span>
-        </div>
-        <button class="btn" style="width:100%; margin-top:20px; padding:14px; font-size:15px;" onclick="submitEntry()">
-          Submit Day's Entry ✓
-        </button>
-        <div style="margin-top:12px; font-size:11px; color:var(--text3); text-align:center; font-family:'DM Mono',monospace; line-height:1.8;">
-          Timestamped automatically on submission.<br>Discrepancies flagged to owner.
-        </div>
-      </div>
+      <label class="field-label">Opening Cash Balance ₹ *</label>
+      <input id="f-opening" type="number" class="field-input field-input-mono" placeholder="e.g. 1000" oninput="recalc()">
     </div>
   </div>
+
+  <!-- SECTION 2: Expenses -->
+  <div class="form-section">
+    <h3><span class="step-num">2</span> Cash Expenses</h3>
+    <p class="exp-note">Add each cash purchase as it happens. Pick a category, write a description, enter the amount.</p>
+    <div id="expense-rows"></div>
+    <button onclick="addExpenseRow()" class="add-expense-btn">+ Add Expense</button>
+    <div class="expenses-total-row">
+      <span>Total Cash Expenses</span>
+      <span id="total-expenses-display" class="exp-total-val">₹0</span>
+    </div>
+  </div>
+
+  <!-- SECTION 3: End-of-Day Sales -->
+  <div class="form-section">
+    <h3><span class="step-num">3</span> End-of-Day Sales</h3>
+    <p class="exp-note">Fill in at closing (~11 pm). UPI &amp; Card figures from your POS app.</p>
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:12px;">
+      <div>
+        <label class="field-label">Cash ₹</label>
+        <input id="f-cash" type="number" class="field-input field-input-mono" placeholder="0" oninput="recalc()">
+      </div>
+      <div>
+        <label class="field-label">UPI ₹</label>
+        <input id="f-upi" type="number" class="field-input field-input-mono" placeholder="0" oninput="recalc()">
+      </div>
+      <div>
+        <label class="field-label">Card ₹</label>
+        <input id="f-card" type="number" class="field-input field-input-mono" placeholder="0" oninput="recalc()">
+      </div>
+    </div>
+    <div id="total-sales-display" class="calc-box" style="min-height:0; padding:10px 14px;"></div>
+  </div>
+
+  <!-- SECTION 4: Cash Verification -->
+  <div class="form-section">
+    <h3><span class="step-num">4</span> Cash Verification</h3>
+    <div id="closing-preview" class="calc-box" style="margin-bottom:14px;">Enter opening balance and cash sales above</div>
+    <div style="margin-bottom:4px;">
+      <label class="field-label">Actual Cash in Hand ₹ *</label>
+      <input id="f-closing" type="number" class="field-input field-input-mono" placeholder="Count your cash and enter here" oninput="recalc()">
+    </div>
+    <div id="verify-result" style="margin-top:12px;"></div>
+    <button class="btn" style="width:100%; margin-top:20px; padding:14px; font-size:15px;" onclick="submitEntry()">
+      Submit Day's Entry ✓
+    </button>
+    <div style="margin-top:12px; font-size:11px; color:var(--text3); text-align:center; font-family:'DM Mono',monospace; line-height:1.8;">
+      Timestamped automatically. Discrepancies flagged to owner.
+    </div>
+  </div>
+
 </div>
 
 </div><!-- end #app -->
@@ -865,144 +866,174 @@ function setMonth(el, month) {
 }
 
 // ─── MANAGER CASH ENTRY FORM ─────────────────────────────────────────────────
-let expenseRows = [{ id: Date.now(), desc: '', amount: '' }];
+const EXPENSE_CATEGORIES = [
+  'Produce / Vegetables',
+  'Meat & Seafood',
+  'Pantry / Dry Goods',
+  'Beverages',
+  'Cleaning & Supplies',
+  'Staff / Labour',
+  'Equipment',
+  'Miscellaneous'
+];
+
+let expenseRows = [{ id: Date.now(), category: '', desc: '', amount: '' }];
 
 function renderExpenseRows() {
   const container = document.getElementById('expense-rows');
   container.innerHTML = expenseRows.map((row, i) => `
-    <div style="display:grid; grid-template-columns:1fr 120px 36px; gap:8px; margin-bottom:8px; align-items:center;">
-      <input id="exp-desc-${row.id}" value="${row.desc}" onchange="expenseRows[${i}].desc=this.value; recalc()"
-        placeholder="e.g. Blinkit Avocado" style="background:var(--surface2); border:1px solid var(--border); color:var(--text); border-radius:6px; padding:9px 12px; font-size:13px; font-family:'DM Sans',sans-serif; width:100%;">
-      <div style="position:relative">
-        <span style="position:absolute; left:10px; top:50%; transform:translateY(-50%); color:var(--text3); font-size:12px;">₹</span>
-        <input id="exp-amt-${row.id}" type="number" value="${row.amount}" onchange="expenseRows[${i}].amount=this.value; recalc()"
-          placeholder="0" style="background:var(--surface2); border:1px solid var(--border); color:var(--text); border-radius:6px; padding:9px 12px 9px 24px; font-size:13px; font-family:'DM Mono',sans-serif; width:100%;">
+    <div style="background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:10px;">
+      <select id="exp-cat-${row.id}" class="field-select" style="margin-bottom:8px;" onchange="expenseRows[${i}].category=this.value">
+        <option value="">Select category…</option>
+        ${EXPENSE_CATEGORIES.map(c => `<option value="${c}"${row.category === c ? ' selected' : ''}>${c}</option>`).join('')}
+      </select>
+      <div style="display:grid; grid-template-columns:1fr 110px 34px; gap:8px; align-items:center;">
+        <input id="exp-desc-${row.id}" value="${row.desc}" onchange="expenseRows[${i}].desc=this.value"
+          placeholder="Description…" class="field-input" style="font-size:13px; padding:8px 12px;">
+        <div style="position:relative;">
+          <span style="position:absolute; left:9px; top:50%; transform:translateY(-50%); color:var(--text3); font-size:12px; pointer-events:none;">₹</span>
+          <input id="exp-amt-${row.id}" type="number" value="${row.amount}" oninput="expenseRows[${i}].amount=this.value; recalc()"
+            placeholder="0" class="field-input field-input-mono" style="padding:8px 8px 8px 22px; font-size:14px;">
+        </div>
+        <button onclick="removeExpenseRow(${i})" style="background:rgba(224,82,82,0.15); border:1px solid rgba(224,82,82,0.3); color:var(--red); border-radius:6px; padding:0; cursor:pointer; font-size:13px; height:36px; width:34px;">✕</button>
       </div>
-      <button onclick="removeExpenseRow(${i})" style="background:rgba(224,82,82,0.15); border:1px solid rgba(224,82,82,0.3); color:var(--red); border-radius:6px; padding:8px; cursor:pointer; font-size:14px; line-height:1;">✕</button>
     </div>
   `).join('');
   recalc();
 }
 
 function addExpenseRow() {
-  expenseRows.push({ id: Date.now(), desc: '', amount: '' });
+  expenseRows.push({ id: Date.now(), category: '', desc: '', amount: '' });
   renderExpenseRows();
   setTimeout(() => {
-    const inputs = document.querySelectorAll('[id^="exp-desc-"]');
-    inputs[inputs.length - 1].focus();
+    const selects = document.querySelectorAll('[id^="exp-cat-"]');
+    selects[selects.length - 1].focus();
   }, 50);
 }
 
 function removeExpenseRow(i) {
-  if (expenseRows.length === 1) { expenseRows[0] = { id: Date.now(), desc: '', amount: '' }; }
-  else { expenseRows.splice(i, 1); }
+  if (expenseRows.length === 1) {
+    expenseRows[0] = { id: Date.now(), category: '', desc: '', amount: '' };
+  } else {
+    expenseRows.splice(i, 1);
+  }
   renderExpenseRows();
 }
 
 function recalc() {
-  const cash = parseFloat(document.getElementById('f-cash')?.value) || 0;
-  const card = parseFloat(document.getElementById('f-card')?.value) || 0;
-  const upi  = parseFloat(document.getElementById('f-upi')?.value)  || 0;
-  const total = parseFloat(document.getElementById('f-total')?.value) || 0;
+  const cash    = parseFloat(document.getElementById('f-cash')?.value)    || 0;
+  const card    = parseFloat(document.getElementById('f-card')?.value)    || 0;
+  const upi     = parseFloat(document.getElementById('f-upi')?.value)     || 0;
   const opening = parseFloat(document.getElementById('f-opening')?.value) || 0;
 
-  const channelSum = cash + card + upi;
+  const totalSales    = cash + card + upi;
   const totalExpenses = expenseRows.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
-  const calcClosing = opening + cash - totalExpenses;
+  const calcClosing   = opening + cash - totalExpenses;
 
-  // Channel validation
-  const chanValid = document.getElementById('chan-valid');
-  const chanDiff = channelSum - total;
-  if (total > 0 && Math.abs(chanDiff) > 1) {
-    chanValid.innerHTML = `<span style="color:var(--red)">⚠ Cash+Card+UPI = ₹${channelSum.toLocaleString('en-IN')} but Total Sales = ₹${total.toLocaleString('en-IN')} (diff ₹${Math.abs(chanDiff).toLocaleString('en-IN')})</span>`;
-  } else if (total > 0) {
-    chanValid.innerHTML = `<span style="color:var(--green)">✓ Channel split matches Total Sales</span>`;
-  } else { chanValid.innerHTML = ''; }
+  // Total sales summary
+  const salesDisp = document.getElementById('total-sales-display');
+  if (salesDisp) {
+    salesDisp.innerHTML = totalSales > 0
+      ? `Total Sales = <strong style="color:var(--accent2)">₹${totalSales.toLocaleString('en-IN')}</strong>`
+      : '';
+  }
 
-  // Closing balance preview
+  // Closing balance formula
   const closingPreview = document.getElementById('closing-preview');
-  if (opening > 0 || cash > 0) {
-    closingPreview.innerHTML = `Opening ₹${opening.toLocaleString('en-IN')} + Cash Sales ₹${cash.toLocaleString('en-IN')} − Expenses ₹${totalExpenses.toLocaleString('en-IN')} = <strong style="color:var(--accent2)">₹${calcClosing.toLocaleString('en-IN')}</strong>`;
+  if (closingPreview) {
+    if (opening > 0 || cash > 0 || totalExpenses > 0) {
+      closingPreview.innerHTML =
+        `Opening <strong>₹${opening.toLocaleString('en-IN')}</strong> + Cash Sales <strong>₹${cash.toLocaleString('en-IN')}</strong> − Expenses <strong>₹${totalExpenses.toLocaleString('en-IN')}</strong> = <strong style="color:var(--accent2)">₹${calcClosing.toLocaleString('en-IN')}</strong>`;
+    } else {
+      closingPreview.textContent = 'Enter opening balance and cash sales above';
+    }
+  }
+
+  // Live verify
+  const closing   = parseFloat(document.getElementById('f-closing')?.value) || 0;
+  const verifyEl  = document.getElementById('verify-result');
+  if (verifyEl) {
+    if (closing > 0 && (opening > 0 || cash > 0)) {
+      const diff = closing - calcClosing;
+      if (Math.abs(diff) <= 10) {
+        verifyEl.innerHTML = `<div style="background:rgba(76,175,125,0.1); border:1px solid rgba(76,175,125,0.3); border-radius:7px; padding:12px 14px; color:var(--green); font-family:'DM Mono',monospace; font-size:12px;">✓ Cash balances — ₹${closing.toLocaleString('en-IN')} matches</div>`;
+      } else {
+        const sign = diff > 0 ? '+' : '−';
+        verifyEl.innerHTML = `<div style="background:rgba(224,82,82,0.1); border:1px solid rgba(224,82,82,0.3); border-radius:7px; padding:12px 14px; color:var(--red); font-family:'DM Mono',monospace; font-size:12px;">⚠ Discrepancy of ${sign}₹${Math.abs(diff).toLocaleString('en-IN')} — Expected ₹${calcClosing.toLocaleString('en-IN')}, counted ₹${closing.toLocaleString('en-IN')}</div>`;
+      }
+    } else {
+      verifyEl.innerHTML = '';
+    }
   }
 
   // Total expenses display
-  document.getElementById('total-expenses-display').textContent = `₹${totalExpenses.toLocaleString('en-IN')}`;
+  const expDisp = document.getElementById('total-expenses-display');
+  if (expDisp) expDisp.textContent = `₹${totalExpenses.toLocaleString('en-IN')}`;
 }
 
 function submitEntry() {
   const date    = document.getElementById('entry-date').value;
-  const total   = parseFloat(document.getElementById('f-total').value) || 0;
-  const cash    = parseFloat(document.getElementById('f-cash').value) || 0;
-  const card    = parseFloat(document.getElementById('f-card').value) || 0;
-  const upi     = parseFloat(document.getElementById('f-upi').value) || 0;
+  const cash    = parseFloat(document.getElementById('f-cash').value)    || 0;
+  const card    = parseFloat(document.getElementById('f-card').value)    || 0;
+  const upi     = parseFloat(document.getElementById('f-upi').value)     || 0;
   const opening = parseFloat(document.getElementById('f-opening').value) || 0;
   const closing = parseFloat(document.getElementById('f-closing').value) || 0;
-
-  // Validations
-  const errors = [];
-  if (!date) errors.push('Date is required');
-  if (total <= 0) errors.push('Total Sales cannot be zero');
-  if (cash + card + upi === 0) errors.push('At least one sales channel must have a value');
-
-  const channelSum = cash + card + upi;
-  if (total > 0 && Math.abs(channelSum - total) > 5) {
-    errors.push(`Cash+Card+UPI (₹${channelSum.toLocaleString('en-IN')}) must equal Total Sales (₹${total.toLocaleString('en-IN')})`);
-  }
+  const total   = cash + card + upi;
 
   const filledExpenses = expenseRows.filter(r => r.amount && parseFloat(r.amount) > 0);
-  const blankDescExpenses = filledExpenses.filter(r => !r.desc.trim());
-  if (blankDescExpenses.length > 0) errors.push('All expense amounts must have a description');
+  const totalExpenses  = filledExpenses.reduce((s, r) => s + parseFloat(r.amount), 0);
+  const calcClosing    = opening + cash - totalExpenses;
 
-  const totalExpenses = filledExpenses.reduce((s, r) => s + parseFloat(r.amount), 0);
-  const calcClosing = opening + cash - totalExpenses;
+  const errors = [];
+  if (!date)         errors.push('Date is required');
+  if (opening <= 0)  errors.push('Opening Cash Balance is required');
+  if (total === 0)   errors.push('Enter at least one sales figure (Cash, UPI, or Card)');
+  if (closing <= 0)  errors.push('Actual Cash in Hand is required');
+  if (filledExpenses.some(r => !r.category))   errors.push('All expenses must have a category selected');
+  if (filledExpenses.some(r => !r.desc.trim())) errors.push('All expenses must have a description');
   if (closing > 0 && Math.abs(calcClosing - closing) > 10) {
-    errors.push(`Closing Balance mismatch: calculated ₹${calcClosing.toLocaleString('en-IN')} vs entered ₹${closing.toLocaleString('en-IN')}`);
+    errors.push(`Cash discrepancy: expected ₹${calcClosing.toLocaleString('en-IN')} but counted ₹${closing.toLocaleString('en-IN')} — resolve before submitting`);
   }
 
   const errBox = document.getElementById('form-errors');
   if (errors.length > 0) {
     errBox.innerHTML = errors.map(e => `<div>⚠ ${e}</div>`).join('');
     errBox.style.display = 'block';
+    errBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     return;
   }
-
   errBox.style.display = 'none';
-
-  // Format and show success
-  const entry = {
-    date, total, cash, card, upi, opening, closing,
-    expenses: filledExpenses,
-    submittedAt: new Date().toLocaleString('en-IN'),
-    submittedBy: currentRole
-  };
 
   const successBox = document.getElementById('form-success');
   successBox.innerHTML = `
-    <div style="font-weight:600; color:var(--green); margin-bottom:8px;">✓ Entry recorded — ${date}</div>
-    <div style="font-size:12px; line-height:1.8; font-family:'DM Mono',monospace;">
+    <div style="font-weight:600; color:var(--green); margin-bottom:10px;">✓ Entry recorded — ${date}</div>
+    <div style="font-size:12px; line-height:1.9; font-family:'DM Mono',monospace;">
+      Opening Balance: ₹${opening.toLocaleString('en-IN')}<br>
+      Cash Sales: ₹${cash.toLocaleString('en-IN')} · UPI: ₹${upi.toLocaleString('en-IN')} · Card: ₹${card.toLocaleString('en-IN')}<br>
       Total Sales: ₹${total.toLocaleString('en-IN')}<br>
-      Cash: ₹${cash.toLocaleString('en-IN')} · Card: ₹${card.toLocaleString('en-IN')} · UPI: ₹${upi.toLocaleString('en-IN')}<br>
-      Cash Expenses: ₹${totalExpenses.toLocaleString('en-IN')}<br>
-      ${filledExpenses.map(e => `&nbsp;&nbsp;• ${e.desc}: ₹${parseFloat(e.amount).toLocaleString('en-IN')}`).join('<br>')}<br>
-      Closing Balance: ₹${closing.toLocaleString('en-IN')}<br>
-      <span style="color:var(--text3)">Submitted: ${entry.submittedAt}</span>
+      ${filledExpenses.length > 0
+        ? `Cash Expenses: ₹${totalExpenses.toLocaleString('en-IN')}<br>${filledExpenses.map(e => `&nbsp;&nbsp;• [${e.category}] ${e.desc}: ₹${parseFloat(e.amount).toLocaleString('en-IN')}`).join('<br>')}<br>`
+        : ''}
+      Closing Balance: ₹${closing.toLocaleString('en-IN')} ✓<br>
+      <span style="color:var(--text3)">Submitted: ${new Date().toLocaleString('en-IN')}</span>
     </div>
     <div style="margin-top:10px; font-size:11px; color:var(--text3)">📋 Screenshot this confirmation and share with Edwin if needed.</div>
   `;
   successBox.style.display = 'block';
 
-  // Reset form
-  document.getElementById('f-total').value = '';
-  document.getElementById('f-cash').value = '';
-  document.getElementById('f-card').value = '';
-  document.getElementById('f-upi').value = '';
+  // Reset
+  document.getElementById('f-cash').value    = '';
+  document.getElementById('f-card').value    = '';
+  document.getElementById('f-upi').value     = '';
   document.getElementById('f-opening').value = '';
   document.getElementById('f-closing').value = '';
-  expenseRows = [{ id: Date.now(), desc: '', amount: '' }];
+  expenseRows = [{ id: Date.now(), category: '', desc: '', amount: '' }];
   renderExpenseRows();
-  document.getElementById('chan-valid').innerHTML = '';
-  document.getElementById('closing-preview').innerHTML = '';
+  document.getElementById('total-sales-display').innerHTML   = '';
+  document.getElementById('closing-preview').textContent     = 'Enter opening balance and cash sales above';
+  document.getElementById('verify-result').innerHTML         = '';
   document.getElementById('total-expenses-display').textContent = '₹0';
+  successBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 // Init
