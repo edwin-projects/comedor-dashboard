@@ -989,6 +989,11 @@ function tickExpenseRow(i) {
     setTimeout(() => { if (catEl) catEl.style.borderColor = ''; }, 2000);
     return;
   }
+  if (!desc.trim()) {
+    if (descEl) descEl.style.borderColor = 'var(--red)';
+    setTimeout(() => { if (descEl) descEl.style.borderColor = ''; }, 2000);
+    return;
+  }
   row.category = cat;
   row.desc     = desc;
   row.amount   = amt;
