@@ -176,6 +176,8 @@
 .field-input-mono { font-family: 'DM Mono', monospace; font-size: 16px; }
 .field-select { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: 10px 14px; font-size: 13px; font-family: 'DM Sans', sans-serif; outline: none; transition: border-color 0.2s; appearance: none; -webkit-appearance: none; cursor: pointer; }
 .field-select:focus { border-color: var(--accent); }
+#entry-date::-webkit-calendar-picker-indicator { opacity: 0; position: absolute; right: 0; width: 40px; height: 100%; cursor: pointer; }
+#entry-date { position: relative; }
 .opening-hint { font-size: 11px; font-family: 'DM Mono', monospace; margin-top: 7px; padding: 8px 12px; border-radius: 6px; line-height: 1.5; }
 .opening-hint.ok   { background: rgba(76,175,125,0.1);  border: 1px solid rgba(76,175,125,0.3);  color: var(--green); }
 .opening-hint.warn { background: rgba(224,82,82,0.1);   border: 1px solid rgba(224,82,82,0.3);   color: var(--red); }
@@ -231,7 +233,7 @@
   <div class="tab owner-only" data-panel="bank" onclick="showPanel('bank')">Bank Transactions</div>
   <div class="tab" data-panel="cash" onclick="showPanel('cash')">Cash Register</div>
   <div class="tab" data-panel="menu" onclick="showPanel('menu')">🍽 Menu Analytics</div>
-  <div class="tab" data-panel="entry" onclick="showPanel('entry')">✏️ Daily Entry</div>
+  <div class="tab" data-panel="entry" onclick="showPanel('entry')">Daily Cash Entry</div>
   <div class="tab" data-panel="cashdash" onclick="showPanel('cashdash')">💵 Cash Dashboard</div>
 </div>
 
@@ -728,7 +730,6 @@
 
 <!-- ===================== DAILY ENTRY (Manager) ===================== -->
 <div id="panel-entry" class="panel content">
-  <div class="section-title">Daily Cash Entry</div>
 
   <div id="form-errors"></div>
   <div id="form-success"></div>
@@ -738,7 +739,7 @@
     <h3><span class="step-num">1</span> Date &amp; Opening Balance</h3>
     <div style="margin-bottom:14px;">
       <label class="field-label">Date</label>
-      <input id="entry-date" type="date" class="field-input" onchange="checkOpening()" style="text-align:center; display:block; width:100%;">
+      <input id="entry-date" type="date" class="field-input" onchange="checkOpening()" style="text-align:center; display:block; width:100%; -webkit-appearance:none; appearance:none; box-sizing:border-box;">
     </div>
     <div>
       <label class="field-label">Opening Cash Balance ₹ *</label>
@@ -931,8 +932,8 @@ function renderExpenseRows() {
     const savedBorder = row.saved ? 'border-color:rgba(76,175,125,0.5);' : '';
     const savedBg     = row.saved ? 'background:rgba(76,175,125,0.05);' : '';
     const tickStyle   = row.saved
-      ? 'background:rgba(76,175,125,0.2); border:1px solid rgba(76,175,125,0.5); color:var(--green); border-radius:6px; padding:0; cursor:default; font-size:15px; height:36px; width:34px;'
-      : 'background:rgba(76,175,125,0.08); border:1px solid rgba(76,175,125,0.25); color:var(--green); border-radius:6px; padding:0; cursor:pointer; font-size:15px; height:36px; width:34px; transition:all 0.2s;';
+      ? 'background:rgba(76,175,125,0.25); border:1px solid rgba(76,175,125,0.5); color:var(--green); border-radius:6px; padding:0; cursor:default; font-size:15px; height:36px; width:34px; font-weight:700;'
+      : 'background:rgba(76,175,125,0.1); border:1px solid rgba(76,175,125,0.3); color:var(--green); border-radius:6px; padding:0; cursor:pointer; font-size:15px; height:36px; width:34px; font-weight:700;';
     return `
     <div style="${savedBg} ${savedBorder} border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:10px; ${savedBorder}">
       ${row.saved ? '<div style="font-size:10px; color:var(--green); font-family:\'DM Mono\',monospace; letter-spacing:1px; margin-bottom:6px;">✓ SAVED</div>' : ''}
@@ -948,7 +949,7 @@ function renderExpenseRows() {
           <input id="exp-amt-${row.id}" type="number" value="${row.amount}" oninput="expenseRows[${i}].amount=this.value; recalc()"
             placeholder="0" class="field-input field-input-mono" style="padding:8px 8px 8px 22px; font-size:14px;">
         </div>
-        <button onclick="tickExpenseRow(${i})" style="${tickStyle}" title="Save this entry">✅</button>
+        <button onclick="tickExpenseRow(${i})" style="${tickStyle}" title="Save this entry">✓</button>
         <button onclick="removeExpenseRow(${i})" style="background:rgba(224,82,82,0.15); border:1px solid rgba(224,82,82,0.3); color:var(--red); border-radius:6px; padding:0; cursor:pointer; font-size:13px; height:36px; width:34px;">✕</button>
       </div>
     </div>`;
@@ -980,9 +981,17 @@ function tickExpenseRow(i) {
   const catEl  = document.getElementById('exp-cat-'  + row.id);
   const descEl = document.getElementById('exp-desc-' + row.id);
   const amtEl  = document.getElementById('exp-amt-'  + row.id);
-  if (catEl)  row.category = catEl.value;
-  if (descEl) row.desc     = descEl.value;
-  if (amtEl)  row.amount   = amtEl.value;
+  const cat  = catEl  ? catEl.value  : row.category;
+  const desc = descEl ? descEl.value : row.desc;
+  const amt  = amtEl  ? amtEl.value  : row.amount;
+  if (!cat) {
+    if (catEl) catEl.style.borderColor = 'var(--red)';
+    setTimeout(() => { if (catEl) catEl.style.borderColor = ''; }, 2000);
+    return;
+  }
+  row.category = cat;
+  row.desc     = desc;
+  row.amount   = amt;
   row.saved = true;
   saveDraftExpenses();
   renderExpenseRows();
