@@ -770,7 +770,6 @@
   <!-- SECTION 4: Cash Verification -->
   <div class="form-section">
     <h3><span class="step-num">4</span> Cash Verification</h3>
-    <div id="closing-preview" class="calc-box" style="margin-bottom:14px;">Enter opening balance and cash sales above</div>
     <div style="margin-bottom:4px;">
       <label class="field-label">Actual Cash in Hand ₹ *</label>
       <input id="f-closing" type="number" class="field-input field-input-mono" placeholder="Count your cash and enter here" oninput="recalc()">
@@ -938,28 +937,15 @@ function recalc() {
       : '';
   }
 
-  // Closing balance formula
-  const closingPreview = document.getElementById('closing-preview');
-  if (closingPreview) {
-    if (opening > 0 || cash > 0 || totalExpenses > 0) {
-      closingPreview.innerHTML =
-        `Opening <strong>₹${opening.toLocaleString('en-IN')}</strong> + Cash Sales <strong>₹${cash.toLocaleString('en-IN')}</strong> − Expenses <strong>₹${totalExpenses.toLocaleString('en-IN')}</strong> = <strong style="color:var(--accent2)">₹${calcClosing.toLocaleString('en-IN')}</strong>`;
-    } else {
-      closingPreview.textContent = 'Enter opening balance and cash sales above';
-    }
-  }
-
-  // Live verify
+  // Live verify — no hint about expected amount
   const closing   = parseFloat(document.getElementById('f-closing')?.value) || 0;
   const verifyEl  = document.getElementById('verify-result');
   if (verifyEl) {
     if (closing > 0 && (opening > 0 || cash > 0)) {
-      const diff = closing - calcClosing;
-      if (Math.abs(diff) <= 10) {
-        verifyEl.innerHTML = `<div style="background:rgba(76,175,125,0.1); border:1px solid rgba(76,175,125,0.3); border-radius:7px; padding:12px 14px; color:var(--green); font-family:'DM Mono',monospace; font-size:12px;">✓ Cash balances — ₹${closing.toLocaleString('en-IN')} matches</div>`;
+      if (closing === calcClosing) {
+        verifyEl.innerHTML = `<div style="background:rgba(76,175,125,0.1); border:1px solid rgba(76,175,125,0.3); border-radius:7px; padding:12px 14px; color:var(--green); font-family:'DM Mono',monospace; font-size:12px;">✓ Cash balances correctly</div>`;
       } else {
-        const sign = diff > 0 ? '+' : '−';
-        verifyEl.innerHTML = `<div style="background:rgba(224,82,82,0.1); border:1px solid rgba(224,82,82,0.3); border-radius:7px; padding:12px 14px; color:var(--red); font-family:'DM Mono',monospace; font-size:12px;">⚠ Discrepancy of ${sign}₹${Math.abs(diff).toLocaleString('en-IN')} — Expected ₹${calcClosing.toLocaleString('en-IN')}, counted ₹${closing.toLocaleString('en-IN')}</div>`;
+        verifyEl.innerHTML = `<div style="background:rgba(224,82,82,0.1); border:1px solid rgba(224,82,82,0.3); border-radius:7px; padding:12px 14px; color:var(--red); font-family:'DM Mono',monospace; font-size:12px;">⚠ Amount does not match — recount and re-enter</div>`;
       }
     } else {
       verifyEl.innerHTML = '';
@@ -991,8 +977,8 @@ function submitEntry() {
   if (closing <= 0)  errors.push('Actual Cash in Hand is required');
   if (filledExpenses.some(r => !r.category))   errors.push('All expenses must have a category selected');
   if (filledExpenses.some(r => !r.desc.trim())) errors.push('All expenses must have a description');
-  if (closing > 0 && Math.abs(calcClosing - closing) > 10) {
-    errors.push(`Cash discrepancy: expected ₹${calcClosing.toLocaleString('en-IN')} but counted ₹${closing.toLocaleString('en-IN')} — resolve before submitting`);
+  if (closing > 0 && closing !== calcClosing) {
+    errors.push('Cash in hand does not match — recount and re-enter the correct amount');
   }
 
   const errBox = document.getElementById('form-errors');
@@ -1030,7 +1016,6 @@ function submitEntry() {
   expenseRows = [{ id: Date.now(), category: '', desc: '', amount: '' }];
   renderExpenseRows();
   document.getElementById('total-sales-display').innerHTML   = '';
-  document.getElementById('closing-preview').textContent     = 'Enter opening balance and cash sales above';
   document.getElementById('verify-result').innerHTML         = '';
   document.getElementById('total-expenses-display').textContent = '₹0';
   successBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
