@@ -728,6 +728,7 @@
 
 <!-- ===================== DAILY ENTRY (Manager) ===================== -->
 <div id="panel-entry" class="panel content">
+  <div class="section-title">Daily Cash Entry</div>
 
   <div id="form-errors"></div>
   <div id="form-success"></div>
@@ -737,7 +738,7 @@
     <h3><span class="step-num">1</span> Date &amp; Opening Balance</h3>
     <div style="margin-bottom:14px;">
       <label class="field-label">Date</label>
-      <input id="entry-date" type="date" class="field-input" onchange="checkOpening()">
+      <input id="entry-date" type="date" class="field-input" onchange="checkOpening()" style="text-align:center; display:block; width:100%;">
     </div>
     <div>
       <label class="field-label">Opening Cash Balance ₹ *</label>
@@ -926,13 +927,20 @@ let expenseRows = [{ id: Date.now(), category: '', desc: '', amount: '' }];
 
 function renderExpenseRows() {
   const container = document.getElementById('expense-rows');
-  container.innerHTML = expenseRows.map((row, i) => `
-    <div style="background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:10px;">
+  container.innerHTML = expenseRows.map((row, i) => {
+    const savedBorder = row.saved ? 'border-color:rgba(76,175,125,0.5);' : '';
+    const savedBg     = row.saved ? 'background:rgba(76,175,125,0.05);' : '';
+    const tickStyle   = row.saved
+      ? 'background:rgba(76,175,125,0.2); border:1px solid rgba(76,175,125,0.5); color:var(--green); border-radius:6px; padding:0; cursor:default; font-size:15px; height:36px; width:34px;'
+      : 'background:rgba(76,175,125,0.08); border:1px solid rgba(76,175,125,0.25); color:var(--green); border-radius:6px; padding:0; cursor:pointer; font-size:15px; height:36px; width:34px; transition:all 0.2s;';
+    return `
+    <div style="${savedBg} ${savedBorder} border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:10px; ${savedBorder}">
+      ${row.saved ? '<div style="font-size:10px; color:var(--green); font-family:\'DM Mono\',monospace; letter-spacing:1px; margin-bottom:6px;">✓ SAVED</div>' : ''}
       <select id="exp-cat-${row.id}" class="field-select" style="margin-bottom:8px;" onchange="expenseRows[${i}].category=this.value">
         <option value="">Select category…</option>
         ${EXPENSE_CATEGORIES.map(c => `<option value="${c}"${row.category === c ? ' selected' : ''}>${c}</option>`).join('')}
       </select>
-      <div style="display:grid; grid-template-columns:1fr 110px 34px; gap:8px; align-items:center;">
+      <div style="display:grid; grid-template-columns:1fr 110px 34px 34px; gap:6px; align-items:center;">
         <input id="exp-desc-${row.id}" value="${row.desc}" onchange="expenseRows[${i}].desc=this.value"
           placeholder="Description *" class="field-input" style="font-size:13px; padding:8px 12px;" required>
         <div style="position:relative;">
@@ -940,15 +948,16 @@ function renderExpenseRows() {
           <input id="exp-amt-${row.id}" type="number" value="${row.amount}" oninput="expenseRows[${i}].amount=this.value; recalc()"
             placeholder="0" class="field-input field-input-mono" style="padding:8px 8px 8px 22px; font-size:14px;">
         </div>
+        <button onclick="tickExpenseRow(${i})" style="${tickStyle}" title="Save this entry">✅</button>
         <button onclick="removeExpenseRow(${i})" style="background:rgba(224,82,82,0.15); border:1px solid rgba(224,82,82,0.3); color:var(--red); border-radius:6px; padding:0; cursor:pointer; font-size:13px; height:36px; width:34px;">✕</button>
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
   recalc();
 }
 
 function addExpenseRow() {
-  expenseRows.push({ id: Date.now(), category: '', desc: '', amount: '' });
+  expenseRows.push({ id: Date.now(), category: '', desc: '', amount: '', saved: false });
   renderExpenseRows();
   setTimeout(() => {
     const selects = document.querySelectorAll('[id^="exp-cat-"]');
@@ -958,11 +967,46 @@ function addExpenseRow() {
 
 function removeExpenseRow(i) {
   if (expenseRows.length === 1) {
-    expenseRows[0] = { id: Date.now(), category: '', desc: '', amount: '' };
+    expenseRows[0] = { id: Date.now(), category: '', desc: '', amount: '', saved: false };
   } else {
     expenseRows.splice(i, 1);
   }
   renderExpenseRows();
+  saveDraftExpenses();
+}
+
+function tickExpenseRow(i) {
+  const row = expenseRows[i];
+  const catEl  = document.getElementById('exp-cat-'  + row.id);
+  const descEl = document.getElementById('exp-desc-' + row.id);
+  const amtEl  = document.getElementById('exp-amt-'  + row.id);
+  if (catEl)  row.category = catEl.value;
+  if (descEl) row.desc     = descEl.value;
+  if (amtEl)  row.amount   = amtEl.value;
+  row.saved = true;
+  saveDraftExpenses();
+  renderExpenseRows();
+}
+
+function saveDraftExpenses() {
+  const today = new Date().toISOString().split('T')[0];
+  const savedRows = expenseRows.filter(r => r.saved);
+  if (savedRows.length > 0) {
+    localStorage.setItem('comedor_draft_expenses', JSON.stringify({ date: today, rows: savedRows }));
+  } else {
+    localStorage.removeItem('comedor_draft_expenses');
+  }
+}
+
+function loadDraftExpenses() {
+  const today = new Date().toISOString().split('T')[0];
+  const raw   = localStorage.getItem('comedor_draft_expenses');
+  if (!raw) return;
+  const draft = JSON.parse(raw);
+  if (draft && draft.date === today && draft.rows && draft.rows.length > 0) {
+    expenseRows = draft.rows;
+    renderExpenseRows();
+  }
 }
 
 function recalc() {
@@ -1022,8 +1066,7 @@ function submitEntry() {
   if (!date)        errors.push('Date is required');
   if (opening <= 0) errors.push('Opening Cash Balance is required');
   if (prevEntry && opening !== prevEntry.closing) {
-    const fmt = new Date(prevEntry.date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
-    errors.push(`Opening balance must match previous closing (${fmt}: ₹${prevEntry.closing.toLocaleString('en-IN')})`);
+    errors.push('Opening balance does not match the previous day\'s closing — recount your cash and re-enter.');
   }
   if (total === 0)  errors.push('Enter at least one sales figure (Cash, UPI, or Card)');
   if (closing <= 0) errors.push('Cash in Hand (Closing Balance) is required');
@@ -1062,12 +1105,13 @@ function submitEntry() {
   successBox.style.display = 'block';
 
   // Reset
+  localStorage.removeItem('comedor_draft_expenses');
   document.getElementById('f-opening').value = '';
   document.getElementById('f-cash').value    = '';
   document.getElementById('f-upi').value     = '';
   document.getElementById('f-card').value    = '';
   document.getElementById('f-closing').value = '';
-  expenseRows = [{ id: Date.now(), category: '', desc: '', amount: '' }];
+  expenseRows = [{ id: Date.now(), category: '', desc: '', amount: '', saved: false }];
   renderExpenseRows();
   document.getElementById('total-sales-display').innerHTML      = '';
   document.getElementById('verify-result').innerHTML            = '';
@@ -1314,7 +1358,10 @@ function downloadCSV() {
 
 // Init
 window.onload = function() {
-  renderExpenseRows();
+  loadDraftExpenses();
+  if (expenseRows.length === 0 || (expenseRows.length === 1 && !expenseRows[0].saved)) {
+    renderExpenseRows();
+  }
 };
 </script>
 </body>
