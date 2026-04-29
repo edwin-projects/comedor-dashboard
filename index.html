@@ -176,6 +176,16 @@
 .field-input-mono { font-family: 'DM Mono', monospace; font-size: 16px; }
 .field-select { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: 10px 14px; font-size: 13px; font-family: 'DM Sans', sans-serif; outline: none; transition: border-color 0.2s; appearance: none; -webkit-appearance: none; cursor: pointer; }
 .field-select:focus { border-color: var(--accent); }
+.opening-hint { font-size: 11px; font-family: 'DM Mono', monospace; margin-top: 7px; padding: 8px 12px; border-radius: 6px; line-height: 1.5; }
+.opening-hint.ok   { background: rgba(76,175,125,0.1);  border: 1px solid rgba(76,175,125,0.3);  color: var(--green); }
+.opening-hint.warn { background: rgba(224,82,82,0.1);   border: 1px solid rgba(224,82,82,0.3);   color: var(--red); }
+.opening-hint.info { background: var(--surface2); border: 1px solid var(--border); color: var(--text2); }
+/* Cash Dashboard */
+.dash-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.dfbtn { padding: 7px 14px; background: var(--surface2); border: 1px solid var(--border); color: var(--text2); border-radius: 6px; cursor: pointer; font-size: 12px; font-family: 'DM Mono', monospace; letter-spacing: 0.5px; transition: all 0.2s; }
+.dfbtn:hover { border-color: var(--accent); color: var(--accent); }
+.dfbtn.active { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 600; }
+.dash-export-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
 .calc-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 7px; padding: 12px 14px; font-size: 12px; color: var(--text2); font-family: 'DM Mono', monospace; min-height: 36px; line-height: 1.8; }
 .exp-note { font-size: 11px; color: var(--text3); font-family: 'DM Mono', monospace; margin-bottom: 14px; line-height: 1.6; }
 .add-expense-btn { width: 100%; margin-top: 4px; padding: 10px; background: transparent; border: 1px dashed var(--border); color: var(--text3); border-radius: 7px; cursor: pointer; font-size: 13px; transition: all 0.2s; font-family: 'DM Sans', sans-serif; }
@@ -222,6 +232,7 @@
   <div class="tab" data-panel="cash" onclick="showPanel('cash')">Cash Register</div>
   <div class="tab" data-panel="menu" onclick="showPanel('menu')">🍽 Menu Analytics</div>
   <div class="tab" data-panel="entry" onclick="showPanel('entry')">✏️ Daily Entry</div>
+  <div class="tab" data-panel="cashdash" onclick="showPanel('cashdash')">💵 Cash Dashboard</div>
 </div>
 
 <!-- ===================== OVERVIEW ===================== -->
@@ -726,11 +737,12 @@
     <h3><span class="step-num">1</span> Date &amp; Opening Balance</h3>
     <div style="margin-bottom:14px;">
       <label class="field-label">Date</label>
-      <input id="entry-date" type="date" class="field-input">
+      <input id="entry-date" type="date" class="field-input" onchange="checkOpening()">
     </div>
     <div>
       <label class="field-label">Opening Cash Balance ₹ *</label>
-      <input id="f-opening" type="number" class="field-input field-input-mono" placeholder="e.g. 1000" oninput="recalc()" style="text-align:center;">
+      <input id="f-opening" type="number" class="field-input field-input-mono" placeholder="e.g. 1000" oninput="recalc(); checkOpening()" style="text-align:center;">
+      <div id="opening-hint" class="opening-hint" style="display:none;"></div>
     </div>
   </div>
 
@@ -785,6 +797,37 @@
 
 </div>
 
+<!-- ===================== CASH DASHBOARD ===================== -->
+<div id="panel-cashdash" class="panel content">
+  <div class="section-title">💵 Cash Dashboard</div>
+
+  <div class="dash-filters">
+    <button class="dfbtn active" onclick="setDashFilter('month',this)">This Month</button>
+    <button class="dfbtn" onclick="setDashFilter('today',this)">Today</button>
+    <button class="dfbtn" onclick="setDashFilter('week',this)">This Week</button>
+    <button class="dfbtn" onclick="setDashFilter('quarter',this)">This Quarter</button>
+    <button class="dfbtn" onclick="setDashFilter('half',this)">Half Year</button>
+    <button class="dfbtn" onclick="setDashFilter('ytd',this)">YTD</button>
+    <button class="dfbtn" onclick="setDashFilter('custom',this)">Custom</button>
+  </div>
+
+  <div id="custom-range" style="display:none; gap:10px; align-items:flex-end; margin-bottom:20px; flex-wrap:wrap;">
+    <div><label class="field-label">From</label><input type="date" id="dash-from" class="field-input" style="width:160px;"></div>
+    <div><label class="field-label">To</label><input type="date" id="dash-to" class="field-input" style="width:160px;"></div>
+    <button class="btn" onclick="applyCustomRange()">Apply</button>
+  </div>
+
+  <div id="dash-cards" class="cards" style="margin-bottom:24px;"></div>
+
+  <div class="dash-export-bar">
+    <button class="btn btn-ghost" onclick="copyForSheets()">📋 Copy for Google Sheets</button>
+    <button class="btn btn-ghost" onclick="downloadCSV()">⬇ Download CSV</button>
+  </div>
+
+  <div id="dash-table-wrap" class="table-wrap"></div>
+  <div id="dash-expense-wrap"></div>
+</div>
+
 </div><!-- end #app -->
 
 <script>
@@ -832,6 +875,7 @@ function applyRoleAccess(role) {
     document.querySelector('[data-panel="menu"]').style.display = 'none';
     showPanelDirect('entry');
     document.querySelector('[data-panel="entry"]').classList.add('active');
+    checkOpening();
   } else {
     document.getElementById('role-badge').textContent = 'Owner View';
     showPanelDirect('overview');
@@ -850,6 +894,7 @@ function showPanel(id) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('panel-' + id).classList.add('active');
   event.target.classList.add('active');
+  if (id === 'cashdash') renderDashboard();
 }
 
 function showPanelDirect(id) {
@@ -971,9 +1016,15 @@ function submitEntry() {
   const totalExpenses  = filledExpenses.reduce((s, r) => s + parseFloat(r.amount), 0);
   const calcClosing    = opening + cash - totalExpenses;
 
+  const prevEntry = date ? getPreviousEntry(date) : null;
+
   const errors = [];
   if (!date)        errors.push('Date is required');
   if (opening <= 0) errors.push('Opening Cash Balance is required');
+  if (prevEntry && opening !== prevEntry.closing) {
+    const fmt = new Date(prevEntry.date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+    errors.push(`Opening balance must match previous closing (${fmt}: ₹${prevEntry.closing.toLocaleString('en-IN')})`);
+  }
   if (total === 0)  errors.push('Enter at least one sales figure (Cash, UPI, or Card)');
   if (closing <= 0) errors.push('Cash in Hand (Closing Balance) is required');
   if (filledExpenses.some(r => !r.category))    errors.push('All expenses must have a category selected');
@@ -990,6 +1041,8 @@ function submitEntry() {
     return;
   }
   errBox.style.display = 'none';
+
+  saveEntry({ date, opening, cash, upi, card, totalSales: total, expenses: filledExpenses, totalExpenses, closing, submittedAt: new Date().toLocaleString('en-IN') });
 
   const successBox = document.getElementById('form-success');
   successBox.innerHTML = `
@@ -1020,6 +1073,243 @@ function submitEntry() {
   document.getElementById('verify-result').innerHTML            = '';
   document.getElementById('total-expenses-display').textContent = '₹0';
   successBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ─── LOCALSTORAGE PERSISTENCE ────────────────────────────────────────────────
+function saveEntry(entry) {
+  const entries = JSON.parse(localStorage.getItem('comedor_entries') || '[]');
+  const rest = entries.filter(e => e.date !== entry.date);
+  rest.push(entry);
+  rest.sort((a, b) => a.date.localeCompare(b.date));
+  localStorage.setItem('comedor_entries', JSON.stringify(rest));
+}
+
+function loadEntries() {
+  return JSON.parse(localStorage.getItem('comedor_entries') || '[]');
+}
+
+function getPreviousEntry(currentDate) {
+  const entries = loadEntries();
+  const before = entries.filter(e => e.date < currentDate).sort((a, b) => b.date.localeCompare(a.date));
+  return before[0] || null;
+}
+
+// ─── OPENING BALANCE VALIDATION ──────────────────────────────────────────────
+function checkOpening() {
+  const dateVal   = document.getElementById('entry-date')?.value;
+  const openingVal = parseFloat(document.getElementById('f-opening')?.value) || 0;
+  const hint = document.getElementById('opening-hint');
+  if (!hint) return;
+
+  if (!dateVal) { hint.style.display = 'none'; return; }
+
+  const prev = getPreviousEntry(dateVal);
+  if (!prev) {
+    hint.className = 'opening-hint info';
+    hint.textContent = 'First recorded entry — no previous closing to match.';
+    hint.style.display = 'block';
+    return;
+  }
+
+  const fmt = new Date(prev.date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+  if (openingVal === 0) {
+    hint.className = 'opening-hint info';
+    hint.textContent = `Previous entry ${fmt}: closing was ₹${prev.closing.toLocaleString('en-IN')} — opening must match.`;
+    hint.style.display = 'block';
+    return;
+  }
+
+  if (openingVal === prev.closing) {
+    hint.className = 'opening-hint ok';
+    hint.textContent = `✓ Matches previous closing (${fmt}: ₹${prev.closing.toLocaleString('en-IN')})`;
+  } else {
+    hint.className = 'opening-hint warn';
+    hint.textContent = `⚠ Must match previous closing (${fmt}: ₹${prev.closing.toLocaleString('en-IN')})`;
+  }
+  hint.style.display = 'block';
+}
+
+// ─── CASH DASHBOARD ──────────────────────────────────────────────────────────
+let currentDashFilter = 'month';
+let dashCustomFrom = null, dashCustomTo = null;
+
+function setDashFilter(filter, btn) {
+  currentDashFilter = filter;
+  document.querySelectorAll('.dfbtn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const cr = document.getElementById('custom-range');
+  if (filter === 'custom') {
+    cr.style.display = 'flex';
+  } else {
+    cr.style.display = 'none';
+    renderDashboard();
+  }
+}
+
+function applyCustomRange() {
+  dashCustomFrom = document.getElementById('dash-from').value;
+  dashCustomTo   = document.getElementById('dash-to').value;
+  if (dashCustomFrom && dashCustomTo) renderDashboard();
+}
+
+function getDashEntries() {
+  const all    = loadEntries();
+  const today  = new Date();
+  const pad    = n => String(n).padStart(2, '0');
+  const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+  let from, to;
+
+  switch (currentDashFilter) {
+    case 'today':
+      from = to = todayStr; break;
+    case 'week': {
+      const d = new Date(today);
+      const day = d.getDay();
+      d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+      from = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+      to = todayStr; break;
+    }
+    case 'month':
+      from = `${today.getFullYear()}-${pad(today.getMonth()+1)}-01`;
+      to = todayStr; break;
+    case 'quarter': {
+      const q = Math.floor(today.getMonth() / 3);
+      from = `${today.getFullYear()}-${pad(q*3+1)}-01`;
+      to = todayStr; break;
+    }
+    case 'half':
+      from = `${today.getFullYear()}-${today.getMonth() < 6 ? '01' : '07'}-01`;
+      to = todayStr; break;
+    case 'ytd':
+      from = `${today.getFullYear()}-01-01`;
+      to = todayStr; break;
+    case 'custom':
+      from = dashCustomFrom; to = dashCustomTo; break;
+    default:
+      from = `${today.getFullYear()}-${pad(today.getMonth()+1)}-01`;
+      to = todayStr;
+  }
+  if (!from || !to) return [];
+  return all.filter(e => e.date >= from && e.date <= to).sort((a, b) => b.date.localeCompare(a.date));
+}
+
+function renderDashboard() {
+  const entries = getDashEntries();
+  const r   = (key) => entries.reduce((s, e) => s + (e[key] || 0), 0);
+  const tCash  = r('cash'), tUpi = r('upi'), tCard = r('card');
+  const tSales = r('totalSales'), tExp = r('totalExpenses');
+
+  const cardsEl = document.getElementById('dash-cards');
+  if (cardsEl) {
+    if (entries.length === 0) {
+      cardsEl.innerHTML = '<div style="color:var(--text3);font-family:\'DM Mono\',monospace;font-size:12px;padding:16px 0;grid-column:1/-1;">No entries recorded for this period yet.</div>';
+    } else {
+      cardsEl.innerHTML = `
+        <div class="card"><div class="card-label">Days Recorded</div><div class="card-value gold">${entries.length}</div></div>
+        <div class="card"><div class="card-label">Cash Sales</div><div class="card-value green">₹${tCash.toLocaleString('en-IN')}</div></div>
+        <div class="card"><div class="card-label">UPI + Card</div><div class="card-value gold">₹${(tUpi+tCard).toLocaleString('en-IN')}</div></div>
+        <div class="card"><div class="card-label">Total Sales</div><div class="card-value">₹${tSales.toLocaleString('en-IN')}</div></div>
+        <div class="card"><div class="card-label">Cash Expenses</div><div class="card-value red">₹${tExp.toLocaleString('en-IN')}</div></div>
+      `;
+    }
+  }
+
+  const tw = document.getElementById('dash-table-wrap');
+  if (tw) {
+    if (entries.length === 0) { tw.innerHTML = ''; }
+    else {
+      tw.innerHTML = `<table id="dash-data-table">
+        <thead><tr>
+          <th>Date</th>
+          <th class="num">Opening ₹</th>
+          <th class="num">Cash Sales ₹</th>
+          <th class="num">UPI ₹</th>
+          <th class="num">Card ₹</th>
+          <th class="num">Total Sales ₹</th>
+          <th class="num">Expenses ₹</th>
+          <th class="num">Closing ₹</th>
+        </tr></thead>
+        <tbody>
+          ${entries.map(e => {
+            const d = new Date(e.date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+            return `<tr>
+              <td style="white-space:nowrap;">${d}</td>
+              <td class="num">₹${(e.opening||0).toLocaleString('en-IN')}</td>
+              <td class="num green-text">₹${(e.cash||0).toLocaleString('en-IN')}</td>
+              <td class="num gold-text">₹${(e.upi||0).toLocaleString('en-IN')}</td>
+              <td class="num gold-text">₹${(e.card||0).toLocaleString('en-IN')}</td>
+              <td class="num">₹${(e.totalSales||0).toLocaleString('en-IN')}</td>
+              <td class="num red-text">₹${(e.totalExpenses||0).toLocaleString('en-IN')}</td>
+              <td class="num">₹${(e.closing||0).toLocaleString('en-IN')}</td>
+            </tr>`;
+          }).join('')}
+          <tr style="border-top:2px solid var(--accent3,var(--border));">
+            <td style="font-family:'DM Mono',monospace;font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text2);">TOTAL</td>
+            <td class="num" style="color:var(--text3);">—</td>
+            <td class="num green-text"><strong>₹${tCash.toLocaleString('en-IN')}</strong></td>
+            <td class="num gold-text"><strong>₹${tUpi.toLocaleString('en-IN')}</strong></td>
+            <td class="num gold-text"><strong>₹${tCard.toLocaleString('en-IN')}</strong></td>
+            <td class="num"><strong>₹${tSales.toLocaleString('en-IN')}</strong></td>
+            <td class="num red-text"><strong>₹${tExp.toLocaleString('en-IN')}</strong></td>
+            <td class="num" style="color:var(--text3);">—</td>
+          </tr>
+        </tbody>
+      </table>`;
+    }
+  }
+
+  const ew = document.getElementById('dash-expense-wrap');
+  if (ew) {
+    const catTotals = {};
+    entries.forEach(e => (e.expenses || []).forEach(x => {
+      catTotals[x.category] = (catTotals[x.category] || 0) + parseFloat(x.amount);
+    }));
+    const cats = Object.entries(catTotals).sort((a,b) => b[1]-a[1]);
+    ew.innerHTML = cats.length === 0 ? '' : `
+      <div class="section-title" style="margin-top:24px;">Expense Breakdown by Category</div>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Category</th><th class="num">Total ₹</th></tr></thead>
+        <tbody>
+          ${cats.map(([cat,amt]) => `<tr><td>${cat}</td><td class="num red-text">₹${amt.toLocaleString('en-IN')}</td></tr>`).join('')}
+        </tbody>
+      </table></div>`;
+  }
+}
+
+// ─── EXPORT ──────────────────────────────────────────────────────────────────
+function getExportRows() {
+  const entries = getDashEntries();
+  const headers = ['Date','Opening','Cash Sales','UPI','Card','Total Sales','Expenses','Closing'];
+  const rows = entries.map(e => {
+    const d = new Date(e.date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+    return [d, e.opening||0, e.cash||0, e.upi||0, e.card||0, e.totalSales||0, e.totalExpenses||0, e.closing||0];
+  });
+  return { headers, rows };
+}
+
+function copyForSheets() {
+  const { headers, rows } = getExportRows();
+  const tsv = [headers, ...rows].map(r => r.join('\t')).join('\n');
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(tsv).then(() => alert('Copied! Open Google Sheets and paste (Ctrl+V / Cmd+V).'));
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = tsv;
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    alert('Copied! Open Google Sheets and paste (Ctrl+V / Cmd+V).');
+  }
+}
+
+function downloadCSV() {
+  const { headers, rows } = getExportRows();
+  const csv = [headers, ...rows].map(r => r.map(v => `"${v}"`).join(',')).join('\n');
+  const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href = url;
+  a.download = `comedor-cash-${currentDashFilter}-${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 // Init
