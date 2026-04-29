@@ -804,9 +804,9 @@
   <div class="section-title">💵 Cash Dashboard</div>
 
   <div class="dash-filters">
-    <button class="dfbtn active" onclick="setDashFilter('month',this)">This Month</button>
-    <button class="dfbtn" onclick="setDashFilter('today',this)">Today</button>
+    <button class="dfbtn active" onclick="setDashFilter('today',this)">Today</button>
     <button class="dfbtn" onclick="setDashFilter('week',this)">This Week</button>
+    <button class="dfbtn" onclick="setDashFilter('month',this)">This Month</button>
     <button class="dfbtn" onclick="setDashFilter('quarter',this)">This Quarter</button>
     <button class="dfbtn" onclick="setDashFilter('half',this)">Half Year</button>
     <button class="dfbtn" onclick="setDashFilter('ytd',this)">YTD</button>
@@ -851,10 +851,10 @@ function checkPin() {
     document.getElementById('pin-screen').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     applyRoleAccess(role);
-    // Auto-set today's date in manager form
+    // Auto-set today's date and block backdating
     const today = new Date().toISOString().split('T')[0];
     const dateField = document.getElementById('entry-date');
-    if (dateField) dateField.value = today;
+    if (dateField) { dateField.value = today; dateField.min = today; }
   } else {
     const err = document.getElementById('pin-error');
     err.style.display = 'block';
@@ -1187,7 +1187,7 @@ function checkOpening() {
 }
 
 // ─── CASH DASHBOARD ──────────────────────────────────────────────────────────
-let currentDashFilter = 'month';
+let currentDashFilter = 'today';
 let dashCustomFrom = null, dashCustomTo = null;
 
 function setDashFilter(filter, btn) {
