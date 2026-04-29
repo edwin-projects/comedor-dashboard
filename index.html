@@ -1082,7 +1082,6 @@ function submitEntry() {
   if (prevEntry && opening !== prevEntry.closing) {
     errors.push('Opening balance does not match the previous day\'s closing — recount your cash and re-enter.');
   }
-  if (total === 0)  errors.push('Enter at least one sales figure (Cash, UPI, or Card)');
   if (closing <= 0) errors.push('Cash in Hand (Closing Balance) is required');
   if (filledExpenses.some(r => !r.category))    errors.push('All expenses must have a category selected');
   if (filledExpenses.some(r => !r.desc.trim())) errors.push('All expenses must have a description');
@@ -1172,17 +1171,17 @@ function checkOpening() {
   const fmt = new Date(prev.date + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
   if (openingVal === 0) {
     hint.className = 'opening-hint info';
-    hint.textContent = `Previous entry ${fmt}: closing was ₹${prev.closing.toLocaleString('en-IN')} — opening must match.`;
+    hint.textContent = `Previous entry: ${fmt} — enter today's opening balance.`;
     hint.style.display = 'block';
     return;
   }
 
   if (openingVal === prev.closing) {
     hint.className = 'opening-hint ok';
-    hint.textContent = `✓ Matches previous closing (${fmt}: ₹${prev.closing.toLocaleString('en-IN')})`;
+    hint.textContent = `✓ Opening balance verified (${fmt})`;
   } else {
     hint.className = 'opening-hint warn';
-    hint.textContent = `⚠ Must match previous closing (${fmt}: ₹${prev.closing.toLocaleString('en-IN')})`;
+    hint.textContent = `⚠ Does not match previous closing (${fmt}) — recount your cash.`;
   }
   hint.style.display = 'block';
 }
