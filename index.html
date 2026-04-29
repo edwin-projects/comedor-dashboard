@@ -746,9 +746,30 @@
     </div>
   </div>
 
-  <!-- SECTION 3: Cash Verification -->
+  <!-- SECTION 3: End-of-Day Sales -->
   <div class="form-section">
-    <h3><span class="step-num">3</span> Cash Verification</h3>
+    <h3><span class="step-num">3</span> End-of-Day Sales</h3>
+    <p class="exp-note">Fill in at closing (~11 pm). UPI &amp; Card figures from your POS app.</p>
+    <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:12px;">
+      <div>
+        <label class="field-label">Cash ₹</label>
+        <input id="f-cash" type="number" class="field-input field-input-mono" placeholder="0" oninput="recalc()" style="text-align:center;">
+      </div>
+      <div>
+        <label class="field-label">UPI ₹</label>
+        <input id="f-upi" type="number" class="field-input field-input-mono" placeholder="0" oninput="recalc()" style="text-align:center;">
+      </div>
+      <div>
+        <label class="field-label">Card ₹</label>
+        <input id="f-card" type="number" class="field-input field-input-mono" placeholder="0" oninput="recalc()" style="text-align:center;">
+      </div>
+    </div>
+    <div id="total-sales-display" class="calc-box" style="min-height:0; padding:10px 14px;"></div>
+  </div>
+
+  <!-- SECTION 4: Cash Verification -->
+  <div class="form-section">
+    <h3><span class="step-num">4</span> Cash Verification</h3>
     <div style="margin-bottom:4px;">
       <label class="field-label">Cash in Hand (Closing Balance) ₹ *</label>
       <input id="f-closing" type="number" class="field-input field-input-mono" placeholder="Count your cash and enter here" oninput="recalc()">
@@ -901,14 +922,27 @@ function removeExpenseRow(i) {
 
 function recalc() {
   const opening = parseFloat(document.getElementById('f-opening')?.value) || 0;
+  const cash    = parseFloat(document.getElementById('f-cash')?.value)    || 0;
+  const upi     = parseFloat(document.getElementById('f-upi')?.value)     || 0;
+  const card    = parseFloat(document.getElementById('f-card')?.value)    || 0;
+
+  const totalSales    = cash + upi + card;
   const totalExpenses = expenseRows.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
-  const calcClosing   = opening - totalExpenses;
+  const calcClosing   = opening + cash - totalExpenses;
+
+  // Total sales summary
+  const salesDisp = document.getElementById('total-sales-display');
+  if (salesDisp) {
+    salesDisp.innerHTML = totalSales > 0
+      ? `Total Sales = <strong style="color:var(--accent2)">₹${totalSales.toLocaleString('en-IN')}</strong>`
+      : '';
+  }
 
   // Live verify — no hint about expected amount
   const closing  = parseFloat(document.getElementById('f-closing')?.value) || 0;
   const verifyEl = document.getElementById('verify-result');
   if (verifyEl) {
-    if (closing > 0 && opening > 0) {
+    if (closing > 0 && (opening > 0 || cash > 0)) {
       if (closing === calcClosing) {
         verifyEl.innerHTML = `<div style="background:rgba(76,175,125,0.1); border:1px solid rgba(76,175,125,0.3); border-radius:7px; padding:12px 14px; color:var(--green); font-family:'DM Mono',monospace; font-size:12px;">✓ Cash balances correctly</div>`;
       } else {
@@ -927,15 +961,20 @@ function recalc() {
 function submitEntry() {
   const date    = document.getElementById('entry-date').value;
   const opening = parseFloat(document.getElementById('f-opening').value) || 0;
+  const cash    = parseFloat(document.getElementById('f-cash').value)    || 0;
+  const upi     = parseFloat(document.getElementById('f-upi').value)     || 0;
+  const card    = parseFloat(document.getElementById('f-card').value)    || 0;
   const closing = parseFloat(document.getElementById('f-closing').value) || 0;
+  const total   = cash + upi + card;
 
   const filledExpenses = expenseRows.filter(r => r.amount && parseFloat(r.amount) > 0);
   const totalExpenses  = filledExpenses.reduce((s, r) => s + parseFloat(r.amount), 0);
-  const calcClosing    = opening - totalExpenses;
+  const calcClosing    = opening + cash - totalExpenses;
 
   const errors = [];
   if (!date)        errors.push('Date is required');
   if (opening <= 0) errors.push('Opening Cash Balance is required');
+  if (total === 0)  errors.push('Enter at least one sales figure (Cash, UPI, or Card)');
   if (closing <= 0) errors.push('Cash in Hand (Closing Balance) is required');
   if (filledExpenses.some(r => !r.category))    errors.push('All expenses must have a category selected');
   if (filledExpenses.some(r => !r.desc.trim())) errors.push('All expenses must have a description');
@@ -957,6 +996,8 @@ function submitEntry() {
     <div style="font-weight:600; color:var(--green); margin-bottom:10px;">✓ Entry recorded — ${date}</div>
     <div style="font-size:12px; line-height:1.9; font-family:'DM Mono',monospace;">
       Opening Balance: ₹${opening.toLocaleString('en-IN')}<br>
+      Cash Sales: ₹${cash.toLocaleString('en-IN')} · UPI: ₹${upi.toLocaleString('en-IN')} · Card: ₹${card.toLocaleString('en-IN')}<br>
+      Total Sales: ₹${total.toLocaleString('en-IN')}<br>
       ${filledExpenses.length > 0
         ? `Cash Expenses: ₹${totalExpenses.toLocaleString('en-IN')}<br>${filledExpenses.map(e => `&nbsp;&nbsp;• [${e.category}] ${e.desc}: ₹${parseFloat(e.amount).toLocaleString('en-IN')}`).join('<br>')}<br>`
         : 'Cash Expenses: ₹0<br>'}
@@ -969,9 +1010,13 @@ function submitEntry() {
 
   // Reset
   document.getElementById('f-opening').value = '';
+  document.getElementById('f-cash').value    = '';
+  document.getElementById('f-upi').value     = '';
+  document.getElementById('f-card').value    = '';
   document.getElementById('f-closing').value = '';
   expenseRows = [{ id: Date.now(), category: '', desc: '', amount: '' }];
   renderExpenseRows();
+  document.getElementById('total-sales-display').innerHTML      = '';
   document.getElementById('verify-result').innerHTML            = '';
   document.getElementById('total-expenses-display').textContent = '₹0';
   successBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
