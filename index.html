@@ -1210,41 +1210,48 @@ function applyCustomRange() {
 }
 
 function getDashEntries() {
-  const all    = loadEntries();
-  const today  = new Date();
-  const pad    = n => String(n).padStart(2, '0');
-  const todayStr = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}`;
+  const all   = loadEntries();
+  const today = new Date();
+  const pad   = n => String(n).padStart(2, '0');
+  const fmt   = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const todayStr = fmt(today);
   let from, to;
 
   switch (currentDashFilter) {
     case 'today':
       from = to = todayStr; break;
     case 'week': {
-      const d = new Date(today);
-      const day = d.getDay();
-      d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
-      from = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-      to = todayStr; break;
+      const mon = new Date(today);
+      const day = mon.getDay();
+      mon.setDate(mon.getDate() - (day === 0 ? 6 : day - 1));
+      const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+      from = fmt(mon); to = fmt(sun); break;
     }
-    case 'month':
+    case 'month': {
+      const last = new Date(today.getFullYear(), today.getMonth() + 1, 0);
       from = `${today.getFullYear()}-${pad(today.getMonth()+1)}-01`;
-      to = todayStr; break;
+      to = fmt(last); break;
+    }
     case 'quarter': {
       const q = Math.floor(today.getMonth() / 3);
-      from = `${today.getFullYear()}-${pad(q*3+1)}-01`;
-      to = todayStr; break;
+      const last = new Date(today.getFullYear(), (q + 1) * 3, 0);
+      from = `${today.getFullYear()}-${pad(q * 3 + 1)}-01`;
+      to = fmt(last); break;
     }
-    case 'half':
-      from = `${today.getFullYear()}-${today.getMonth() < 6 ? '01' : '07'}-01`;
-      to = todayStr; break;
+    case 'half': {
+      const h = today.getMonth() < 6 ? 0 : 1;
+      const last = new Date(today.getFullYear(), h === 0 ? 6 : 12, 0);
+      from = `${today.getFullYear()}-${h === 0 ? '01' : '07'}-01`;
+      to = fmt(last); break;
+    }
     case 'ytd':
       from = `${today.getFullYear()}-01-01`;
-      to = todayStr; break;
+      to   = `${today.getFullYear()}-12-31`; break;
     case 'custom':
       from = dashCustomFrom; to = dashCustomTo; break;
     default:
       from = `${today.getFullYear()}-${pad(today.getMonth()+1)}-01`;
-      to = todayStr;
+      to   = fmt(new Date(today.getFullYear(), today.getMonth() + 1, 0));
   }
   if (!from || !to) return [];
   return all.filter(e => e.date >= from && e.date <= to).sort((a, b) => b.date.localeCompare(a.date));
