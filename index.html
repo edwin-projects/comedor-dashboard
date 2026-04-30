@@ -838,12 +838,16 @@
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
 // Firebase Console → Project Settings → Your apps → SDK setup & configuration
-const FIREBASE_CONFIG = null;
-// const FIREBASE_CONFIG = {
-//   apiKey: "AIza...",
-//   databaseURL: "https://your-project-default-rtdb.firebaseio.com",
-//   projectId: "your-project-id",
-// };
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyCuSeZRN_VtLdDuuRhklB4xvzH1gtM3y0M",
+  authDomain: "comedor-finance-dashboard.firebaseapp.com",
+  projectId: "comedor-finance-dashboard",
+  storageBucket: "comedor-finance-dashboard.firebasestorage.app",
+  messagingSenderId: "196046166789",
+  appId: "1:196046166789:web:8f2ab18b731af93a23756c",
+  measurementId: "G-2QSS4M8G8Z",
+  databaseURL: "https://comedor-finance-dashboard-default-rtdb.firebaseio.com",
+};
 
 let _db = null;
 (function initFirebase() {
