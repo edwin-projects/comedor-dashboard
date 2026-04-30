@@ -1445,7 +1445,6 @@ function downloadCSV() {
 
 // Init
 window.onload = function() {
-  if (_db) _db.ref('comedor/entries').remove().then(() => { localStorage.removeItem('comedor_entries'); });
   loadDraftExpenses();
   if (expenseRows.length === 0 || (expenseRows.length === 1 && !expenseRows[0].saved)) {
     renderExpenseRows();
