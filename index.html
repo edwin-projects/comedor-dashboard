@@ -826,6 +826,7 @@
   <div class="dash-export-bar">
     <button class="btn btn-ghost" onclick="copyForSheets()">📋 Copy for Google Sheets</button>
     <button class="btn btn-ghost" onclick="downloadCSV()">⬇ Download CSV</button>
+    <button class="btn btn-ghost" style="color:var(--red);border-color:var(--red);margin-left:auto;" onclick="clearAllFirebaseData()">🗑 Clear All Data</button>
   </div>
 
   <div id="dash-table-wrap" class="table-wrap"></div>
@@ -957,13 +958,33 @@ function setMonth(el, month) {
 
 // ─── MANAGER CASH ENTRY FORM ─────────────────────────────────────────────────
 const EXPENSE_CATEGORIES = [
-  'Produce / Vegetables',
-  'Meat & Seafood',
-  'Pantry / Dry Goods',
-  'Beverages',
-  'Cleaning & Supplies',
-  'Staff / Labour',
-  'Equipment',
+  'Blinkit',
+  'Swiggy Instamart',
+  'Big Basket',
+  'Zepto',
+  'Amazon',
+  'Hyperpure',
+  'Water Cans',
+  'Cylinders',
+  'Urban Company',
+  'Drainage Cleaning',
+  'Grocery Store Expenses',
+  'Transgender',
+  'Equipments / Mahesh Distributors',
+  'House Keeping',
+  'Porter',
+  'Flowers',
+  'Ice Cubes',
+  'Travel Allowance',
+  'Pest Control',
+  'BBMP Garbage',
+  'Printouts',
+  'Staff Advance',
+  'Staff OT',
+  'Staff Medicine',
+  'Staff Birthday Cakes',
+  'Hardware',
+  'Plumbing Materials',
   'Miscellaneous'
 ];
 
@@ -1421,6 +1442,16 @@ function downloadCSV() {
   a.download = `comedor-cash-${currentDashFilter}-${new Date().toISOString().split('T')[0]}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function clearAllFirebaseData() {
+  if (!_db) { alert('Firebase not connected.'); return; }
+  if (!confirm('Delete ALL entries from Firebase? This cannot be undone.')) return;
+  _db.ref('comedor/entries').remove().then(() => {
+    localStorage.removeItem('comedor_entries');
+    alert('All data cleared.');
+    renderDashboard();
+  }).catch(e => alert('Error: ' + e.message));
 }
 
 // Init
