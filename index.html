@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>COMEDOR — Finance Dashboard</title>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <style>
   :root {
     --bg: #0f0d0a;
@@ -833,6 +835,33 @@
 </div><!-- end #app -->
 
 <script>
+// ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
+// Replace null below with your Firebase config to enable cross-device sync.
+// Firebase Console → Project Settings → Your apps → SDK setup & configuration
+const FIREBASE_CONFIG = null;
+// const FIREBASE_CONFIG = {
+//   apiKey: "AIza...",
+//   databaseURL: "https://your-project-default-rtdb.firebaseio.com",
+//   projectId: "your-project-id",
+// };
+
+let _db = null;
+(function initFirebase() {
+  if (!FIREBASE_CONFIG) return;
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    _db = firebase.database();
+    // Real-time listener: any device's save is immediately reflected everywhere
+    _db.ref('comedor/entries').on('value', snap => {
+      if (!snap.exists()) return;
+      const entries = Object.values(snap.val()).sort((a, b) => a.date.localeCompare(b.date));
+      localStorage.setItem('comedor_entries', JSON.stringify(entries));
+      if (document.getElementById('panel-cashdash')?.classList.contains('active')) renderDashboard();
+      checkOpening();
+    });
+  } catch (e) { console.warn('Firebase init failed:', e); }
+})();
+
 // ─── PIN CONFIGURATION ───────────────────────────────────────────────────────
 // Change these PINs before sharing!
 const PINS = {
@@ -896,7 +925,17 @@ function showPanel(id) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('panel-' + id).classList.add('active');
   event.target.classList.add('active');
-  if (id === 'cashdash') renderDashboard();
+  if (id === 'cashdash') {
+    if (_db) {
+      _db.ref('comedor/entries').get().then(snap => {
+        if (snap.exists()) {
+          const entries = Object.values(snap.val()).sort((a, b) => a.date.localeCompare(b.date));
+          localStorage.setItem('comedor_entries', JSON.stringify(entries));
+        }
+        renderDashboard();
+      }).catch(() => renderDashboard());
+    } else { renderDashboard(); }
+  }
 }
 
 function showPanelDirect(id) {
@@ -1132,13 +1171,17 @@ function submitEntry() {
   successBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
-// ─── LOCALSTORAGE PERSISTENCE ────────────────────────────────────────────────
+// ─── PERSISTENCE (localStorage + Firebase sync) ───────────────────────────────
 function saveEntry(entry) {
   const entries = JSON.parse(localStorage.getItem('comedor_entries') || '[]');
   const rest = entries.filter(e => e.date !== entry.date);
   rest.push(entry);
   rest.sort((a, b) => a.date.localeCompare(b.date));
   localStorage.setItem('comedor_entries', JSON.stringify(rest));
+  if (_db) {
+    _db.ref('comedor/entries/' + entry.date.replace(/-/g, '_')).set(entry)
+      .catch(e => console.warn('Firebase write failed:', e));
+  }
 }
 
 function loadEntries() {
