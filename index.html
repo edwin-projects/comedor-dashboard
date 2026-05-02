@@ -990,24 +990,31 @@ const EXPENSE_CATEGORIES = [
   'Miscellaneous'
 ];
 
-let expenseRows = [{ id: Date.now(), category: '', desc: '', amount: '' }];
+let expenseRows = [{ id: Date.now(), category: '', desc: '', amount: '', saved: false, photo: null }];
 
 function renderExpenseRows() {
   const container = document.getElementById('expense-rows');
   container.innerHTML = expenseRows.map((row, i) => {
     const savedBorder = row.saved ? 'border-color:rgba(76,175,125,0.5);' : '';
     const savedBg     = row.saved ? 'background:rgba(76,175,125,0.05);' : '';
-    const tickStyle   = row.saved
+    const hasPhoto  = !!row.photo;
+    const tickStyle = row.saved
       ? 'background:rgba(76,175,125,0.25); border:1px solid rgba(76,175,125,0.5); color:var(--green); border-radius:6px; padding:0; cursor:default; font-size:15px; height:36px; width:34px; font-weight:700;'
-      : 'background:rgba(76,175,125,0.1); border:1px solid rgba(76,175,125,0.3); color:var(--green); border-radius:6px; padding:0; cursor:pointer; font-size:15px; height:36px; width:34px; font-weight:700;';
+      : hasPhoto
+        ? 'background:rgba(76,175,125,0.1); border:1px solid rgba(76,175,125,0.3); color:var(--green); border-radius:6px; padding:0; cursor:pointer; font-size:15px; height:36px; width:34px; font-weight:700;'
+        : 'background:rgba(255,255,255,0.03); border:1px solid var(--border); color:var(--text3); border-radius:6px; padding:0; cursor:not-allowed; font-size:15px; height:36px; width:34px; opacity:0.35;';
+    const photoBtn  = hasPhoto
+      ? `<button id="exp-photo-btn-${row.id}" onclick="document.getElementById('exp-photo-input-${row.id}').click()" style="background:transparent; border:1px solid rgba(76,175,125,0.4); border-radius:6px; padding:0; cursor:pointer; height:36px; width:34px; overflow:hidden;" title="Photo attached — tap to change"><img src="${row.photo}" style="width:100%;height:100%;object-fit:cover;display:block;"></button>`
+      : `<button id="exp-photo-btn-${row.id}" onclick="document.getElementById('exp-photo-input-${row.id}').click()" style="background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:6px; padding:0; cursor:pointer; font-size:15px; height:36px; width:34px;" title="Add receipt photo">📷</button>`;
     return `
     <div style="${savedBg} ${savedBorder} border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:10px; ${savedBorder}">
       ${row.saved ? '<div style="font-size:10px; color:var(--green); font-family:\'DM Mono\',monospace; letter-spacing:1px; margin-bottom:6px;">✓ SAVED</div>' : ''}
+      <input type="file" accept="image/*" id="exp-photo-input-${row.id}" style="display:none" onchange="handleExpensePhoto(${i}, this)">
       <select id="exp-cat-${row.id}" class="field-select" style="margin-bottom:8px;" onchange="expenseRows[${i}].category=this.value">
         <option value="">Select category…</option>
         ${EXPENSE_CATEGORIES.map(c => `<option value="${c}"${row.category === c ? ' selected' : ''}>${c}</option>`).join('')}
       </select>
-      <div style="display:grid; grid-template-columns:1fr 110px 34px 34px; gap:6px; align-items:center;">
+      <div style="display:grid; grid-template-columns:1fr 95px 34px 34px 34px; gap:6px; align-items:center;">
         <input id="exp-desc-${row.id}" value="${row.desc}" onchange="expenseRows[${i}].desc=this.value"
           placeholder="Description *" class="field-input" style="font-size:13px; padding:8px 12px;" required>
         <div style="position:relative;">
@@ -1015,7 +1022,8 @@ function renderExpenseRows() {
           <input id="exp-amt-${row.id}" type="number" value="${row.amount}" oninput="expenseRows[${i}].amount=this.value; recalc()"
             placeholder="0" class="field-input field-input-mono" style="padding:8px 8px 8px 22px; font-size:14px;">
         </div>
-        <button onclick="tickExpenseRow(${i})" style="${tickStyle}" title="Save this entry">✓</button>
+        ${photoBtn}
+        <button onclick="tickExpenseRow(${i})" style="${tickStyle}" ${!hasPhoto && !row.saved ? 'disabled' : ''} title="${hasPhoto || row.saved ? 'Save this entry' : 'Add a photo first'}">✓</button>
         <button onclick="removeExpenseRow(${i})" style="background:rgba(224,82,82,0.15); border:1px solid rgba(224,82,82,0.3); color:var(--red); border-radius:6px; padding:0; cursor:pointer; font-size:13px; height:36px; width:34px;">✕</button>
       </div>
     </div>`;
@@ -1024,7 +1032,7 @@ function renderExpenseRows() {
 }
 
 function addExpenseRow() {
-  expenseRows.push({ id: Date.now(), category: '', desc: '', amount: '', saved: false });
+  expenseRows.push({ id: Date.now(), category: '', desc: '', amount: '', saved: false, photo: null });
   renderExpenseRows();
   setTimeout(() => {
     const selects = document.querySelectorAll('[id^="exp-cat-"]');
@@ -1034,7 +1042,7 @@ function addExpenseRow() {
 
 function removeExpenseRow(i) {
   if (expenseRows.length === 1) {
-    expenseRows[0] = { id: Date.now(), category: '', desc: '', amount: '', saved: false };
+    expenseRows[0] = { id: Date.now(), category: '', desc: '', amount: '', saved: false, photo: null };
   } else {
     expenseRows.splice(i, 1);
   }
@@ -1060,12 +1068,44 @@ function tickExpenseRow(i) {
     setTimeout(() => { if (descEl) descEl.style.borderColor = ''; }, 2000);
     return;
   }
+  if (!row.photo) {
+    const btn = document.getElementById('exp-photo-btn-' + row.id);
+    if (btn) { btn.style.borderColor = 'var(--red)'; btn.style.borderWidth = '2px'; setTimeout(() => { btn.style.borderColor = ''; btn.style.borderWidth = ''; }, 2000); }
+    return;
+  }
   row.category = cat;
   row.desc     = desc;
   row.amount   = amt;
   row.saved = true;
   saveDraftExpenses();
   renderExpenseRows();
+}
+
+function handleExpensePhoto(i, input) {
+  const file = input.files[0];
+  if (!file) return;
+  compressImage(file, dataUrl => {
+    expenseRows[i].photo = dataUrl;
+    renderExpenseRows();
+  });
+}
+
+function compressImage(file, callback) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 1200;
+      const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width  = Math.round(img.width  * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      callback(canvas.toDataURL('image/jpeg', 0.75));
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
 }
 
 function saveDraftExpenses() {
@@ -1469,8 +1509,8 @@ function editEntry(date) {
   document.getElementById('f-card').value    = entry.card    || '';
 
   expenseRows = (entry.expenses && entry.expenses.length)
-    ? entry.expenses.map(x => ({ id: Date.now() + Math.random(), category: x.category, desc: x.desc, amount: x.amount, saved: true }))
-    : [{ id: Date.now(), category: '', desc: '', amount: '', saved: false }];
+    ? entry.expenses.map(x => ({ id: Date.now() + Math.random(), category: x.category, desc: x.desc, amount: x.amount, saved: true, photo: x.photo || null }))
+    : [{ id: Date.now(), category: '', desc: '', amount: '', saved: false, photo: null }];
   renderExpenseRows();
   recalc();
   checkOpening();
