@@ -742,7 +742,7 @@
     <h3><span class="step-num">1</span> Date &amp; Opening Balance</h3>
     <div style="margin-bottom:14px;">
       <label class="field-label">Date</label>
-      <input id="entry-date" type="date" class="field-input" readonly style="text-align:center; display:block; width:100%; -webkit-appearance:none; appearance:none; box-sizing:border-box; opacity:0.6; cursor:default; pointer-events:none;">
+      <input id="entry-date" type="date" class="field-input" onchange="checkOpening()" style="text-align:center; display:block; width:100%; -webkit-appearance:none; appearance:none; box-sizing:border-box;">
     </div>
     <div>
       <label class="field-label">Opening Cash Balance ₹ *</label>
@@ -1255,9 +1255,7 @@ function submitEntry() {
 
   // Reset
   localStorage.removeItem('comedor_draft_expenses');
-  const df = document.getElementById('entry-date');
-  df.value = new Date().toISOString().split('T')[0];
-  df.readOnly = true; df.style.opacity = '0.6'; df.style.pointerEvents = 'none';
+  document.getElementById('entry-date').value = new Date().toISOString().split('T')[0];
   document.getElementById('f-opening').value = '';
   document.getElementById('f-cash').value    = '';
   document.getElementById('f-upi').value     = '';
