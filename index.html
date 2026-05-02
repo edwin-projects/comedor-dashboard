@@ -1044,13 +1044,13 @@ function renderExpenseRows() {
         <option value="">Select category…</option>
         ${EXPENSE_CATEGORIES.map(c => `<option value="${c}"${row.category === c ? ' selected' : ''}>${c}</option>`).join('')}
       </select>
-      <div style="display:grid; grid-template-columns:1fr 95px 34px 34px 34px; gap:6px; align-items:center;">
+      <div style="display:grid; grid-template-columns:1fr 72px 34px 34px 34px; gap:6px; align-items:center;">
         <input id="exp-desc-${row.id}" value="${row.desc}" onchange="expenseRows[${i}].desc=this.value"
           placeholder="Description *" class="field-input" style="font-size:13px; padding:8px 12px;" required>
         <div style="position:relative;">
-          <span style="position:absolute; left:9px; top:50%; transform:translateY(-50%); color:var(--text3); font-size:12px; pointer-events:none;">₹</span>
+          <span style="position:absolute; left:7px; top:50%; transform:translateY(-50%); color:var(--text3); font-size:12px; pointer-events:none;">₹</span>
           <input id="exp-amt-${row.id}" type="number" value="${row.amount}" oninput="expenseRows[${i}].amount=this.value; recalc()"
-            placeholder="0" class="field-input field-input-mono" style="padding:8px 8px 8px 22px; font-size:14px;">
+            placeholder="0" class="field-input field-input-mono" style="padding:8px 6px 8px 18px; font-size:13px;">
         </div>
         ${photoBtn}
         <button onclick="tickExpenseRow(${i})" style="${tickStyle}" ${!hasPhoto && !row.saved ? 'disabled' : ''} title="${hasPhoto || row.saved ? 'Save this entry' : 'Add a photo first'}">✓</button>
