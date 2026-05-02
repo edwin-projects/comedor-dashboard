@@ -197,6 +197,8 @@
 .expenses-total-row .exp-total-val { font-family: 'Playfair Display', serif; font-size: 22px; letter-spacing: 0; text-transform: none; color: var(--red); }
 #form-errors { display: none; background: rgba(224,82,82,0.1); border: 1px solid rgba(224,82,82,0.3); border-radius: 7px; padding: 14px; font-size: 12px; color: var(--red); font-family: 'DM Mono', monospace; line-height: 2; margin-bottom: 16px; }
 #form-success { display: none; background: rgba(76,175,125,0.1); border: 1px solid rgba(76,175,125,0.3); border-radius: 7px; padding: 16px; font-size: 13px; color: var(--text); margin-bottom: 16px; }
+#bills-sidebar { transition: transform 0.28s cubic-bezier(0.4,0,0.2,1); }
+#bills-sidebar.open { display: flex !important; }
 </style>
 
 <!-- PIN SCREEN -->
@@ -833,6 +835,34 @@
 
 </div><!-- end #app -->
 
+<!-- Bills Viewer Sidebar -->
+<div id="bills-overlay" onclick="closeBillsViewer()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:998;"></div>
+<div id="bills-sidebar" style="display:none;position:fixed;top:0;right:0;height:100%;width:min(460px,100vw);background:var(--card);border-left:1px solid var(--border);z-index:999;flex-direction:column;box-shadow:-8px 0 32px rgba(0,0,0,0.4);">
+  <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border);flex-shrink:0;">
+    <div>
+      <div id="bills-title" style="font-size:14px;font-weight:600;color:var(--text);"></div>
+      <div id="bills-counter" style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;margin-top:2px;"></div>
+    </div>
+    <button onclick="closeBillsViewer()" style="background:rgba(255,255,255,0.06);border:1px solid var(--border);color:var(--text);border-radius:6px;width:32px;height:32px;font-size:16px;cursor:pointer;line-height:1;">✕</button>
+  </div>
+  <div id="bills-photo-wrap" style="flex:1;overflow:hidden;display:flex;align-items:center;justify-content:center;background:#000;position:relative;">
+    <img id="bills-photo" src="" style="max-width:100%;max-height:100%;object-fit:contain;display:block;">
+    <div id="bills-no-photo" style="display:none;color:var(--text3);font-size:13px;font-family:'DM Mono',monospace;text-align:center;padding:40px;">No photo attached<br>for this expense.</div>
+  </div>
+  <div style="padding:14px 18px;border-top:1px solid var(--border);flex-shrink:0;">
+    <div id="bills-label-cat"  style="font-size:12px;color:var(--accent);font-family:'DM Mono',monospace;letter-spacing:0.5px;margin-bottom:3px;"></div>
+    <div id="bills-label-desc" style="font-size:14px;color:var(--text);font-weight:500;margin-bottom:2px;"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
+      <div id="bills-label-amt" style="font-size:13px;color:var(--red);font-family:'DM Mono',monospace;"></div>
+      <div id="bills-label-date" style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;"></div>
+    </div>
+    <div style="display:flex;gap:10px;margin-top:12px;">
+      <button onclick="navigateBill(-1)" id="bills-prev" style="flex:1;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:10px;font-size:18px;cursor:pointer;">‹</button>
+      <button onclick="navigateBill(1)"  id="bills-next" style="flex:1;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:10px;font-size:18px;cursor:pointer;">›</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -1406,11 +1436,16 @@ function renderDashboard() {
           <th class="num">Total Sales ₹</th>
           <th class="num">Expenses ₹</th>
           <th class="num">Closing ₹</th>
+          <th></th>
           ${isOwner ? '<th></th>' : ''}
         </tr></thead>
         <tbody>
           ${entries.map(e => {
             const d = new Date(e.date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+            const photoCount = (e.expenses || []).filter(x => x.photo).length;
+            const billsBtn = photoCount > 0
+              ? `<button class="btn btn-ghost" style="padding:4px 10px;font-size:11px;white-space:nowrap;color:var(--accent);" onclick="openBillsViewer('${e.date}')">🧾 View Bills (${photoCount})</button>`
+              : `<span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;">No bills</span>`;
             return `<tr>
               <td style="white-space:nowrap;">${d}</td>
               <td class="num">₹${(e.opening||0).toLocaleString('en-IN')}</td>
@@ -1420,6 +1455,7 @@ function renderDashboard() {
               <td class="num">₹${(e.totalSales||0).toLocaleString('en-IN')}</td>
               <td class="num red-text">₹${(e.totalExpenses||0).toLocaleString('en-IN')}</td>
               <td class="num">₹${(e.closing||0).toLocaleString('en-IN')}</td>
+              <td>${billsBtn}</td>
               ${isOwner ? `<td><button class="btn btn-ghost" style="padding:4px 10px;font-size:11px;" onclick="editEntry('${e.date}')">Edit</button></td>` : ''}
             </tr>`;
           }).join('')}
@@ -1432,6 +1468,8 @@ function renderDashboard() {
             <td class="num"><strong>₹${tSales.toLocaleString('en-IN')}</strong></td>
             <td class="num red-text"><strong>₹${tExp.toLocaleString('en-IN')}</strong></td>
             <td class="num" style="color:var(--text3);">—</td>
+            <td></td>
+            ${isOwner ? '<td></td>' : ''}
           </tr>
         </tbody>
       </table>`;
@@ -1490,6 +1528,60 @@ function downloadCSV() {
   a.download = `comedor-cash-${currentDashFilter}-${new Date().toISOString().split('T')[0]}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ─── BILLS VIEWER ────────────────────────────────────────────────────────────
+let _billsData = [];
+let _billsIdx  = 0;
+let _billsTouchX = 0;
+
+function openBillsViewer(date) {
+  const entry = loadEntries().find(e => e.date === date);
+  if (!entry) return;
+  _billsData = (entry.expenses || []).filter(x => x.photo);
+  if (_billsData.length === 0) return;
+  _billsIdx = 0;
+  const dateLabel = new Date(date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+  document.getElementById('bills-title').textContent = 'Bills — ' + dateLabel;
+  renderBill();
+  const overlay = document.getElementById('bills-overlay');
+  const sidebar = document.getElementById('bills-sidebar');
+  overlay.style.display = 'block';
+  sidebar.classList.add('open');
+  // swipe support
+  const wrap = document.getElementById('bills-photo-wrap');
+  wrap.ontouchstart = e => { _billsTouchX = e.touches[0].clientX; };
+  wrap.ontouchend   = e => {
+    const diff = _billsTouchX - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 45) navigateBill(diff > 0 ? 1 : -1);
+  };
+}
+
+function renderBill() {
+  const bill = _billsData[_billsIdx];
+  const total = _billsData.length;
+  document.getElementById('bills-counter').textContent    = `${_billsIdx + 1} of ${total}`;
+  document.getElementById('bills-label-cat').textContent  = bill.category || '';
+  document.getElementById('bills-label-desc').textContent = bill.desc     || '';
+  document.getElementById('bills-label-amt').textContent  = bill.amount   ? `₹${parseFloat(bill.amount).toLocaleString('en-IN')}` : '';
+  document.getElementById('bills-label-date').textContent = document.getElementById('bills-title').textContent.replace('Bills — ', '');
+  const img = document.getElementById('bills-photo');
+  img.src = bill.photo;
+  img.style.display = 'block';
+  document.getElementById('bills-prev').style.opacity = _billsIdx === 0       ? '0.3' : '1';
+  document.getElementById('bills-next').style.opacity = _billsIdx === total-1 ? '0.3' : '1';
+}
+
+function navigateBill(dir) {
+  const next = _billsIdx + dir;
+  if (next < 0 || next >= _billsData.length) return;
+  _billsIdx = next;
+  renderBill();
+}
+
+function closeBillsViewer() {
+  document.getElementById('bills-overlay').style.display = 'none';
+  document.getElementById('bills-sidebar').classList.remove('open');
 }
 
 function editEntry(date) {
