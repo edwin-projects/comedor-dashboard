@@ -932,15 +932,16 @@ function showPanel(id) {
   document.getElementById('panel-' + id).classList.add('active');
   event.target.classList.add('active');
   if (id === 'cashdash') {
+    renderDashboard();
     if (_db) {
       _db.ref('comedor/entries').get().then(snap => {
         if (snap.exists()) {
           const entries = Object.values(snap.val()).sort((a, b) => a.date.localeCompare(b.date));
           localStorage.setItem('comedor_entries', JSON.stringify(entries));
+          renderDashboard();
         }
-        renderDashboard();
-      }).catch(() => renderDashboard());
-    } else { renderDashboard(); }
+      }).catch(() => {});
+    }
   }
 }
 
@@ -1184,6 +1185,9 @@ function submitEntry() {
 
   // Reset
   localStorage.removeItem('comedor_draft_expenses');
+  const df = document.getElementById('entry-date');
+  df.value = new Date().toISOString().split('T')[0];
+  df.readOnly = true; df.style.opacity = '0.6'; df.style.pointerEvents = 'none';
   document.getElementById('f-opening').value = '';
   document.getElementById('f-cash').value    = '';
   document.getElementById('f-upi').value     = '';
@@ -1351,6 +1355,7 @@ function renderDashboard() {
   if (tw) {
     if (entries.length === 0) { tw.innerHTML = ''; }
     else {
+      const isOwner = currentRole === 'owner';
       tw.innerHTML = `<table id="dash-data-table">
         <thead><tr>
           <th>Date</th>
@@ -1361,6 +1366,7 @@ function renderDashboard() {
           <th class="num">Total Sales ₹</th>
           <th class="num">Expenses ₹</th>
           <th class="num">Closing ₹</th>
+          ${isOwner ? '<th></th>' : ''}
         </tr></thead>
         <tbody>
           ${entries.map(e => {
@@ -1374,6 +1380,7 @@ function renderDashboard() {
               <td class="num">₹${(e.totalSales||0).toLocaleString('en-IN')}</td>
               <td class="num red-text">₹${(e.totalExpenses||0).toLocaleString('en-IN')}</td>
               <td class="num">₹${(e.closing||0).toLocaleString('en-IN')}</td>
+              ${isOwner ? `<td><button class="btn btn-ghost" style="padding:4px 10px;font-size:11px;" onclick="editEntry('${e.date}')">Edit</button></td>` : ''}
             </tr>`;
           }).join('')}
           <tr style="border-top:2px solid var(--accent3,var(--border));">
@@ -1443,6 +1450,42 @@ function downloadCSV() {
   a.download = `comedor-cash-${currentDashFilter}-${new Date().toISOString().split('T')[0]}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+function editEntry(date) {
+  const entry = loadEntries().find(e => e.date === date);
+  if (!entry) return;
+
+  // Unlock date for owner edit
+  const dateField = document.getElementById('entry-date');
+  dateField.value = entry.date;
+  dateField.readOnly = false;
+  dateField.style.opacity = '1';
+  dateField.style.pointerEvents = 'auto';
+
+  document.getElementById('f-opening').value = entry.opening || '';
+  document.getElementById('f-cash').value    = entry.cash    || '';
+  document.getElementById('f-upi').value     = entry.upi     || '';
+  document.getElementById('f-card').value    = entry.card    || '';
+
+  expenseRows = (entry.expenses && entry.expenses.length)
+    ? entry.expenses.map(x => ({ id: Date.now() + Math.random(), category: x.category, desc: x.desc, amount: x.amount, saved: true }))
+    : [{ id: Date.now(), category: '', desc: '', amount: '', saved: false }];
+  renderExpenseRows();
+  recalc();
+  checkOpening();
+
+  // Show edit banner
+  const successBox = document.getElementById('form-success');
+  successBox.innerHTML = `<strong>Edit Mode</strong> — editing entry for ${new Date(date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}. Correct the values and submit.`;
+  successBox.style.display = 'block';
+
+  // Switch to entry panel
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('panel-entry').classList.add('active');
+  document.querySelector('[data-panel="entry"]').classList.add('active');
+  window.scrollTo(0, 0);
 }
 
 // Init
