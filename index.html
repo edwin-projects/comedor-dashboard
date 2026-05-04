@@ -827,6 +827,7 @@
   <div class="dash-export-bar">
     <button class="btn btn-ghost" onclick="copyForSheets()">📋 Copy for Google Sheets</button>
     <button class="btn btn-ghost" onclick="downloadCSV()">⬇ Download CSV</button>
+    <button class="btn btn-ghost owner-only" onclick="clearAllEntries()" style="margin-left:auto;color:var(--red);border-color:rgba(224,82,82,0.4);">🗑 Clear All Entries</button>
   </div>
 
   <div id="dash-table-wrap" class="table-wrap"></div>
@@ -1526,6 +1527,23 @@ function downloadCSV() {
   a.download = `comedor-cash-${currentDashFilter}-${new Date().toISOString().split('T')[0]}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ─── CLEAR ALL ENTRIES ───────────────────────────────────────────────────────
+function clearAllEntries() {
+  if (!confirm('Delete ALL cash entries?\n\nThis will permanently remove every entry from the dashboard for all users.')) return;
+  if (!confirm('Are you absolutely sure? This cannot be undone.')) return;
+  const doDelete = () => {
+    localStorage.removeItem('comedor_entries');
+    renderDashboard();
+  };
+  if (_db) {
+    _db.ref('comedor/entries').remove()
+      .then(doDelete)
+      .catch(e => { alert('Error clearing data: ' + e.message); });
+  } else {
+    doDelete();
+  }
 }
 
 // ─── BILLS VIEWER ────────────────────────────────────────────────────────────
