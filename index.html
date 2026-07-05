@@ -286,6 +286,7 @@
   <div style="display:flex; gap:10px; align-items:center;">
     <button id="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:6px;width:32px;height:32px;font-size:16px;cursor:pointer;line-height:1;flex-shrink:0;">◑</button>
     <div id="role-badge">—</div>
+    <button id="logout-btn" onclick="logout()" title="Log out / switch user" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:6px;padding:6px 12px;font-size:12px;font-family:'DM Mono',monospace;cursor:pointer;line-height:1;flex-shrink:0;">Log out</button>
   </div>
 </div>
 
@@ -577,7 +578,9 @@ const DEFAULT_USERS = [
 function loadUsers() { try { const u = JSON.parse(localStorage.getItem('comedor_users') || 'null'); return (u && u.length) ? u : null; } catch (e) { return null; } }
 function getUsers() { return loadUsers() || DEFAULT_USERS.slice(); }
 function findUserByPin(pin) { return getUsers().find(u => u.active !== false && u.pin === pin) || null; }
-function roleCaps(role) { return ROLES[role] || ROLES.manager; }
+// 'owner' is a legacy role (older Face ID credentials) — treat it as a full partner.
+function normRole(r) { return r === 'owner' ? 'partner' : r; }
+function roleCaps(role) { return ROLES[normRole(role)] || ROLES.manager; }
 
 let currentUser = null;   // { name, role }
 let currentRole = null;   // 'owner' (can manage) | 'manager' (limited) — legacy permission flag
@@ -643,8 +646,9 @@ function _bioUnB64u(str) {
 }
 
 function _bioUser(store) {
-  if (store && store.user) return store.user;
-  return { name: (store && store.role === 'manager') ? 'Manager' : 'Owner', role: (store && store.role) || 'partner' };
+  if (store && store.user) return { name: store.user.name, role: normRole(store.user.role) };
+  // Legacy credential (older versions stored just a role, e.g. 'owner') — no name saved.
+  return { name: null, role: normRole((store && store.role) || 'partner') };
 }
 let _pendingEnrollUser = null;
 
@@ -752,7 +756,8 @@ async function initAuth() {
 function applyRoleAccess(role, user) {
   const caps = roleCaps(user ? user.role : 'manager');
   const badge = document.getElementById('role-badge');
-  badge.textContent = (user ? user.name : '—') + ' · ' + caps.label;
+  const nm = user && user.name;
+  badge.textContent = (nm && nm.toLowerCase() !== caps.label.toLowerCase()) ? (nm + ' · ' + caps.label) : (nm || caps.label);
   badge.classList.toggle('role-manager', !caps.people);
 
   // Show/hide each tab by its capability, and land on the first allowed tab.
@@ -1801,6 +1806,18 @@ function renderPeople() {
       </tr>`;
     }).join('')}
   </tbody></table></div>`;
+}
+
+// ─── LOGOUT / SWITCH USER ────────────────────────────────────────────────────
+function logout() {
+  currentUser = null;
+  currentRole = null;
+  document.getElementById('app').style.display = 'none';
+  const ps = document.getElementById('pin-screen');
+  ps.style.display = 'flex';
+  const pin = document.getElementById('pin-input');
+  if (pin) pin.value = '';
+  showPinEntry();   // show the PIN field (and the Face ID button if enrolled) — no auto-unlock
 }
 
 // ─── THEME ───────────────────────────────────────────────────────────────────
