@@ -290,9 +290,10 @@
 </div>
 
 <div class="tabs">
-  <div class="tab owner-only active" data-panel="dashboard" onclick="showPanel('dashboard')">📊 Dashboard</div>
-  <div class="tab" data-panel="entry" onclick="showPanel('entry')">💵 Cash Expenses</div>
-  <div class="tab owner-only" data-panel="bankexp" onclick="showPanel('bankexp')">🏦 Bank Expenses</div>
+  <div class="tab" data-panel="dashboard" data-cap="dashboard" onclick="showPanel('dashboard')">📊 Dashboard</div>
+  <div class="tab" data-panel="entry" data-cap="cash" onclick="showPanel('entry')">💵 Cash Expenses</div>
+  <div class="tab" data-panel="bankexp" data-cap="bank" onclick="showPanel('bankexp')">🏦 Bank Expenses</div>
+  <div class="tab" data-panel="people" data-cap="people" onclick="showPanel('people')">👥 People</div>
 </div>
 
 <!-- ===================== DASHBOARD ===================== -->
@@ -442,6 +443,34 @@
   <div id="bankexp-list"></div>
 </div>
 
+<!-- ===================== PEOPLE / ACCESS (Partners) ===================== -->
+<div id="panel-people" class="panel content">
+
+  <div id="people-msg" style="display:none; border-radius:7px; padding:10px 12px; font-size:12px; font-family:'DM Mono',monospace; margin-bottom:14px;"></div>
+
+  <div class="form-section">
+    <h3><span class="step-num">＋</span> Add Person</h3>
+    <p class="exp-note">Add partners, managers or staff. Each person gets their own PIN, so every entry they make is tagged to them for the audit trail.</p>
+    <div style="display:grid; grid-template-columns:1fr 130px 1fr; gap:12px; margin-bottom:10px;">
+      <div><label class="field-label">Name</label><input id="pp-name" class="field-input" placeholder="e.g. Rahul" style="width:100%;"></div>
+      <div><label class="field-label">PIN (4 digits)</label><input id="pp-pin" class="field-input field-input-mono" maxlength="4" inputmode="numeric" placeholder="••••" style="width:100%;"></div>
+      <div><label class="field-label">Role / Access</label><select id="pp-role" class="field-select"></select></div>
+    </div>
+    <div id="pp-role-desc" class="exp-note" style="margin-bottom:12px; color:var(--text2);"></div>
+    <button class="btn" style="width:100%; padding:12px;" onclick="addPerson()">Add Person ✓</button>
+  </div>
+
+  <div class="section-title">People &amp; Access</div>
+  <div id="people-list"></div>
+  <div class="note" style="margin-top:16px;">
+    <strong>Roles decide what each person sees:</strong>
+    <b>Partner</b> — full access incl. this People tab ·
+    <b>Manager / Staff</b> — cash expenses only ·
+    <b>Accountant</b> — dashboard + bank expenses ·
+    <b>Viewer</b> — dashboard only.
+  </div>
+</div>
+
 </div><!-- end #app -->
 
 <!-- Bills Viewer Sidebar -->
@@ -518,27 +547,45 @@ let _db = null;
       else localStorage.removeItem('comedor_bankbal');
       if (document.getElementById('panel-dashboard')?.classList.contains('active')) renderDashboard();
     });
+    // People / logins (managed from the People tab)
+    _db.ref('comedor/users').on('value', snap => {
+      if (snap.exists()) localStorage.setItem('comedor_users', JSON.stringify(Object.values(snap.val())));
+      else localStorage.removeItem('comedor_users');
+      if (document.getElementById('panel-people')?.classList.contains('active')) renderPeople();
+    });
   } catch (e) { console.warn('Firebase init failed:', e); }
 })();
 
-// ─── USERS & LOGINS ──────────────────────────────────────────────────────────
-// Each person gets their OWN PIN, so every entry is stamped with who added it.
-//   role 'manager'  → cash expenses only
-//   role 'partner'  → full access (Dashboard, P&L, Bank Expenses, Cash)
-// >>> Edit the names & PINs below to your real people before sharing. <<<
-const USERS = {
-  '2580': { name: 'Edwin',   role: 'partner' },
-  '4040': { name: 'Partner', role: 'partner' },   // second working partner — set real PIN & name
-  '3030': { name: 'Manager', role: 'manager' }
+// ─── ROLES, USERS & LOGINS ───────────────────────────────────────────────────
+// Roles define rights / view access. Partners manage people from the People tab.
+const ROLES = {
+  partner:    { label: 'Partner',    dashboard: true,  cash: true,  bank: true,  people: true  },
+  manager:    { label: 'Manager',    dashboard: false, cash: true,  bank: false, people: false },
+  staff:      { label: 'Staff',      dashboard: false, cash: true,  bank: false, people: false },
+  accountant: { label: 'Accountant', dashboard: true,  cash: true,  bank: true,  people: false },
+  viewer:     { label: 'Viewer',     dashboard: true,  cash: false, bank: false, people: false }
 };
 
+// Seed logins — only used until the People tab writes the real list to Firebase.
+// A partner can add/edit/remove everyone from the People tab; this is just the
+// bootstrap so you're never locked out.
+const DEFAULT_USERS = [
+  { id: 'u_edwin',   name: 'Edwin',   pin: '2580', role: 'partner', active: true },
+  { id: 'u_partner', name: 'Partner', pin: '4040', role: 'partner', active: true },
+  { id: 'u_manager', name: 'Manager', pin: '3030', role: 'manager', active: true }
+];
+function loadUsers() { try { const u = JSON.parse(localStorage.getItem('comedor_users') || 'null'); return (u && u.length) ? u : null; } catch (e) { return null; } }
+function getUsers() { return loadUsers() || DEFAULT_USERS.slice(); }
+function findUserByPin(pin) { return getUsers().find(u => u.active !== false && u.pin === pin) || null; }
+function roleCaps(role) { return ROLES[role] || ROLES.manager; }
+
 let currentUser = null;   // { name, role }
-let currentRole = null;   // 'owner' (partners) | 'manager'  — permission level
+let currentRole = null;   // 'owner' (can manage) | 'manager' (limited) — legacy permission flag
 
 // ─── ACCESS GRANT (shared by PIN + Face ID) ──────────────────────────────────
 function grantAccess(user) {
   currentUser = user;
-  currentRole = user.role === 'manager' ? 'manager' : 'owner';
+  currentRole = roleCaps(user.role).people ? 'owner' : 'manager';
   document.getElementById('pin-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   applyRoleAccess(currentRole, user);
@@ -550,7 +597,7 @@ function grantAccess(user) {
 // ─── PIN SCREEN ──────────────────────────────────────────────────────────────
 function checkPin() {
   const input = document.getElementById('pin-input').value.trim();
-  const user = USERS[input];
+  const user = findUserByPin(input);
   if (user) {
     grantAccess(user);
     maybeOfferEnroll(user);   // offer Face ID enrollment on this device
@@ -703,25 +750,30 @@ async function initAuth() {
 }
 
 function applyRoleAccess(role, user) {
+  const caps = roleCaps(user ? user.role : 'manager');
   const badge = document.getElementById('role-badge');
-  if (role === 'manager') {
-    // Manager: cash expenses only — hide partner-only tabs (Dashboard, Bank)
-    document.querySelectorAll('.owner-only').forEach(el => el.style.display = 'none');
-    badge.textContent = (user ? user.name : 'Manager') + ' · Cash';
-    badge.classList.add('role-manager');
-    showPanelDirect('entry');
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelector('[data-panel="entry"]').classList.add('active');
-    checkOpening();
-  } else {
-    // Partner: full access
-    document.querySelectorAll('.owner-only').forEach(el => el.style.display = '');
-    badge.textContent = (user ? user.name : 'Partner') + ' · Partner';
-    badge.classList.remove('role-manager');
-    showPanelDirect('dashboard');
-    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-    document.querySelector('[data-panel="dashboard"]').classList.add('active');
-    renderDashboard();
+  badge.textContent = (user ? user.name : '—') + ' · ' + caps.label;
+  badge.classList.toggle('role-manager', !caps.people);
+
+  // Show/hide each tab by its capability, and land on the first allowed tab.
+  let firstPanel = null;
+  document.querySelectorAll('.tab').forEach(t => {
+    const cap = t.getAttribute('data-cap');
+    const allowed = cap ? !!caps[cap] : true;
+    t.style.display = allowed ? '' : 'none';
+    t.classList.remove('active');
+    if (allowed && !firstPanel) firstPanel = t.getAttribute('data-panel');
+  });
+  // Partner-only controls (e.g. Clear Cash Entries)
+  document.querySelectorAll('.owner-only').forEach(el => el.style.display = caps.people ? '' : 'none');
+
+  if (firstPanel) {
+    showPanelDirect(firstPanel);
+    const tab = document.querySelector('.tab[data-panel="' + firstPanel + '"]');
+    if (tab) tab.classList.add('active');
+    if (firstPanel === 'dashboard') renderDashboard();
+    if (firstPanel === 'entry') checkOpening();
+    if (firstPanel === 'people') { ensureUsersSeeded(); renderPeople(); }
   }
 }
 
@@ -751,6 +803,7 @@ function showPanel(id) {
     }
   }
   if (id === 'bankexp') renderBankList();
+  if (id === 'people') { ensureUsersSeeded(); renderPeople(); }
 }
 
 function showPanelDirect(id) {
@@ -1632,6 +1685,122 @@ function normalizeDate(s) {
   m = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
   if (m) return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
   return new Date().toISOString().split('T')[0];
+}
+
+// ─── PEOPLE / ACCESS MANAGEMENT (Partners) ───────────────────────────────────
+function ensureUsersSeeded() {
+  if (!_db) return;
+  _db.ref('comedor/users').once('value').then(s => {
+    if (!s.exists()) {
+      const obj = {};
+      DEFAULT_USERS.forEach(u => { obj[u.id] = u; });
+      _db.ref('comedor/users').set(obj).catch(() => {});
+    }
+  }).catch(() => {});
+}
+
+function roleOptions(sel) {
+  if (!sel || sel.options.length) return;
+  Object.keys(ROLES).forEach(k => { const o = document.createElement('option'); o.value = k; o.textContent = ROLES[k].label; sel.appendChild(o); });
+}
+function roleAccessText(role) {
+  const c = roleCaps(role); const parts = [];
+  if (c.dashboard) parts.push('Dashboard & P&L');
+  if (c.cash) parts.push('Cash expenses');
+  if (c.bank) parts.push('Bank expenses');
+  if (c.people) parts.push('Manage people');
+  return parts.length ? ('Can access: ' + parts.join(' · ')) : 'No access';
+}
+function peopleMsg(text, ok) {
+  const m = document.getElementById('people-msg');
+  if (!m) return;
+  m.textContent = (ok ? '✓ ' : '⚠ ') + text;
+  m.style.cssText = 'display:block; border-radius:7px; padding:10px 12px; font-size:12px; font-family:\'DM Mono\',monospace; margin-bottom:14px; ' +
+    (ok ? 'background:rgba(76,175,125,0.1); border:1px solid rgba(76,175,125,0.3); color:var(--green);'
+        : 'background:rgba(224,82,82,0.1); border:1px solid rgba(224,82,82,0.3); color:var(--red);');
+}
+
+function saveUser(u) {
+  let users = loadUsers() || DEFAULT_USERS.slice();
+  users = users.filter(x => x.id !== u.id);
+  users.push(u);
+  localStorage.setItem('comedor_users', JSON.stringify(users));
+  if (_db) _db.ref('comedor/users/' + u.id).set(u).catch(e => console.warn('User write failed:', e));
+}
+
+function addPerson() {
+  const name = document.getElementById('pp-name').value.trim();
+  const pin  = document.getElementById('pp-pin').value.trim();
+  const role = document.getElementById('pp-role').value;
+  if (!name) return peopleMsg('Name is required', false);
+  if (!/^\d{4}$/.test(pin)) return peopleMsg('PIN must be exactly 4 digits', false);
+  if (!role) return peopleMsg('Pick a role', false);
+  const users = getUsers();
+  const clash = users.find(u => u.pin === pin);
+  if (clash) return peopleMsg('PIN ' + pin + ' is already used by ' + clash.name, false);
+  const id = 'u_' + pin + '_' + name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8);
+  ensureUsersSeeded();
+  saveUser({ id: id, name: name, pin: pin, role: role, active: true });
+  peopleMsg('Added ' + name + ' (' + roleCaps(role).label + ') — PIN ' + pin, true);
+  document.getElementById('pp-name').value = '';
+  document.getElementById('pp-pin').value = '';
+  renderPeople();
+}
+
+function toggleUserActive(id) {
+  const users = getUsers();
+  const u = users.find(x => x.id === id);
+  if (!u) return;
+  const deactivating = u.active !== false;
+  if (deactivating && roleCaps(u.role).people) {
+    const activePartners = users.filter(x => x.active !== false && roleCaps(x.role).people).length;
+    if (activePartners <= 1) { alert('Keep at least one active partner — otherwise no one can manage People.'); return; }
+  }
+  saveUser(Object.assign({}, u, { active: u.active === false }));
+  renderPeople();
+}
+
+function removePerson(id) {
+  const users = getUsers();
+  const u = users.find(x => x.id === id);
+  if (!u) return;
+  if (roleCaps(u.role).people) {
+    const partners = users.filter(x => x.active !== false && roleCaps(x.role).people).length;
+    if (partners <= 1) { alert('Cannot remove the last active partner.'); return; }
+  }
+  if (!confirm('Remove ' + u.name + '? Their login PIN will stop working.')) return;
+  const list = (loadUsers() || DEFAULT_USERS.slice()).filter(x => x.id !== id);
+  localStorage.setItem('comedor_users', JSON.stringify(list));
+  if (_db) _db.ref('comedor/users/' + id).remove().catch(() => {});
+  renderPeople();
+}
+
+function renderPeople() {
+  const sel = document.getElementById('pp-role');
+  roleOptions(sel);
+  if (sel && !sel._wired) { sel._wired = true; sel.onchange = () => { document.getElementById('pp-role-desc').textContent = roleAccessText(sel.value); }; sel.onchange(); }
+  const el = document.getElementById('people-list');
+  if (!el) return;
+  const users = getUsers();
+  el.innerHTML = `<div class="table-wrap"><table><thead><tr>
+      <th>Name</th><th>Role</th><th>PIN</th><th>Access</th><th>Status</th><th></th>
+    </tr></thead><tbody>
+    ${users.map(u => {
+      const c = roleCaps(u.role);
+      const me = currentUser && currentUser.name === u.name;
+      return `<tr>
+        <td><b>${(u.name || '').replace(/</g,'&lt;')}</b>${me ? ' <span style="font-size:10px;color:var(--accent2);">(you)</span>' : ''}</td>
+        <td><span class="cat-badge cat-bebidas">${c.label}</span></td>
+        <td style="font-family:'DM Mono',monospace;">${u.pin}</td>
+        <td style="font-size:11px;color:var(--text2);">${roleAccessText(u.role)}</td>
+        <td>${u.active === false ? '<span class="tag-red">Inactive</span>' : '<span class="tag-green">Active</span>'}</td>
+        <td style="white-space:nowrap;">
+          <button class="btn btn-ghost" style="padding:3px 9px;font-size:11px;" onclick="toggleUserActive('${u.id}')">${u.active === false ? 'Enable' : 'Disable'}</button>
+          <button class="btn btn-ghost" style="padding:3px 9px;font-size:11px;color:var(--red);border-color:rgba(224,82,82,0.4);" onclick="removePerson('${u.id}')">Remove</button>
+        </td>
+      </tr>`;
+    }).join('')}
+  </tbody></table></div>`;
 }
 
 // ─── THEME ───────────────────────────────────────────────────────────────────
