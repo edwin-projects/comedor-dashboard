@@ -286,509 +286,49 @@
   <div style="display:flex; gap:10px; align-items:center;">
     <button id="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:6px;width:32px;height:32px;font-size:16px;cursor:pointer;line-height:1;flex-shrink:0;">◑</button>
     <div id="role-badge">—</div>
-    <div class="period-badge">Mar 2026 – Apr 2026</div>
   </div>
 </div>
 
 <div class="tabs">
-  <div class="tab owner-only active" data-panel="overview" onclick="showPanel('overview')">📊 Overview</div>
-  <div class="tab owner-only" data-panel="pnl" onclick="showPanel('pnl')">P&L Statement</div>
-  <div class="tab owner-only" data-panel="bank" onclick="showPanel('bank')">Bank Transactions</div>
-  <div class="tab" data-panel="cash" onclick="showPanel('cash')">Cash Register</div>
-  <div class="tab" data-panel="menu" onclick="showPanel('menu')">🍽 Menu Analytics</div>
-  <div class="tab" data-panel="entry" onclick="showPanel('entry')">Daily Cash Entry</div>
-  <div class="tab" data-panel="cashdash" onclick="showPanel('cashdash')">💵 Cash Dashboard</div>
+  <div class="tab owner-only active" data-panel="dashboard" onclick="showPanel('dashboard')">📊 Dashboard</div>
+  <div class="tab" data-panel="entry" onclick="showPanel('entry')">💵 Cash Expenses</div>
+  <div class="tab owner-only" data-panel="bankexp" onclick="showPanel('bankexp')">🏦 Bank Expenses</div>
 </div>
 
-<!-- ===================== OVERVIEW ===================== -->
-<div id="panel-overview" class="panel active content">
-  <div class="note note-kv">
-    <span class="kv-k">Data period</span><span class="kv-v">5 Mar 2026 – 24 Apr 2026</span>
-    <span class="kv-k">Bank</span><span class="kv-v">IDFC · Wolfpack Ventures · a/c 77760368658</span>
-    <span class="kv-k">Cash register</span><span class="kv-v">35 days captured (photos)</span>
-    <span class="kv-k">Pet Pooja</span><span class="kv-v">Item-wise report · 5 Mar – 24 Apr 2026</span>
+<!-- ===================== DASHBOARD ===================== -->
+<div id="panel-dashboard" class="panel active content">
+  <div class="dash-filters">
+    <button class="dfbtn" onclick="setDashFilter('today',this)">Today</button>
+    <button class="dfbtn" onclick="setDashFilter('week',this)">This Week</button>
+    <button class="dfbtn active" onclick="setDashFilter('month',this)">This Month</button>
+    <button class="dfbtn" onclick="setDashFilter('quarter',this)">This Quarter</button>
+    <button class="dfbtn" onclick="setDashFilter('half',this)">Half Year</button>
+    <button class="dfbtn" onclick="setDashFilter('ytd',this)">YTD</button>
+    <button class="dfbtn" onclick="setDashFilter('custom',this)">Custom</button>
   </div>
 
-  <div class="cards">
-    <div class="card">
-      <div class="card-label">Gross Revenue (Bank Credits)</div>
-      <div class="card-value gold">₹13,44,184</div>
-      <div class="card-sub">Total UPI + Card + NEFT inflows</div>
-    </div>
-    <div class="card">
-      <div class="card-label">Total Bank Debits</div>
-      <div class="card-value red">₹12,41,477</div>
-      <div class="card-sub">Rent, salaries, vendors, ops</div>
-    </div>
-    <div class="card">
-      <div class="card-label">Net Bank Balance</div>
-      <div class="card-value green">₹1,97,254</div>
-      <div class="card-sub">Closing 24 Apr 2026</div>
-    </div>
-    <div class="card">
-      <div class="card-label">Pet Pooja Revenue</div>
-      <div class="card-value gold">₹15,38,342</div>
-      <div class="card-sub">Gross sales (all items)</div>
-    </div>
-    <div class="card">
-      <div class="card-label">Items Sold (Pet Pooja)</div>
-      <div class="card-value" style="color:var(--text)">4,080</div>
-      <div class="card-sub">Across all categories</div>
-    </div>
-    <div class="card">
-      <div class="card-label">Top Selling Item</div>
-      <div class="card-value" style="font-size:16px; color:var(--accent2)">Horchata</div>
-      <div class="card-sub">340 units · ₹1,03,130 gross</div>
-    </div>
+  <div id="custom-range" style="display:none; gap:10px; align-items:flex-end; margin-bottom:20px; flex-wrap:wrap;">
+    <div><label class="field-label">From</label><input type="date" id="dash-from" class="field-input" style="width:160px;"></div>
+    <div><label class="field-label">To</label><input type="date" id="dash-to" class="field-input" style="width:160px;"></div>
+    <button class="btn" onclick="applyCustomRange()">Apply</button>
   </div>
 
-  <div class="section-title">Monthly Revenue Trend (Bank Credits)</div>
-  <div class="bar-chart">
-    <div class="bar-row">
-      <div class="bar-label">March 2026</div>
-      <div class="bar-track"><div class="bar-fill" style="width:62%; background: linear-gradient(90deg, var(--accent), var(--accent2));"></div></div>
-      <div class="bar-val">₹6,63,491</div>
-    </div>
-    <div class="bar-row">
-      <div class="bar-label">April 2026 (1–24)</div>
-      <div class="bar-track"><div class="bar-fill" style="width:100%; background: linear-gradient(90deg, var(--green), #7ed4a8);"></div></div>
-      <div class="bar-val">₹6,80,693</div>
-    </div>
+  <div class="section-title" style="margin-top:0;">Profit &amp; Loss — this period</div>
+  <div id="pnl-summary" class="cards" style="margin-bottom:12px;"></div>
+  <div id="balance-row" class="cards" style="margin-bottom:8px;"></div>
+
+  <div class="section-title" style="margin-top:26px;">Cash — daily register</div>
+  <div id="dash-cards" class="cards" style="margin-bottom:16px;"></div>
+  <div class="dash-export-bar">
+    <button class="btn btn-ghost" onclick="copyForSheets()">📋 Copy for Google Sheets</button>
+    <button class="btn btn-ghost" onclick="downloadCSV()">⬇ Download CSV</button>
+    <button class="btn btn-ghost owner-only" onclick="clearAllEntries()" style="margin-left:auto;color:var(--red);border-color:rgba(224,82,82,0.4);">🗑 Clear Cash Entries</button>
   </div>
+  <div id="dash-table-wrap" class="table-wrap"></div>
+  <div id="dash-expense-wrap"></div>
 
-  <div class="section-title">Key Expense Categories (Bank Debits)</div>
-  <div class="bar-chart">
-    <div class="bar-row">
-      <div class="bar-label">Staff Salaries (Mar)</div>
-      <div class="bar-track"><div class="bar-fill" style="width:100%; background: var(--red);"></div></div>
-      <div class="bar-val">~₹3,35,267</div>
-    </div>
-    <div class="bar-row">
-      <div class="bar-label">Rent (Comedorrentals)</div>
-      <div class="bar-track"><div class="bar-fill" style="width:100%; background: var(--red);"></div></div>
-      <div class="bar-val">₹3,42,000</div>
-    </div>
-    <div class="bar-row">
-      <div class="bar-label">Vendor / Ingredient Purchases</div>
-      <div class="bar-track"><div class="bar-fill" style="width:77%; background: #e07a52;"></div></div>
-      <div class="bar-val">~₹2,63,000</div>
-    </div>
-    <div class="bar-row">
-      <div class="bar-label">Card Settlement (Pine Labs)</div>
-      <div class="bar-track"><div class="bar-fill" style="width:65%; background: var(--accent);"></div></div>
-      <div class="bar-val">See bank tab</div>
-    </div>
-    <div class="bar-row">
-      <div class="bar-label">Marketing / Design / Ops</div>
-      <div class="bar-track"><div class="bar-fill" style="width:18%; background: var(--text3);"></div></div>
-      <div class="bar-val">~₹62,000</div>
-    </div>
-  </div>
-
-  <div class="section-title">Sales Channel Mix (Pet Pooja)</div>
-  <div class="cards" style="margin-top:0">
-    <div class="card">
-      <div class="card-label">UPI Sales (avg % from cash register)</div>
-      <div class="card-value" style="color:#7ec8e3">~65%</div>
-      <div class="card-sub">Dominant channel</div>
-    </div>
-    <div class="card">
-      <div class="card-label">Card Sales</div>
-      <div class="card-value" style="color:var(--accent2)">~25%</div>
-      <div class="card-sub">Via Pine Labs POS</div>
-    </div>
-    <div class="card">
-      <div class="card-label">Cash Sales</div>
-      <div class="card-value" style="color:var(--green)">~10%</div>
-      <div class="card-sub">Varies by day</div>
-    </div>
-  </div>
-</div>
-
-<!-- ===================== P&L ===================== -->
-<div id="panel-pnl" class="panel content">
-  <div class="note">
-    <strong>Note:</strong> P&L is reconstructed from available data. Bank credits = UPI + Card inflows. Rent = ₹1,71,000/month based on 2 transfers seen. Salaries from bank = March payroll visible in detail. Cash expenses from register photos (partial — 18 days captured). Full P&L will improve as you enter all cash entries going forward.
-  </div>
-
-  <div class="month-sel">
-    <div class="month-btn active" onclick="setMonth(this,'mar')">March 2026</div>
-    <div class="month-btn" onclick="setMonth(this,'apr')">April 2026 (1–24)</div>
-    <div class="month-btn" onclick="setMonth(this,'combined')">Combined</div>
-  </div>
-
-  <div id="pnl-mar">
-  <div class="table-wrap">
-  <table class="pnl-table">
-    <thead><tr><th>Line Item</th><th style="text-align:right">Amount (₹)</th><th style="text-align:right">Notes</th></tr></thead>
-    <tbody>
-      <tr><td colspan="3" style="background:var(--surface2); color:var(--accent); font-weight:600; font-size:11px; letter-spacing:1px; padding:10px 16px; text-transform:uppercase;">INCOME</td></tr>
-      <tr><td>UPI Sales (bank inflows)</td><td class="num green-text">+3,22,891</td><td class="num" style="color:var(--text3); font-size:11px">Est. from bank credits (excl. Pine Labs)</td></tr>
-      <tr><td>Card Sales (Pine Labs settlements)</td><td class="num green-text">+2,27,280</td><td class="num" style="color:var(--text3); font-size:11px">NEFT from Pine Labs escrow</td></tr>
-      <tr><td>Cash Sales (register photos)</td><td class="num green-text">+31,564</td><td class="num" style="color:var(--text3); font-size:11px">Partial — 18 days only</td></tr>
-      <tr class="pnl-total"><td>TOTAL REVENUE</td><td class="num gold-text">5,81,735</td><td></td></tr>
-
-      <tr><td colspan="3" style="background:var(--surface2); color:var(--red); font-weight:600; font-size:11px; letter-spacing:1px; padding:10px 16px; text-transform:uppercase;">DIRECT COSTS &amp; OPERATIONS</td></tr>
-      <tr><td>Rent (Comedorrentals)</td><td class="num red-text">–1,71,000</td><td class="num" style="color:var(--text3); font-size:11px">17 Mar bank transfer</td></tr>
-      <tr><td>Vegetables / Produce (Greenleaf)</td><td class="num red-text">–21,298</td><td class="num" style="color:var(--text3); font-size:11px">17 Mar</td></tr>
-      <tr><td>Water Bill</td><td class="num red-text">–4,641</td><td class="num" style="color:var(--text3); font-size:11px">20 Mar</td></tr>
-      <tr><td>Pest Control</td><td class="num red-text">–1,500</td><td class="num" style="color:var(--text3); font-size:11px">20 Mar</td></tr>
-      <tr><td>Garbage Collection</td><td class="num red-text">–2,000</td><td class="num" style="color:var(--text3); font-size:11px">20 Mar</td></tr>
-      <tr><td>Security (Sarat Kumar)</td><td class="num red-text">–7,500</td><td class="num" style="color:var(--text3); font-size:11px">18 Mar</td></tr>
-      <tr><td>Housekeeping Staff (Ahmed Ali)</td><td class="num red-text">–2,750</td><td class="num" style="color:var(--text3); font-size:11px">9 Mar</td></tr>
-      <tr><td>Crown Edibles (ingredient vendor)</td><td class="num red-text">–5,292</td><td class="num" style="color:var(--text3); font-size:11px">30 Mar</td></tr>
-      <tr><td>Green Apron (ingredient vendor)</td><td class="num red-text">–14,700</td><td class="num" style="color:var(--text3); font-size:11px">31 Mar ×2</td></tr>
-      <tr><td>Mahesh Distributors</td><td class="num red-text">–2,974</td><td class="num" style="color:var(--text3); font-size:11px">31 Mar</td></tr>
-      <tr><td>Menu Printing + Courier</td><td class="num red-text">–18,276</td><td class="num" style="color:var(--text3); font-size:11px">29 Mar (Studio 22)</td></tr>
-      <tr><td>Electricity Bill</td><td class="num red-text">–16,173</td><td class="num" style="color:var(--text3); font-size:11px">24 Mar</td></tr>
-      <tr><td>Produce Opp (Puttaswamy)</td><td class="num red-text">–3,862</td><td class="num" style="color:var(--text3); font-size:11px">20 Mar</td></tr>
-      <tr><td>Vistara Farms (goat milk etc.)</td><td class="num red-text">–1,600</td><td class="num" style="color:var(--text3); font-size:11px">13 Mar</td></tr>
-      <tr><td>New Town Ventures (vendor)</td><td class="num red-text">–14,000</td><td class="num" style="color:var(--text3); font-size:11px">18 Mar</td></tr>
-      <tr><td>Elite Superstore (IMPS)</td><td class="num red-text">–8,100</td><td class="num" style="color:var(--text3); font-size:11px">6 Mar</td></tr>
-      <tr><td>Cash Expenses (partial 18 days)</td><td class="num red-text">–8,490</td><td class="num" style="color:var(--text3); font-size:11px">From register photos Mar</td></tr>
-
-      <tr><td colspan="3" style="background:var(--surface2); color:var(--red); font-weight:600; font-size:11px; letter-spacing:1px; padding:10px 16px; text-transform:uppercase;">STAFF SALARIES (March)</td></tr>
-      <tr><td>Mahidul Islam Sekh</td><td class="num red-text">–40,000</td><td></td></tr>
-      <tr><td>M Pavilou</td><td class="num red-text">–21,900</td><td></td></tr>
-      <tr><td>Vizovonuo</td><td class="num red-text">–24,000</td><td></td></tr>
-      <tr><td>Emmanuel Lalmunsiem</td><td class="num red-text">–17,401</td><td></td></tr>
-      <tr><td>Khamlallem Gangte</td><td class="num red-text">–17,000</td><td></td></tr>
-      <tr><td>Riyaj Molla</td><td class="num red-text">–17,000</td><td></td></tr>
-      <tr><td>Hirananshu Sarkar</td><td class="num red-text">–20,000</td><td></td></tr>
-      <tr><td>Arun Das</td><td class="num red-text">–14,000</td><td></td></tr>
-      <tr><td>Sajid Mondal</td><td class="num red-text">–14,000</td><td></td></tr>
-      <tr><td>Rohit</td><td class="num red-text">–15,000</td><td></td></tr>
-      <tr><td>D Thangao</td><td class="num red-text">–6,966</td><td></td></tr>
-      <tr><td>Gundas Pradhan (advance)</td><td class="num red-text">–26,000</td><td class="num" style="color:var(--text3); font-size:11px">10 Apr but Mar related</td></tr>
-      <tr><td>Deepak Kumar S (salary)</td><td class="num red-text">–37,000</td><td class="num" style="color:var(--text3); font-size:11px">11 Apr Mar salary</td></tr>
-      <tr><td>Staff advance (Mahidul)</td><td class="num red-text">–13,000</td><td class="num" style="color:var(--text3); font-size:11px">1 Apr</td></tr>
-
-      <tr class="pnl-total"><td>TOTAL EXPENSES</td><td class="num red-text">–5,55,423</td><td></td></tr>
-      <tr class="pnl-net">
-        <td>NET PROFIT / (LOSS) — March</td>
-        <td class="num green-text">+26,312</td>
-        <td class="num" style="font-size:11px; color:var(--text3)">Margin ~4.5%</td>
-      </tr>
-    </tbody>
-  </table>
-  </div>
-  </div>
-
-  <div id="pnl-apr" style="display:none">
-  <div class="table-wrap">
-  <table class="pnl-table">
-    <thead><tr><th>Line Item</th><th style="text-align:right">Amount (₹)</th><th style="text-align:right">Notes</th></tr></thead>
-    <tbody>
-      <tr><td colspan="3" style="background:var(--surface2); color:var(--accent); font-weight:600; font-size:11px; letter-spacing:1px; padding:10px 16px; text-transform:uppercase;">INCOME</td></tr>
-      <tr><td>UPI + Card + Bank Inflows</td><td class="num green-text">+3,96,380</td><td class="num" style="color:var(--text3); font-size:11px">Bank credits Apr 1–24</td></tr>
-      <tr><td>Pine Labs (Card) Settlements</td><td class="num green-text">+2,84,313</td><td class="num" style="color:var(--text3); font-size:11px">NEFT settlements Apr</td></tr>
-      <tr><td>Cash Sales (register photos)</td><td class="num green-text">+23,479</td><td class="num" style="color:var(--text3); font-size:11px">Partial April days</td></tr>
-      <tr><td>Cash Deposit to Bank (15 Apr)</td><td class="num green-text">+30,000</td><td class="num" style="color:var(--text3); font-size:11px">Deepak Kumar cash deposit</td></tr>
-      <tr class="pnl-total"><td>TOTAL REVENUE</td><td class="num gold-text">7,34,172</td><td></td></tr>
-
-      <tr><td colspan="3" style="background:var(--surface2); color:var(--red); font-weight:600; font-size:11px; letter-spacing:1px; padding:10px 16px; text-transform:uppercase;">EXPENSES</td></tr>
-      <tr><td>Rent (6 Apr transfer)</td><td class="num red-text">–1,71,000</td><td></td></tr>
-      <tr><td>Greenleaf Veggies (1 Apr + 17 Apr)</td><td class="num red-text">–61,411</td><td></td></tr>
-      <tr><td>Spettacolare (Chiles / ingredients)</td><td class="num red-text">–76,667</td><td class="num" style="color:var(--text3); font-size:11px">13 Apr + 17 Apr</td></tr>
-      <tr><td>Kirke Cheese</td><td class="num red-text">–35,020</td><td></td></tr>
-      <tr><td>Dairy Craft India (Cheese)</td><td class="num red-text">–4,620</td><td></td></tr>
-      <tr><td>Mahesh Distributors</td><td class="num red-text">–14,267</td><td></td></tr>
-      <tr><td>Atlas Distributors</td><td class="num red-text">–3,885</td><td></td></tr>
-      <tr><td>Chenab Impex</td><td class="num red-text">–6,248</td><td></td></tr>
-      <tr><td>Crown Edibles</td><td class="num red-text">–6,615</td><td></td></tr>
-      <tr><td>Vistara Farms (goat milk)</td><td class="num red-text">–2,800</td><td></td></tr>
-      <tr><td>Happy Healthy Foods</td><td class="num red-text">–2,395</td><td></td></tr>
-      <tr><td>Mahigourmet Foods</td><td class="num red-text">–4,000</td><td></td></tr>
-      <tr><td>Gaaewellbeing (ingredient)</td><td class="num red-text">–30,556</td><td></td></tr>
-      <tr><td>Gas Cylinders (Deepak)</td><td class="num red-text">–10,000</td><td></td></tr>
-      <tr><td>Electricity Bill (24 Apr)</td><td class="num red-text">–34,885</td><td></td></tr>
-      <tr><td>Marketing / DM (Studio 22)</td><td class="num red-text">–21,240</td><td></td></tr>
-      <tr><td>GST Filing</td><td class="num red-text">–25,495</td><td></td></tr>
-      <tr><td>V S S Systems (Flytraps)</td><td class="num red-text">–13,452</td><td></td></tr>
-      <tr><td>Induction (Mahesh Dist.)</td><td class="num red-text">–4,800</td><td></td></tr>
-      <tr><td>Airtel Recharge</td><td class="num red-text">–619</td><td></td></tr>
-      <tr><td>Cash Expenses (partial)</td><td class="num red-text">–22,165</td><td class="num" style="color:var(--text3); font-size:11px">From register photos Apr</td></tr>
-      <tr><td colspan="3" style="background:var(--surface2); color:var(--red); font-weight:600; font-size:11px; letter-spacing:1px; padding:10px 16px; text-transform:uppercase;">STAFF SALARIES (March — paid April)</td></tr>
-      <tr><td>Multiple staff (13–14 Apr payroll)</td><td class="num red-text">–2,06,400</td><td class="num" style="color:var(--text3); font-size:11px">Kalachand, Sunita, Arun, Sajid, Riyaj etc.</td></tr>
-      <tr><td>Gundas Pradhan + Deepak Kumar</td><td class="num red-text">–63,000</td><td></td></tr>
-      <tr><td>Mahidul OT</td><td class="num red-text">–3,333</td><td></td></tr>
-      <tr class="pnl-total"><td>TOTAL EXPENSES</td><td class="num red-text">–8,28,673</td><td></td></tr>
-      <tr class="pnl-net">
-        <td>NET PROFIT / (LOSS) — April (1–24)</td>
-        <td class="num red-text">–94,501</td>
-        <td class="num" style="font-size:11px; color:var(--text3)">Distorted by Mar salary payment in April</td>
-      </tr>
-    </tbody>
-  </table>
-  </div>
-  <div class="note" style="margin-top:16px">⚠️ April shows a loss primarily because March salaries totalling ~₹2.7L were paid in April (13–14 Apr). Adjusted for timing, April operations are broadly breakeven to marginally positive. Revenue is <strong>running higher than March</strong>.</div>
-  </div>
-
-  <div id="pnl-combined" style="display:none">
-  <div class="cards">
-    <div class="card"><div class="card-label">Combined Revenue</div><div class="card-value gold">₹13,15,907</div><div class="card-sub">Mar + Apr 1–24</div></div>
-    <div class="card"><div class="card-label">Combined Expenses</div><div class="card-value red">₹13,84,096</div><div class="card-sub">Incl. both months' salaries</div></div>
-    <div class="card"><div class="card-label">Net Position</div><div class="card-value red">–₹68,189</div><div class="card-sub">Before full April captured</div></div>
-    <div class="card"><div class="card-label">Salary as % of Revenue</div><div class="card-value" style="color:var(--accent2)">~40%</div><div class="card-sub">Key metric to watch</div></div>
-  </div>
-  <div class="note">The 2-month combined view is timing-distorted because March salaries (≈₹2.7L) hit the bank in April. True operational performance needs to be assessed on a month-by-month, accrual basis. <strong>Recommendation: salary always paid in the same month as service.</strong></div>
-  </div>
-</div>
-
-<!-- ===================== BANK ===================== -->
-<div id="panel-bank" class="panel content">
-  <div class="note"><strong>Account:</strong> IDFC FIRST Bank · Wolfpack Ventures · 77760368658 · Period: 5 Mar – 24 Apr 2026 &nbsp;|&nbsp; Opening: ₹94,547 &nbsp;|&nbsp; Closing: ₹1,97,254</div>
-
-  <div class="section-title">Major Expense Payments (Bank Debits)</div>
-  <div class="table-wrap">
-  <table>
-    <thead><tr><th>Date</th><th>Payee</th><th>Category</th><th class="num">Amount (₹)</th></tr></thead>
-    <tbody>
-      <tr><td>17 Mar</td><td>Ramya S (Comedorrentals)</td><td><span class="cat-badge cat-postres">Rent</span></td><td class="num red-text">–1,71,000</td></tr>
-      <tr><td>6 Apr</td><td>Ramya S (Comedorrentals)</td><td><span class="cat-badge cat-postres">Rent</span></td><td class="num red-text">–1,71,000</td></tr>
-      <tr><td>13 Apr</td><td>Multiple Staff (March Salaries)</td><td><span class="cat-badge cat-vegano">Salaries</span></td><td class="num red-text">–2,06,267</td></tr>
-      <tr><td>14 Apr</td><td>Kalachand, Sunita Rai + more</td><td><span class="cat-badge cat-vegano">Salaries</span></td><td class="num red-text">–46,133</td></tr>
-      <tr><td>10 Apr</td><td>Gundas Pradhan (salary)</td><td><span class="cat-badge cat-vegano">Salaries</span></td><td class="num red-text">–26,000</td></tr>
-      <tr><td>11 Apr</td><td>Deepak Kumar S (salary)</td><td><span class="cat-badge cat-vegano">Salaries</span></td><td class="num red-text">–37,000</td></tr>
-      <tr><td>17 Apr</td><td>Spettacolare (Chiles)</td><td><span class="cat-badge cat-antojitos">Ingredients</span></td><td class="num red-text">–43,928</td></tr>
-      <tr><td>13 Apr</td><td>Spettacolare (Chiles)</td><td><span class="cat-badge cat-antojitos">Ingredients</span></td><td class="num red-text">–32,739</td></tr>
-      <tr><td>17 Apr</td><td>Greenleaf Company (veggies April)</td><td><span class="cat-badge cat-antojitos">Ingredients</span></td><td class="num red-text">–37,131</td></tr>
-      <tr><td>1 Apr</td><td>Greenleaf Company (veggies)</td><td><span class="cat-badge cat-antojitos">Ingredients</span></td><td class="num red-text">–24,280</td></tr>
-      <tr><td>17 Mar</td><td>Greenleaf Company (veggies)</td><td><span class="cat-badge cat-antojitos">Ingredients</span></td><td class="num red-text">–21,298</td></tr>
-      <tr><td>13 Apr</td><td>Kirke Cheese Private Ltd</td><td><span class="cat-badge cat-antojitos">Ingredients</span></td><td class="num red-text">–35,020</td></tr>
-      <tr><td>24 Apr</td><td>Bangalore Electricity (BESCOM)</td><td><span class="cat-badge cat-postres">Utilities</span></td><td class="num red-text">–34,885</td></tr>
-      <tr><td>24 Mar</td><td>Bangalore Electricity (BESCOM)</td><td><span class="cat-badge cat-postres">Utilities</span></td><td class="num red-text">–16,173</td></tr>
-      <tr><td>20 Apr</td><td>Sohail (GST Filing March)</td><td><span class="cat-badge cat-acompana">Compliance</span></td><td class="num red-text">–25,495</td></tr>
-      <tr><td>3 Apr</td><td>Studio 22 (Digital Marketing Feb)</td><td><span class="cat-badge cat-bebidas">Marketing</span></td><td class="num red-text">–21,240</td></tr>
-      <tr><td>21 Apr</td><td>Studio 22 (DM March)</td><td><span class="cat-badge cat-bebidas">Marketing</span></td><td class="num red-text">–21,240</td></tr>
-      <tr><td>29 Mar</td><td>Studio 22 (Menu Printing + Courier)</td><td><span class="cat-badge cat-bebidas">Marketing</span></td><td class="num red-text">–18,276</td></tr>
-      <tr><td>20 Apr</td><td>Mahesh Distributors</td><td><span class="cat-badge cat-antojitos">Ingredients</span></td><td class="num red-text">–14,267</td></tr>
-      <tr><td>8 Apr</td><td>Deepak Kumar S (Gas Cylinder)</td><td><span class="cat-badge cat-postres">Operations</span></td><td class="num red-text">–5,000</td></tr>
-      <tr><td>16 Apr</td><td>Deepak Kumar S (Gas Cylinder)</td><td><span class="cat-badge cat-postres">Operations</span></td><td class="num red-text">–5,000</td></tr>
-      <tr><td>20 Mar</td><td>Ramya S (Water Bill)</td><td><span class="cat-badge cat-postres">Utilities</span></td><td class="num red-text">–4,641</td></tr>
-      <tr><td>24 Apr</td><td>V S S Systems (Flytraps)</td><td><span class="cat-badge cat-acompana">Equipment</span></td><td class="num red-text">–13,452</td></tr>
-      <tr><td>20 Apr</td><td>Puttaswamy Gowda (Veggies Opp)</td><td><span class="cat-badge cat-antojitos">Ingredients</span></td><td class="num red-text">–8,863</td></tr>
-    </tbody>
-  </table>
-  </div>
-
-  <div class="section-title">Key Income Sources (Bank Credits)</div>
-  <div class="note">UPI credits are hundreds of individual customer payments (typically ₹400–₹5,000 each). Pine Labs NEFT settlements are weekly card payment batches. Both are restaurant sales income.</div>
-  <div class="table-wrap">
-  <table>
-    <thead><tr><th>Counterparty</th><th>Type</th><th class="num">Total Credited (approx)</th></tr></thead>
-    <tbody>
-      <tr><td>Individual customers (UPI/CR)</td><td><span class="cat-badge cat-bebidas">Customer Sales</span></td><td class="num green-text">+~7,00,000</td></tr>
-      <tr><td>Pine Labs PVT Ltd (NEFT)</td><td><span class="cat-badge cat-platos">Card Settlements</span></td><td class="num green-text">+~5,85,000</td></tr>
-      <tr><td>Charitra (UPI ₹7,000)</td><td><span class="cat-badge cat-bebidas">Customer</span></td><td class="num green-text">+7,000</td></tr>
-      <tr><td>Cash Deposit by Deepak Kumar</td><td><span class="cat-badge cat-antojitos">Cash Deposit</span></td><td class="num green-text">+30,000</td></tr>
-      <tr><td>Ambika (₹6,367)</td><td><span class="cat-badge cat-bebidas">Customer</span></td><td class="num green-text">+6,367</td></tr>
-    </tbody>
-  </table>
-  </div>
-</div>
-
-<!-- ===================== CASH REGISTER ===================== -->
-<div id="panel-cash" class="panel content">
-  <div class="note">
-    <strong>18 days captured</strong> from manager's daily register. Missing days will be added in next photo upload. Cash channel only — UPI and Card sales from these entries cross-check against bank statement.
-  </div>
-
-  <div class="cards">
-    <div class="card"><div class="card-label">Total Sales (45 days)</div><div class="card-value gold">₹17,27,008</div><div class="card-sub">Near-complete Mar–Apr register</div></div>
-    <div class="card"><div class="card-label">Cash Sales</div><div class="card-value green">₹1,26,924</div><div class="card-sub">~7% of captured revenue</div></div>
-    <div class="card"><div class="card-label">Card Sales</div><div class="card-value" style="color:#7ec8e3">₹4,41,530</div><div class="card-sub">~26%</div></div>
-    <div class="card"><div class="card-label">UPI Sales</div><div class="card-value" style="color:var(--accent2)">₹9,60,954</div><div class="card-sub">~56%</div></div>
-    <div class="card"><div class="card-label">Total Cash Expenses</div><div class="card-value red">₹1,03,558</div><div class="card-sub">45 days captured</div></div>
-    <div class="card"><div class="card-label">Avg Daily Revenue</div><div class="card-value" style="color:var(--text)">₹38,378</div><div class="card-sub">Strong Apr uplift vs Mar</div></div>
-  </div>
-
-  <div class="section-title">Daily Cash Register Log — Complete (45 days)</div>
-  <div class="table-wrap">
-  <table>
-    <thead><tr><th>Date</th><th>Day</th><th class="num">Total Sales</th><th class="num">Cash</th><th class="num">Card</th><th class="num">UPI</th><th class="num">Cash Exp.</th><th>Expense Details</th><th class="num">Closing Bal.</th></tr></thead>
-    <tbody>
-      <!-- MARCH -->
-      <tr style="background:rgba(212,132,58,0.06)"><td colspan="9" style="font-size:10px; color:var(--accent); font-family:'DM Mono',monospace; letter-spacing:1px; padding:8px 16px; text-transform:uppercase;">— March 2026 —</td></tr>
-      <tr><td>02-Mar</td><td style="color:var(--text3)">Thu</td><td class="num gold-text">21,711</td><td class="num">0</td><td class="num">5,181</td><td class="num">15,930</td><td class="num">0</td><td style="font-size:11px; color:var(--text3)">—</td><td class="num">5,125</td></tr>
-      <tr><td>06-Mar</td><td style="color:var(--text3)">Fri</td><td class="num gold-text">20,904</td><td class="num">1,025</td><td class="num">0</td><td class="num">19,879</td><td class="num red-text">20</td><td style="font-size:11px; color:var(--text3)">Transgender ₹20</td><td class="num">1,005</td></tr>
-      <tr><td>08-Mar</td><td style="color:var(--text3)">Sun</td><td class="num gold-text">27,672</td><td class="num">1,916</td><td class="num">0</td><td class="num">25,756</td><td class="num red-text">2,180</td><td style="font-size:11px; color:var(--text3)">Banana Leaves ₹50, Screw ₹30, Mattress(staff) ₹2,100</td><td class="num">741</td></tr>
-      <tr><td>09-Mar</td><td style="color:var(--text3)">Mon</td><td class="num gold-text">6,115</td><td class="num">848</td><td class="num">0</td><td class="num">5,267</td><td class="num red-text">500</td><td style="font-size:11px; color:var(--text3)">Mr Prathvi ₹500</td><td class="num">1,089</td></tr>
-      <tr><td>11-Mar</td><td style="color:var(--text3)">Wed</td><td class="num gold-text">5,959</td><td class="num">0</td><td class="num">0</td><td class="num">5,959</td><td class="num red-text">460</td><td style="font-size:11px; color:var(--text3)">Caustic Soda ₹180, Pipe Connector ₹160, Porter ₹120</td><td class="num">463</td></tr>
-      <tr><td>14-Mar</td><td style="color:var(--text3)">Sat</td><td class="num gold-text">46,137</td><td class="num">0</td><td class="num">19,937</td><td class="num">26,200</td><td class="num red-text">1,160</td><td style="font-size:11px; color:var(--text3)">Blinkit(Avocado+Cauliflower) ₹500, MK Retail ₹580, Push Sign ₹80</td><td class="num">499</td></tr>
-      <tr><td>20-Mar</td><td style="color:var(--text3)">Fri</td><td class="num gold-text">13,874</td><td class="num">2,475</td><td class="num">4,474</td><td class="num">6,925</td><td class="num red-text">920</td><td style="font-size:11px; color:var(--text3)">Zepto(Soda) ₹150, Stamp ₹270, Flowers ₹500</td><td class="num">3,287</td></tr>
-      <tr><td>22-Mar</td><td style="color:var(--text3)">Sun</td><td class="num gold-text">20,764</td><td class="num">0</td><td class="num">13,422</td><td class="num">7,342</td><td class="num">0</td><td style="font-size:11px; color:var(--text3)">—</td><td class="num">4,910</td></tr>
-      <tr><td>23-Mar</td><td style="color:var(--text3)">Mon</td><td class="num gold-text">10,348</td><td class="num">482</td><td class="num">3,499</td><td class="num">6,367</td><td class="num">0</td><td style="font-size:11px; color:var(--text3)">—</td><td class="num">5,392</td></tr>
-      <tr><td>24-Mar</td><td style="color:var(--text3)">Tue</td><td class="num gold-text">21,321</td><td class="num">922</td><td class="num">15,068</td><td class="num">5,331</td><td class="num red-text">500</td><td style="font-size:11px; color:var(--text3)">BigBasket(Soda/Beetroot/Green Apple) ₹500</td><td class="num">5,814</td></tr>
-      <tr><td>25-Mar</td><td style="color:var(--text3)">Wed</td><td class="num gold-text">17,191</td><td class="num">0</td><td class="num">1,686</td><td class="num">15,505</td><td class="num red-text">110</td><td style="font-size:11px; color:var(--text3)">Potter/Rapido ₹100, Printout ₹10</td><td class="num">5,704</td></tr>
-      <tr><td>26-Mar</td><td style="color:var(--text3)">Thu</td><td class="num gold-text">5,917</td><td class="num">679</td><td class="num">0</td><td class="num">5,238</td><td class="num">0</td><td style="font-size:11px; color:var(--text3)">—</td><td class="num">6,383</td></tr>
-      <tr><td>27-Mar</td><td style="color:var(--text3)">Fri</td><td class="num gold-text">14,134</td><td class="num">0</td><td class="num">6,975</td><td class="num">7,159</td><td class="num red-text">800</td><td style="font-size:11px; color:var(--text3)">Flowers ₹500, Allen Key ₹200, Transgender ₹100</td><td class="num">5,583</td></tr>
-      <tr><td>28-Mar</td><td style="color:var(--text3)">Sat</td><td class="num gold-text">38,266</td><td class="num">0</td><td class="num">17,009</td><td class="num">21,257</td><td class="num">0</td><td style="font-size:11px; color:var(--text3)">—</td><td class="num">5,583</td></tr>
-      <tr><td>29-Mar</td><td style="color:var(--text3)">Sun</td><td class="num gold-text">19,418</td><td class="num">0</td><td class="num">9,186</td><td class="num">10,232</td><td class="num">0</td><td style="font-size:11px; color:var(--text3)">—</td><td class="num">5,583</td></tr>
-      <tr><td>30-Mar</td><td style="color:var(--text3)">Mon</td><td class="num gold-text">9,561</td><td class="num">0</td><td class="num">1,989</td><td class="num">7,572</td><td class="num red-text">600</td><td style="font-size:11px; color:var(--text3)">Tommy Salary Advance ₹600</td><td class="num">4,983</td></tr>
-      <tr><td>31-Mar</td><td style="color:var(--text3)">Tue</td><td class="num gold-text">14,838</td><td class="num">8,084</td><td class="num">0</td><td class="num">6,754</td><td class="num red-text">730</td><td style="font-size:11px; color:var(--text3)">Blinkit(Screwdriver) ₹200, Tape+Stamp ₹230, Emmanuel OT ₹200, CADD ₹100</td><td class="num">12,337</td></tr>
-      <!-- APRIL -->
-      <tr style="background:rgba(76,175,125,0.06)"><td colspan="9" style="font-size:10px; color:var(--green); font-family:'DM Mono',monospace; letter-spacing:1px; padding:8px 16px; text-transform:uppercase;">— April 2026 —</td></tr>
-      <tr><td>01-Apr</td><td style="color:var(--text3)">Wed</td><td class="num gold-text">10,984</td><td class="num">1,288</td><td class="num">690</td><td class="num">9,016</td><td class="num red-text">8,500</td><td style="font-size:11px; color:var(--text3)">Riaz Advance ₹6,000, Anand Daz Advance ₹2,000, Thangao Advance ₹500</td><td class="num">5,125</td></tr>
-      <tr style="background: rgba(212,132,58,0.05)"><td>01-Apr</td><td style="color:var(--text3)">Sat*</td><td class="num gold-text">89,868</td><td class="num">10,700</td><td class="num">35,627</td><td class="num">43,541</td><td class="num red-text">1,925</td><td style="font-size:11px; color:var(--text3)">Drainage ₹1,000, BigBasket ₹550, MK Retail ₹275, Transgender ₹100 <em style="color:var(--accent2)">[Sat 01 Apr confirmed from prev batch]</em></td><td class="num">21,492</td></tr>
-      <tr><td>03-Apr</td><td style="color:var(--text3)">Fri</td><td class="num gold-text">20,911</td><td class="num">5,464</td><td class="num">1,812</td><td class="num">13,645</td><td class="num red-text">1,789</td><td style="font-size:11px; color:var(--text3)">Flowers ₹600, Urban Company/Washroom ₹500, Apollo Pharmacy(Medical Kit) ₹689</td><td class="num">8,790</td></tr>
-      <tr><td>04-Apr</td><td style="color:var(--text3)">Sat</td><td class="num gold-text">54,315</td><td class="num">2,500</td><td class="num">6,127</td><td class="num">45,688</td><td class="num red-text">3,400</td><td style="font-size:11px; color:var(--text3)">Pest Control ₹1,500, Blinkit(Avocado) ₹700, Zepto(Soda) ₹200, Nujural Salary Advance ₹1,000</td><td class="num">7,890</td></tr>
-      <tr style="background: rgba(76,175,125,0.05)"><td>05-Apr</td><td style="color:var(--text3)">Sun</td><td class="num" style="color:#7ed4a8; font-weight:700">1,14,326</td><td class="num">12,389</td><td class="num">47,852</td><td class="num">54,085</td><td class="num red-text">2,631</td><td style="font-size:11px; color:var(--text3)">MK Retail(Imli Candy) ₹220, Zepto ₹510, BigBasket(Avocado/GreenTomato) ₹1,000, Blinkit(Lemon) ₹401, Tommy Advance ₹500</td><td class="num">17,648</td></tr>
-      <tr><td>06-Apr</td><td style="color:var(--text3)">Mon</td><td class="num gold-text">21,831</td><td class="num">3,278</td><td class="num">6,281</td><td class="num">12,272</td><td class="num red-text">1,800</td><td style="font-size:11px; color:var(--text3)">Blinkit(Milk+Sour Cream) ₹500, BigBasket ₹600, Blinkit(Soda+Thyme) ₹300, Emmanuel OT ₹400</td><td class="num">19,126</td></tr>
-      <tr><td>07-Apr</td><td style="color:var(--text3)">Tue</td><td class="num gold-text">28,135</td><td class="num">419</td><td class="num">9,499</td><td class="num">18,217</td><td class="num red-text">11,814</td><td style="font-size:11px; color:var(--text3)">HyperPure ₹8,032, Urban Company(Electrician) ₹260, Drainage ₹3,000, BigBasket ₹320, Amazon(Xanthan) ₹202</td><td class="num">7,731</td></tr>
-      <tr><td>08-Apr</td><td style="color:var(--text3)">Wed</td><td class="num gold-text">34,578</td><td class="num">2,744</td><td class="num">9,418</td><td class="num">22,416</td><td class="num red-text">500</td><td style="font-size:11px; color:var(--text3)">Blinkit(Avocado) ₹500</td><td class="num">9,975</td></tr>
-      <tr><td>09-Apr</td><td style="color:var(--text3)">Thu</td><td class="num gold-text">30,895</td><td class="num">2,600</td><td class="num">11,454</td><td class="num">16,841</td><td class="num">0</td><td style="font-size:11px; color:var(--text3)">—</td><td class="num">12,575</td></tr>
-      <tr><td>10-Apr</td><td style="color:var(--text3)">Fri</td><td class="num gold-text">43,660</td><td class="num">3,603</td><td class="num">12,108</td><td class="num">27,949</td><td class="num red-text">3,461</td><td style="font-size:11px; color:var(--text3)">Flowers ₹500, Cheese Porter ₹140, Emmanuel Advance ₹1,599, Amazon(Mushroom) ₹857, MK Retail(Maize Flour) ₹165, BigBasket(Soda) ₹200</td><td class="num">12,717</td></tr>
-      <tr><td>12-Apr</td><td style="color:var(--text3)">Sun</td><td class="num" style="color:#7ed4a8; font-weight:700">1,21,874</td><td class="num">20,562</td><td class="num">44,770</td><td class="num">56,542</td><td class="num red-text">1,612</td><td style="font-size:11px; color:var(--text3)">BigBasket(Extension Cord+Soda) ₹610, Blinkit(Lemon,Garlic,Soda,Onion,Rosemary) ₹1,002</td><td class="num">40,442</td></tr>
-      <tr><td>13-Apr</td><td style="color:var(--text3)">Mon</td><td class="num gold-text">22,180</td><td class="num">8,663</td><td class="num">3,163</td><td class="num">10,354</td><td class="num red-text">170</td><td style="font-size:11px; color:var(--text3)">Mozzarella Block Porter ₹170</td><td class="num">48,935</td></tr>
-      <tr><td>14-Apr</td><td style="color:var(--text3)">Tue</td><td class="num gold-text">26,769</td><td class="num">5,758</td><td class="num">5,887</td><td class="num">15,124</td><td class="num red-text">13,600</td><td style="font-size:11px; color:var(--text3)">Water Cans ₹4,000, Drainage ₹4,000, Swiggy(Ice Bucket) ₹600, Gas Cylinder ₹5,000</td><td class="num">41,093</td></tr>
-      <tr><td>15-Apr</td><td style="color:var(--text3)">Wed</td><td class="num gold-text">12,660</td><td class="num">0</td><td class="num">3,487</td><td class="num">9,173</td><td class="num red-text">39,050</td><td style="font-size:11px; color:var(--text3)">Cash Dep to Bank ₹30,000, HyperPure ₹5,000, Amazon ₹1,900+₹350, Emmanuel NightDuty ₹1,800</td><td class="num">1,800</td></tr>
-      <tr><td>16-Apr</td><td style="color:var(--text3)">Thu</td><td class="num gold-text">9,853</td><td class="num">1,655</td><td class="num">3,968</td><td class="num">4,230</td><td class="num red-text">50</td><td style="font-size:11px; color:var(--text3)">Transgender ₹20, Printout ₹30</td><td class="num">4,148</td></tr>
-      <tr><td>17-Apr</td><td style="color:var(--text3)">Fri</td><td class="num gold-text">44,562</td><td class="num">8,969</td><td class="num">19,869</td><td class="num">15,724</td><td class="num red-text">3,300</td><td style="font-size:11px; color:var(--text3)">Garbage Clearance(March) ₹2,000, Flowers ₹500, MK Retail(Avocado) ₹800</td><td class="num">9,817</td></tr>
-      <tr><td>18-Apr</td><td style="color:var(--text3)">Sat</td><td class="num gold-text">76,792</td><td class="num">0</td><td class="num">33,071</td><td class="num">43,721</td><td class="num red-text">1,000</td><td style="font-size:11px; color:var(--text3)">Zepto(Soda,Lemon,GreenTomatoes) ₹500, Blinkit(Raw Pineapple+Peeled Garlic) ₹500</td><td class="num">8,817</td></tr>
-      <tr style="background:rgba(76,175,125,0.05)"><td>19-Apr</td><td style="color:var(--text3)">Sun</td><td class="num" style="color:#7ed4a8; font-weight:700">90,376</td><td class="num">8,416</td><td class="num">39,780</td><td class="num">42,180</td><td class="num">0</td><td style="font-size:11px; color:var(--text3)">—</td><td class="num">17,233</td></tr>
-      <tr><td>20-Apr</td><td style="color:var(--text3)">Mon</td><td class="num gold-text">19,960</td><td class="num">2,743</td><td class="num">3,340</td><td class="num">13,877</td><td class="num red-text">5,595</td><td style="font-size:11px; color:var(--text3)">Amazon(Rolling Pin) ₹1,420, Drainage ₹3,000, BigBasket ₹500, Cement+Sand ₹260, Porters ₹415</td><td class="num">14,381</td></tr>
-      <tr><td>21-Apr</td><td style="color:var(--text3)">Tue</td><td class="num gold-text">20,088</td><td class="num">1,000</td><td class="num">6,599</td><td class="num">12,489</td><td class="num">0</td><td style="font-size:11px; color:var(--text3)">—</td><td class="num">15,381</td></tr>
-      <tr><td>22-Apr</td><td style="color:var(--text3)">Wed</td><td class="num gold-text">21,651</td><td class="num">0</td><td class="num">8,786</td><td class="num">12,865</td><td class="num red-text">3,650</td><td style="font-size:11px; color:var(--text3)">Porter/Mahesh Dist. ₹450, Pest Control ₹1,500, Nature Basket Habanero ₹1,700</td><td class="num">11,731</td></tr>
-      <tr><td>23-Apr</td><td style="color:var(--text3)">Thu</td><td class="num gold-text">11,406</td><td class="num">1,299</td><td class="num">1,760</td><td class="num">8,347</td><td class="num">0</td><td style="font-size:11px; color:var(--text3)">—</td><td class="num">13,030</td></tr>
-      <tr><td>24-Apr</td><td style="color:var(--text3)">Fri</td><td class="num gold-text">45,124</td><td class="num">0</td><td class="num">22,818</td><td class="num">22,306</td><td class="num red-text">6,520</td><td style="font-size:11px; color:var(--text3)">Flowers ₹600, Cylinder Gas ₹5,000, Ice Cubes ₹120, Porter(Fridge) ₹800</td><td class="num">6,510</td></tr>
-    </tbody>
-  </table>
-  </div>
-  <div class="note" style="margin-top:12px">* Apr 1 appears twice — the Wed entry (₹10,984) is the actual 1st April (Wednesday). The Sat ₹89,868 entry was confirmed as Saturday 1st April from the previous batch — likely the manager's handwriting had a date error on one entry. Both are retained for reconciliation.</div>
-
-  <div class="section-title">Cash Expense Categories (45 days)</div>
-  <div class="bar-chart">
-    <div class="bar-row"><div class="bar-label">Cash Dep to Bank (15 Apr)</div><div class="bar-track"><div class="bar-fill" style="width:100%; background: var(--text3);"></div></div><div class="bar-val">₹30,000</div></div>
-    <div class="bar-row"><div class="bar-label">Drainage Cleaning</div><div class="bar-track"><div class="bar-fill" style="width:73%; background: var(--red);"></div></div><div class="bar-val">₹22,000</div></div>
-    <div class="bar-row"><div class="bar-label">Staff Salary Advances</div><div class="bar-track"><div class="bar-fill" style="width:50%; background: var(--accent2);"></div></div><div class="bar-val">₹15,098</div></div>
-    <div class="bar-row"><div class="bar-label">HyperPure Orders</div><div class="bar-track"><div class="bar-fill" style="width:43%; background: #e07a52;"></div></div><div class="bar-val">₹13,032</div></div>
-    <div class="bar-row"><div class="bar-label">Gas Cylinders</div><div class="bar-track"><div class="bar-fill" style="width:33%; background: var(--red);"></div></div><div class="bar-val">₹10,000</div></div>
-    <div class="bar-row"><div class="bar-label">Pest Control</div><div class="bar-track"><div class="bar-fill" style="width:23%; background: var(--accent2);"></div></div><div class="bar-val">₹7,000</div></div>
-    <div class="bar-row"><div class="bar-label">BigBasket / Blinkit / Zepto</div><div class="bar-track"><div class="bar-fill" style="width:20%; background: var(--accent);"></div></div><div class="bar-val">₹6,144</div></div>
-    <div class="bar-row"><div class="bar-label">Amazon Purchases</div><div class="bar-track"><div class="bar-fill" style="width:15%; background: var(--accent);"></div></div><div class="bar-val">₹4,731</div></div>
-    <div class="bar-row"><div class="bar-label">Water Cans</div><div class="bar-track"><div class="bar-fill" style="width:13%; background: var(--text3);"></div></div><div class="bar-val">₹4,000</div></div>
-    <div class="bar-row"><div class="bar-label">Flowers (recurring)</div><div class="bar-track"><div class="bar-fill" style="width:10%; background: #a8c5a0;"></div></div><div class="bar-val">₹3,200</div></div>
-    <div class="bar-row"><div class="bar-label">Emmanuel OT / Night Duty</div><div class="bar-track"><div class="bar-fill" style="width:8%; background: var(--accent2);"></div></div><div class="bar-val">₹2,400</div></div>
-  </div>
-</div>
-
-<!-- ===================== MENU ANALYTICS ===================== -->
-<div id="panel-menu" class="panel content">
-  <div class="note">
-    <strong>Source:</strong> Pet Pooja Outlet-Item Wise Report · 5 Mar – 24 Apr 2026 · 4,080 total units sold · Gross Sales ₹15,38,342
-  </div>
-
-  <div class="cards">
-    <div class="card"><div class="card-label">Total Units Sold</div><div class="card-value gold">4,080</div></div>
-    <div class="card"><div class="card-label">Gross Revenue (Pet Pooja)</div><div class="card-value green">₹15,38,342</div></div>
-    <div class="card"><div class="card-label">Avg Selling Price</div><div class="card-value" style="color:var(--text)">₹377</div><div class="card-sub">Per item sold</div></div>
-    <div class="card"><div class="card-label">Top Category</div><div class="card-value" style="font-size:16px; color:var(--accent2)">Platos Fuentes</div><div class="card-sub">₹5,72,000+ revenue</div></div>
-  </div>
-
-  <div class="section-title">Top 15 Items by Units Sold</div>
-  <div class="bar-chart">
-    <div class="bar-row"><div class="bar-label">Horchata</div><div class="bar-track"><div class="bar-fill" style="width:100%; background: linear-gradient(90deg, var(--accent), var(--accent2));"></div></div><div class="bar-val">340 units</div></div>
-    <div class="bar-row"><div class="bar-label">Tepache (Bebidas)</div><div class="bar-track"><div class="bar-fill" style="width:73%; background: var(--green);"></div></div><div class="bar-val">247 units</div></div>
-    <div class="bar-row"><div class="bar-label">Limonada</div><div class="bar-track"><div class="bar-fill" style="width:63%; background: var(--green);"></div></div><div class="bar-val">213 units</div></div>
-    <div class="bar-row"><div class="bar-label">Elote</div><div class="bar-track"><div class="bar-fill" style="width:51%; background: var(--accent2);"></div></div><div class="bar-val">173 units</div></div>
-    <div class="bar-row"><div class="bar-label">Queso Birria Tacos</div><div class="bar-track"><div class="bar-fill" style="width:48%; background: var(--accent);"></div></div><div class="bar-val">164 units</div></div>
-    <div class="bar-row"><div class="bar-label">Tacos De Coliflor Con Queso</div><div class="bar-track"><div class="bar-fill" style="width:43%; background: var(--accent);"></div></div><div class="bar-val">147 units</div></div>
-    <div class="bar-row"><div class="bar-label">Tacos De Aguacate</div><div class="bar-track"><div class="bar-fill" style="width:43%; background: var(--accent);"></div></div><div class="bar-val">146 units</div></div>
-    <div class="bar-row"><div class="bar-label">Chamoyada De Pina</div><div class="bar-track"><div class="bar-fill" style="width:38%; background: var(--green);"></div></div><div class="bar-val">128 units</div></div>
-    <div class="bar-row"><div class="bar-label">Volcanes (Mushrooms)</div><div class="bar-track"><div class="bar-fill" style="width:37%; background: var(--accent2);"></div></div><div class="bar-val">127 units</div></div>
-    <div class="bar-row"><div class="bar-label">Totopos Con Salsa (2-4)</div><div class="bar-track"><div class="bar-fill" style="width:80%; background: var(--accent2);"></div></div><div class="bar-val">273 units</div></div>
-    <div class="bar-row"><div class="bar-label">Guacamole</div><div class="bar-track"><div class="bar-fill" style="width:35%; background: var(--text3);"></div></div><div class="bar-val">119 units</div></div>
-    <div class="bar-row"><div class="bar-label">Taquitos (Papas)</div><div class="bar-track"><div class="bar-fill" style="width:35%; background: var(--text3);"></div></div><div class="bar-val">120 units</div></div>
-    <div class="bar-row"><div class="bar-label">Coco Flan (Postres)</div><div class="bar-track"><div class="bar-fill" style="width:34%; background: var(--accent);"></div></div><div class="bar-val">116 units</div></div>
-    <div class="bar-row"><div class="bar-label">Tacos De Champinon Con Queso</div><div class="bar-track"><div class="bar-fill" style="width:30%; background: var(--accent);"></div></div><div class="bar-val">103 units</div></div>
-    <div class="bar-row"><div class="bar-label">Water Bottle 500ml</div><div class="bar-track"><div class="bar-fill" style="width:27%; background: var(--text3);"></div></div><div class="bar-val">92 units</div></div>
-  </div>
-
-  <div class="section-title">Top Items by Gross Revenue</div>
-  <div class="table-wrap">
-  <table>
-    <thead><tr><th>Item</th><th>Category</th><th class="num">Units</th><th class="num">Gross Sales (₹)</th><th class="num">Avg Price (₹)</th></tr></thead>
-    <tbody>
-      <tr><td>Totopos Con Salsa (2-4) — Antojitos</td><td><span class="cat-badge cat-antojitos">Antojitos</span></td><td class="num">273</td><td class="num gold-text">1,14,292</td><td class="num">419</td></tr>
-      <tr><td>Horchata</td><td><span class="cat-badge cat-bebidas">Bebidas</span></td><td class="num">340</td><td class="num gold-text">1,03,130</td><td class="num">303</td></tr>
-      <tr><td>Queso Birria Tacos</td><td><span class="cat-badge cat-platos">Platos Fuentes</span></td><td class="num">164</td><td class="num gold-text">94,366</td><td class="num">575</td></tr>
-      <tr><td>Tacos De Coliflor Con Queso</td><td><span class="cat-badge cat-platos">Platos Fuentes</span></td><td class="num">147</td><td class="num gold-text">73,935</td><td class="num">503</td></tr>
-      <tr><td>Tacos De Aguacate</td><td><span class="cat-badge cat-platos">Platos Fuentes</span></td><td class="num">146</td><td class="num gold-text">73,256</td><td class="num">502</td></tr>
-      <tr><td>Tepache (Bebidas)</td><td><span class="cat-badge cat-bebidas">Bebidas</span></td><td class="num">247</td><td class="num gold-text">69,725</td><td class="num">282</td></tr>
-      <tr><td>Taquitos (Birria Jamaica)</td><td><span class="cat-badge cat-platos">Platos Fuentes</span></td><td class="num">119</td><td class="num gold-text">64,768</td><td class="num">544</td></tr>
-      <tr><td>Tacos De Champinon Con Queso</td><td><span class="cat-badge cat-platos">Platos Fuentes</span></td><td class="num">103</td><td class="num gold-text">52,886</td><td class="num">514</td></tr>
-      <tr><td>Volcanes Mushrooms (Antojitos)</td><td><span class="cat-badge cat-antojitos">Antojitos</span></td><td class="num">127</td><td class="num gold-text">51,813</td><td class="num">408</td></tr>
-      <tr><td>Volcanes Yaca (Antojitos)</td><td><span class="cat-badge cat-antojitos">Antojitos</span></td><td class="num">121</td><td class="num gold-text">50,631</td><td class="num">418</td></tr>
-      <tr><td>Elote</td><td><span class="cat-badge cat-antojitos">Antojitos</span></td><td class="num">173</td><td class="num gold-text">50,594</td><td class="num">292</td></tr>
-      <tr><td>Queso Fundido</td><td><span class="cat-badge cat-platos">Platos Fuentes</span></td><td class="num">80</td><td class="num gold-text">44,437</td><td class="num">555</td></tr>
-      <tr><td>Guacamole</td><td><span class="cat-badge cat-acompana">Acompanamientos</span></td><td class="num">119</td><td class="num gold-text">43,517</td><td class="num">366</td></tr>
-      <tr><td>Chamoyada De Pina</td><td><span class="cat-badge cat-bebidas">Bebidas</span></td><td class="num">128</td><td class="num gold-text">42,875</td><td class="num">335</td></tr>
-      <tr><td>Limonada</td><td><span class="cat-badge cat-bebidas">Bebidas</span></td><td class="num">213</td><td class="num gold-text">35,545</td><td class="num">167</td></tr>
-      <tr><td>Enchiladas Champinon</td><td><span class="cat-badge cat-platos">Platos Fuentes</span></td><td class="num">89</td><td class="num gold-text">42,822</td><td class="num">481</td></tr>
-    </tbody>
-  </table>
-  </div>
-
-  <div class="section-title">Category Performance Summary</div>
-  <div class="bar-chart">
-    <div class="bar-row"><div class="bar-label">Platos Fuentes (Mains)</div><div class="bar-track"><div class="bar-fill" style="width:100%; background: var(--accent);"></div></div><div class="bar-val">~₹5,72,000</div></div>
-    <div class="bar-row"><div class="bar-label">Antojitos (Snacks)</div><div class="bar-track"><div class="bar-fill" style="width:82%; background: var(--accent2);"></div></div><div class="bar-val">~₹4,57,000</div></div>
-    <div class="bar-row"><div class="bar-label">Bebidas (Drinks)</div><div class="bar-track"><div class="bar-fill" style="width:62%; background: var(--green);"></div></div><div class="bar-val">~₹3,40,000</div></div>
-    <div class="bar-row"><div class="bar-label">Postres (Desserts)</div><div class="bar-track"><div class="bar-fill" style="width:18%; background: #e07a52;"></div></div><div class="bar-val">~₹90,000</div></div>
-    <div class="bar-row"><div class="bar-label">Acompanamientos (Sides)</div><div class="bar-track"><div class="bar-fill" style="width:14%; background: var(--text3);"></div></div><div class="bar-val">~₹54,000</div></div>
-    <div class="bar-row"><div class="bar-label">Vegano</div><div class="bar-track"><div class="bar-fill" style="width:7%; background: #7ed4a8;"></div></div><div class="bar-val">~₹25,000</div></div>
-  </div>
-
-  <div class="section-title">Menu Engineering Matrix</div>
-  <div class="matrix-grid">
-    <div class="matrix-box star">
-      <h4>⭐ Stars — High Volume + High Revenue</h4>
-      <div class="matrix-item"><span>Horchata</span><span class="tag-gold">340 units · ₹1,03,130</span></div>
-      <div class="matrix-item"><span>Totopos Con Salsa (2-4)</span><span class="tag-gold">273 units · ₹1,14,292</span></div>
-      <div class="matrix-item"><span>Queso Birria Tacos</span><span class="tag-gold">164 units · ₹94,366</span></div>
-      <div class="matrix-item"><span>Tacos De Coliflor Con Queso</span><span class="tag-gold">147 units · ₹73,935</span></div>
-      <div class="matrix-item"><span>Tacos De Aguacate</span><span class="tag-gold">146 units · ₹73,256</span></div>
-      <div class="matrix-item"><span>Tepache (Bebidas)</span><span class="tag-gold">247 units · ₹69,725</span></div>
-      <div class="matrix-item"><span>Elote</span><span class="tag-gold">173 units · ₹50,594</span></div>
-      <div class="matrix-item"><span>Limonada</span><span class="tag-gold">213 units · ₹35,545</span></div>
-      <p style="font-size:11px; color:var(--text3); margin-top:10px">🔒 Never remove. Protect pricing. Feature prominently.</p>
-    </div>
-    <div class="matrix-box workhorse">
-      <h4>🐎 Workhorses — High Volume, Lower Per-Unit Revenue</h4>
-      <div class="matrix-item"><span>Chamoyada De Pina</span><span class="tag-green">128 units · ₹335 avg</span></div>
-      <div class="matrix-item"><span>Volcanes Mushrooms</span><span class="tag-green">127 units · ₹408 avg</span></div>
-      <div class="matrix-item"><span>Volcanes Yaca</span><span class="tag-green">121 units · ₹418 avg</span></div>
-      <div class="matrix-item"><span>Taquitos (Papas)</span><span class="tag-green">120 units · ₹269 avg</span></div>
-      <div class="matrix-item"><span>Guacamole</span><span class="tag-green">119 units · ₹366 avg</span></div>
-      <div class="matrix-item"><span>Coco Flan</span><span class="tag-green">116 units · ₹335 avg</span></div>
-      <p style="font-size:11px; color:var(--text3); margin-top:10px">💡 Consider bundling or slight price increase.</p>
-    </div>
-    <div class="matrix-box puzzle">
-      <h4>🧩 Puzzles — High Revenue, Lower Volume</h4>
-      <div class="matrix-item"><span>Queso Fundido</span><span style="color:#7ec8e3; font-family:'DM Mono',monospace; font-size:11px">80 units · ₹44,437</span></div>
-      <div class="matrix-item"><span>Taquitos Birria Jamaica</span><span style="color:#7ec8e3; font-family:'DM Mono',monospace; font-size:11px">119 units · ₹64,768</span></div>
-      <div class="matrix-item"><span>Chilles Rellenos De Mole</span><span style="color:#7ec8e3; font-family:'DM Mono',monospace; font-size:11px">64 units · ₹33,324</span></div>
-      <div class="matrix-item"><span>Enchiladas Champinon</span><span style="color:#7ec8e3; font-family:'DM Mono',monospace; font-size:11px">89 units · ₹42,822</span></div>
-      <div class="matrix-item"><span>Hoja Santa Quesadilla</span><span style="color:#7ec8e3; font-family:'DM Mono',monospace; font-size:11px">33 units · ₹20,756</span></div>
-      <p style="font-size:11px; color:var(--text3); margin-top:10px">📣 Promote more. They generate great revenue when ordered.</p>
-    </div>
-    <div class="matrix-box dog">
-      <h4>🐕 Dogs — Low Volume + Low Revenue</h4>
-      <div class="matrix-item"><span>Tacos De Soy (Vegano)</span><span class="tag-red">5 units · ₹2,357</span></div>
-      <div class="matrix-item"><span>Tostada De Sandia (Vegano)</span><span class="tag-red">2 units · ₹796</span></div>
-      <div class="matrix-item"><span>Sopa De Fideo (Vegano)</span><span class="tag-red">3 units · ₹1,194</span></div>
-      <div class="matrix-item"><span>Chamoyada De Pina (Vegano)</span><span class="tag-red">3 units · ₹1,005</span></div>
-      <div class="matrix-item"><span>Dorolicos</span><span class="tag-red">5 units · ₹1,360</span></div>
-      <div class="matrix-item"><span>Tepache (Vegano)</span><span class="tag-red">4 units · ₹1,130</span></div>
-      <div class="matrix-item"><span>Gordita</span><span class="tag-red">30 units · ₹11,939</span></div>
-      <p style="font-size:11px; color:var(--text3); margin-top:10px">⚠️ Review or remove. Vegano category performing poorly overall.</p>
-    </div>
-  </div>
-
-  <div class="note" style="margin-top:20px">
-    <strong>Key Insight:</strong> The Vegano category is significantly underperforming — most items have 1–10 units sold over 50 days. Bebidas (drinks) are a surprisingly strong revenue driver — Horchata + Tepache + Limonada + Chamoyada together account for over ₹2.5L. <strong>Consider aggressive drinks upselling at order time.</strong>
-  </div>
+  <div class="section-title" style="margin-top:28px;">Bank — account expenses</div>
+  <div id="bank-table-wrap" class="table-wrap"></div>
 </div>
 
 <!-- ===================== DAILY ENTRY (Manager) ===================== -->
@@ -862,36 +402,44 @@
 
 </div>
 
-<!-- ===================== CASH DASHBOARD ===================== -->
-<div id="panel-cashdash" class="panel content">
-  <div class="section-title">💵 Cash Dashboard</div>
+<!-- ===================== BANK EXPENSES (Partner) ===================== -->
+<div id="panel-bankexp" class="panel content">
 
-  <div class="dash-filters">
-    <button class="dfbtn active" onclick="setDashFilter('today',this)">Today</button>
-    <button class="dfbtn" onclick="setDashFilter('week',this)">This Week</button>
-    <button class="dfbtn" onclick="setDashFilter('month',this)">This Month</button>
-    <button class="dfbtn" onclick="setDashFilter('quarter',this)">This Quarter</button>
-    <button class="dfbtn" onclick="setDashFilter('half',this)">Half Year</button>
-    <button class="dfbtn" onclick="setDashFilter('ytd',this)">YTD</button>
-    <button class="dfbtn" onclick="setDashFilter('custom',this)">Custom</button>
+  <div id="bank-form-errors" style="display:none; background:rgba(224,82,82,0.1); border:1px solid rgba(224,82,82,0.3); border-radius:7px; padding:12px 14px; font-size:12px; color:var(--red); font-family:'DM Mono',monospace; margin-bottom:14px;"></div>
+  <div id="bank-form-success" style="display:none; background:rgba(76,175,125,0.1); border:1px solid rgba(76,175,125,0.3); border-radius:7px; padding:14px; font-size:13px; color:var(--text); margin-bottom:14px;"></div>
+
+  <div class="form-section">
+    <h3><span class="step-num">🏦</span> Add Bank / Account Expense</h3>
+    <p class="exp-note">Real-time IDFC account debits &amp; transfers — the ~99% of spend that leaves the main account. Stamped with your name for the audit trail.</p>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+      <div><label class="field-label">Date</label><input id="be-date" type="date" class="field-input" style="width:100%;"></div>
+      <div><label class="field-label">Amount ₹</label><input id="be-amount" type="number" class="field-input field-input-mono" placeholder="0" style="width:100%;"></div>
+    </div>
+    <div style="margin-bottom:12px;"><label class="field-label">Category</label>
+      <select id="be-category" class="field-select"><option value="">Select category…</option></select>
+    </div>
+    <div style="margin-bottom:12px;"><label class="field-label">Payee / Description *</label><input id="be-desc" class="field-input" placeholder="e.g. Greenleaf Company — vegetables"></div>
+    <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
+      <input type="checkbox" id="be-capital" style="width:18px;height:18px;flex-shrink:0;">
+      <label for="be-capital" style="font-size:13px; color:var(--text2);">This is a <b>capital infusion</b> (money put in), not an expense</label>
+    </div>
+    <button class="btn" style="width:100%; margin-top:14px; padding:13px; font-size:15px;" onclick="submitBankExpense()">Add to Bank Ledger ✓</button>
   </div>
 
-  <div id="custom-range" style="display:none; gap:10px; align-items:flex-end; margin-bottom:20px; flex-wrap:wrap;">
-    <div><label class="field-label">From</label><input type="date" id="dash-from" class="field-input" style="width:160px;"></div>
-    <div><label class="field-label">To</label><input type="date" id="dash-to" class="field-input" style="width:160px;"></div>
-    <button class="btn" onclick="applyCustomRange()">Apply</button>
+  <div class="form-section">
+    <h3><span class="step-num">↥</span> Weekly Statement Upload</h3>
+    <p class="exp-note">Upload the IDFC statement to auto-import transactions and set the true balance. Export as <b>CSV</b> from net-banking (not PDF) for a clean read.</p>
+    <input type="file" id="stmt-file" accept=".csv,text/csv" onchange="handleStatementUpload(this)" style="display:none;">
+    <button class="add-expense-btn" onclick="document.getElementById('stmt-file').click()">⬆ Choose IDFC statement (.csv)</button>
+    <div id="stmt-preview" style="margin-top:14px;"></div>
+    <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--border); display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
+      <div><label class="field-label">Bank balance (from statement) ₹</label><input id="bank-bal-input" type="number" class="field-input field-input-mono" placeholder="e.g. 197254" style="width:200px;"></div>
+      <button class="btn btn-ghost" onclick="saveBankBalance()">Update balance</button>
+    </div>
   </div>
 
-  <div id="dash-cards" class="cards" style="margin-bottom:24px;"></div>
-
-  <div class="dash-export-bar">
-    <button class="btn btn-ghost" onclick="copyForSheets()">📋 Copy for Google Sheets</button>
-    <button class="btn btn-ghost" onclick="downloadCSV()">⬇ Download CSV</button>
-    <button class="btn btn-ghost owner-only" onclick="clearAllEntries()" style="margin-left:auto;color:var(--red);border-color:rgba(224,82,82,0.4);">🗑 Clear All Entries</button>
-  </div>
-
-  <div id="dash-table-wrap" class="table-wrap"></div>
-  <div id="dash-expense-wrap"></div>
+  <div class="section-title">Recent Bank Entries</div>
+  <div id="bankexp-list"></div>
 </div>
 
 </div><!-- end #app -->
@@ -949,32 +497,51 @@ let _db = null;
     _db.ref('comedor/entries').on('value', snap => {
       if (!snap.exists()) {
         localStorage.removeItem('comedor_entries');
-        if (document.getElementById('panel-cashdash')?.classList.contains('active')) renderDashboard();
+        if (document.getElementById('panel-dashboard')?.classList.contains('active')) renderDashboard();
         return;
       }
       const entries = Object.values(snap.val()).sort((a, b) => a.date.localeCompare(b.date));
       localStorage.setItem('comedor_entries', JSON.stringify(entries));
-      if (document.getElementById('panel-cashdash')?.classList.contains('active')) renderDashboard();
+      if (document.getElementById('panel-dashboard')?.classList.contains('active')) renderDashboard();
       checkOpening();
+    });
+    // Bank expenses (partner-entered IDFC account debits / capital infusions)
+    _db.ref('comedor/bank_expenses').on('value', snap => {
+      const list = snap.exists() ? Object.values(snap.val()) : [];
+      localStorage.setItem('comedor_bank', JSON.stringify(list));
+      if (document.getElementById('panel-dashboard')?.classList.contains('active')) renderDashboard();
+      if (document.getElementById('panel-bankexp')?.classList.contains('active')) renderBankList();
+    });
+    // Bank balance (set from the weekly statement)
+    _db.ref('comedor/meta/bankBalance').on('value', snap => {
+      if (snap.exists()) localStorage.setItem('comedor_bankbal', JSON.stringify(snap.val()));
+      else localStorage.removeItem('comedor_bankbal');
+      if (document.getElementById('panel-dashboard')?.classList.contains('active')) renderDashboard();
     });
   } catch (e) { console.warn('Firebase init failed:', e); }
 })();
 
-// ─── PIN CONFIGURATION ───────────────────────────────────────────────────────
-// Change these PINs before sharing!
-const PINS = {
-  '2580': 'owner',    // Edwin & partner — full access
-  '3030': 'manager'  // Manager — cash entry + register + menu only
+// ─── USERS & LOGINS ──────────────────────────────────────────────────────────
+// Each person gets their OWN PIN, so every entry is stamped with who added it.
+//   role 'manager'  → cash expenses only
+//   role 'partner'  → full access (Dashboard, P&L, Bank Expenses, Cash)
+// >>> Edit the names & PINs below to your real people before sharing. <<<
+const USERS = {
+  '2580': { name: 'Edwin',   role: 'partner' },
+  '4040': { name: 'Partner', role: 'partner' },   // second working partner — set real PIN & name
+  '3030': { name: 'Manager', role: 'manager' }
 };
 
-let currentRole = null;
+let currentUser = null;   // { name, role }
+let currentRole = null;   // 'owner' (partners) | 'manager'  — permission level
 
 // ─── ACCESS GRANT (shared by PIN + Face ID) ──────────────────────────────────
-function grantAccess(role) {
-  currentRole = role;
+function grantAccess(user) {
+  currentUser = user;
+  currentRole = user.role === 'manager' ? 'manager' : 'owner';
   document.getElementById('pin-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
-  applyRoleAccess(role);
+  applyRoleAccess(currentRole, user);
   const today = new Date().toISOString().split('T')[0];
   const dateField = document.getElementById('entry-date');
   if (dateField) dateField.value = today;
@@ -983,10 +550,10 @@ function grantAccess(role) {
 // ─── PIN SCREEN ──────────────────────────────────────────────────────────────
 function checkPin() {
   const input = document.getElementById('pin-input').value.trim();
-  const role = PINS[input];
-  if (role) {
-    grantAccess(role);
-    maybeOfferEnroll(role);   // offer Face ID enrollment on this device
+  const user = USERS[input];
+  if (user) {
+    grantAccess(user);
+    maybeOfferEnroll(user);   // offer Face ID enrollment on this device
   } else {
     const err = document.getElementById('pin-error');
     err.style.display = 'block';
@@ -1028,18 +595,24 @@ function _bioUnB64u(str) {
   return b.buffer;
 }
 
-async function enrollBiometric(role) {
+function _bioUser(store) {
+  if (store && store.user) return store.user;
+  return { name: (store && store.role === 'manager') ? 'Manager' : 'Owner', role: (store && store.role) || 'partner' };
+}
+let _pendingEnrollUser = null;
+
+async function enrollBiometric(user) {
   if (!(await bioPlatformAvailable())) { alert('Face ID / fingerprint is not available in this browser.'); return false; }
   try {
     const cred = await navigator.credentials.create({ publicKey: {
       challenge: _bioRand(32),
       rp: { name: 'COMEDOR Finance', id: location.hostname },
-      user: { id: _bioRand(16), name: role + '@comedor', displayName: role === 'owner' ? 'Owner' : 'Manager' },
+      user: { id: _bioRand(16), name: user.name + '@comedor', displayName: user.name },
       pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
       authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required', residentKey: 'preferred' },
       timeout: 60000, attestation: 'none'
     }});
-    setBioStore({ id: _bioB64u(cred.rawId), role: role });
+    setBioStore({ id: _bioB64u(cred.rawId), user: { name: user.name, role: user.role } });
     return true;
   } catch (e) { console.warn('Face ID enroll failed:', e); return false; }
 }
@@ -1055,7 +628,7 @@ async function biometricUnlock(auto) {
       allowCredentials: [{ type: 'public-key', id: _bioUnB64u(store.id), transports: ['internal'] }],
       userVerification: 'required', rpId: location.hostname, timeout: 60000
     }});
-    if (assertion) { if (st) st.textContent = ''; grantAccess(store.role); }
+    if (assertion) { if (st) st.textContent = ''; grantAccess(_bioUser(store)); }
   } catch (e) {
     console.warn('Face ID unlock failed:', e);
     if (st) st.textContent = auto
@@ -1064,14 +637,15 @@ async function biometricUnlock(auto) {
   }
 }
 
-async function maybeOfferEnroll(role) {
+async function maybeOfferEnroll(user) {
   if (!(await bioPlatformAvailable())) return;
   const store = getBioStore();
-  if (store && store.role === role) return;   // already enrolled for this role here
-  showEnrollBanner(role);
+  if (store && store.user && store.user.name === user.name) return;   // already enrolled for this person
+  _pendingEnrollUser = user;
+  showEnrollBanner(user);
 }
 
-function showEnrollBanner(role) {
+function showEnrollBanner(user) {
   if (document.getElementById('bio-enroll-banner')) return;
   const b = document.createElement('div');
   b.id = 'bio-enroll-banner';
@@ -1080,15 +654,17 @@ function showEnrollBanner(role) {
     '<div style="font-size:24px;">🔒</div>' +
     '<div style="flex:1; min-width:0;">' +
       '<div style="font-size:13px; color:var(--text); font-weight:600;">Enable Face ID on this device?</div>' +
-      '<div style="font-size:11px; color:var(--text3); font-family:\'DM Mono\',monospace; margin-top:2px;">Unlock as ' + (role === 'owner' ? 'Owner' : 'Manager') + ' without typing your PIN.</div>' +
+      '<div style="font-size:11px; color:var(--text3); font-family:\'DM Mono\',monospace; margin-top:2px;">Unlock as ' + user.name + ' without typing your PIN.</div>' +
     '</div>' +
-    '<button class="btn" style="padding:8px 14px; font-size:12px;" onclick="doEnroll(\'' + role + '\')">Enable</button>' +
+    '<button class="btn" style="padding:8px 14px; font-size:12px;" onclick="doEnroll()">Enable</button>' +
     '<button class="btn btn-ghost" style="padding:8px 12px; font-size:12px;" onclick="dismissEnroll()">Not now</button>';
   document.body.appendChild(b);
 }
 function dismissEnroll() { const b = document.getElementById('bio-enroll-banner'); if (b) b.remove(); }
-async function doEnroll(role) {
-  const ok = await enrollBiometric(role);
+async function doEnroll() {
+  const user = _pendingEnrollUser;
+  if (!user) { dismissEnroll(); return; }
+  const ok = await enrollBiometric(user);
   dismissEnroll();
   if (ok) alert('Face ID enabled. Next time you open COMEDOR on this device, just use Face ID.');
   else alert('Could not enable Face ID. You can try again from the lock screen later.');
@@ -1118,7 +694,7 @@ async function initAuth() {
       if (bu) bu.style.display = 'block';
       if (pe) pe.style.display = 'none';
       const rl = document.getElementById('bio-role-label');
-      if (rl) rl.textContent = store.role === 'owner' ? 'Owner' : 'Manager';
+      if (rl) rl.textContent = _bioUser(store).name;
       biometricUnlock(true);        // best-effort auto-prompt (iOS may need one tap)
     } else {
       showPinEntry();
@@ -1126,22 +702,26 @@ async function initAuth() {
   } catch (e) { console.warn('initAuth failed:', e); showPinEntry(); }
 }
 
-function applyRoleAccess(role) {
+function applyRoleAccess(role, user) {
+  const badge = document.getElementById('role-badge');
   if (role === 'manager') {
-    // Hide owner-only tabs
+    // Manager: cash expenses only — hide partner-only tabs (Dashboard, Bank)
     document.querySelectorAll('.owner-only').forEach(el => el.style.display = 'none');
-    // Show manager view indicator
-    document.getElementById('role-badge').textContent = 'Manager View';
-    document.getElementById('role-badge').classList.add('role-manager');
-    // Hide non-relevant tabs, land on Daily Entry
-    document.querySelector('[data-panel="cash"]').style.display = 'none';
-    document.querySelector('[data-panel="menu"]').style.display = 'none';
+    badge.textContent = (user ? user.name : 'Manager') + ' · Cash';
+    badge.classList.add('role-manager');
     showPanelDirect('entry');
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
     document.querySelector('[data-panel="entry"]').classList.add('active');
     checkOpening();
   } else {
-    document.getElementById('role-badge').textContent = 'Owner View';
-    showPanelDirect('overview');
+    // Partner: full access
+    document.querySelectorAll('.owner-only').forEach(el => el.style.display = '');
+    badge.textContent = (user ? user.name : 'Partner') + ' · Partner';
+    badge.classList.remove('role-manager');
+    showPanelDirect('dashboard');
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelector('[data-panel="dashboard"]').classList.add('active');
+    renderDashboard();
   }
 }
 
@@ -1157,8 +737,8 @@ function showPanel(id) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   document.getElementById('panel-' + id).classList.add('active');
-  event.target.classList.add('active');
-  if (id === 'cashdash') {
+  if (event && event.target) event.target.classList.add('active');
+  if (id === 'dashboard') {
     renderDashboard();
     if (_db) {
       _db.ref('comedor/entries').get().then(snap => {
@@ -1170,19 +750,12 @@ function showPanel(id) {
       }).catch(() => {});
     }
   }
+  if (id === 'bankexp') renderBankList();
 }
 
 function showPanelDirect(id) {
   document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
   document.getElementById('panel-' + id).classList.add('active');
-}
-
-function setMonth(el, month) {
-  document.querySelectorAll('.month-btn').forEach(b => b.classList.remove('active'));
-  el.classList.add('active');
-  document.getElementById('pnl-mar').style.display = month === 'mar' ? 'block' : 'none';
-  document.getElementById('pnl-apr').style.display = month === 'apr' ? 'block' : 'none';
-  document.getElementById('pnl-combined').style.display = month === 'combined' ? 'block' : 'none';
 }
 
 // ─── MANAGER CASH ENTRY FORM ─────────────────────────────────────────────────
@@ -1431,7 +1004,7 @@ function submitEntry() {
   }
   errBox.style.display = 'none';
 
-  saveEntry({ date, opening, cash, upi, card, totalSales: total, expenses: filledExpenses, totalExpenses, closing, submittedAt: new Date().toLocaleString('en-IN') });
+  saveEntry({ date, opening, cash, upi, card, totalSales: total, expenses: filledExpenses, totalExpenses, closing, addedBy: (currentUser ? currentUser.name : ''), submittedAt: new Date().toLocaleString('en-IN') });
 
   const successBox = document.getElementById('form-success');
   successBox.innerHTML = `
@@ -1525,7 +1098,7 @@ function checkOpening() {
 }
 
 // ─── CASH DASHBOARD ──────────────────────────────────────────────────────────
-let currentDashFilter = 'today';
+let currentDashFilter = 'month';
 let dashCustomFrom = null, dashCustomTo = null;
 
 function setDashFilter(filter, btn) {
@@ -1596,6 +1169,7 @@ function getDashEntries() {
 }
 
 function renderDashboard() {
+  renderPnlBank();
   const entries = getDashEntries();
   const r   = (key) => entries.reduce((s, e) => s + (e[key] || 0), 0);
   const tCash  = r('cash'), tUpi = r('upi'), tCard = r('card');
@@ -1832,6 +1406,234 @@ function editEntry(date) {
   window.scrollTo(0, 0);
 }
 
+// ─── BANK EXPENSES + LIVE P&L ────────────────────────────────────────────────
+let _stmtDebits = [];
+
+function loadBankEntries() { try { return JSON.parse(localStorage.getItem('comedor_bank') || '[]'); } catch (e) { return []; } }
+
+// Same period window the cash dashboard uses, so P&L / bank / cash all line up.
+function getRange() {
+  const today = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const todayStr = fmt(today);
+  let from, to;
+  switch (currentDashFilter) {
+    case 'today': from = to = todayStr; break;
+    case 'week': { const mon = new Date(today); const day = mon.getDay(); mon.setDate(mon.getDate() - (day === 0 ? 6 : day - 1)); const sun = new Date(mon); sun.setDate(mon.getDate() + 6); from = fmt(mon); to = fmt(sun); break; }
+    case 'month': { const last = new Date(today.getFullYear(), today.getMonth()+1, 0); from = `${today.getFullYear()}-${pad(today.getMonth()+1)}-01`; to = fmt(last); break; }
+    case 'quarter': { const q = Math.floor(today.getMonth()/3); const last = new Date(today.getFullYear(), (q+1)*3, 0); from = `${today.getFullYear()}-${pad(q*3+1)}-01`; to = fmt(last); break; }
+    case 'half': { const h = today.getMonth() < 6 ? 0 : 1; const last = new Date(today.getFullYear(), h === 0 ? 6 : 12, 0); from = `${today.getFullYear()}-${h === 0 ? '01' : '07'}-01`; to = fmt(last); break; }
+    case 'ytd': from = `${today.getFullYear()}-01-01`; to = `${today.getFullYear()}-12-31`; break;
+    case 'custom': from = dashCustomFrom; to = dashCustomTo; break;
+    default: from = `${today.getFullYear()}-${pad(today.getMonth()+1)}-01`; to = fmt(new Date(today.getFullYear(), today.getMonth()+1, 0));
+  }
+  return { from, to };
+}
+function getBankInRange() {
+  const { from, to } = getRange();
+  if (!from || !to) return [];
+  return loadBankEntries().filter(b => b.date >= from && b.date <= to).sort((a, b) => (b.date + (b.at||'')).localeCompare(a.date + (a.at||'')));
+}
+
+function renderPnlBank() {
+  const cashEntries = getDashEntries();
+  const income  = cashEntries.reduce((s, e) => s + (e.totalSales || 0), 0);
+  const cashExp = cashEntries.reduce((s, e) => s + (e.totalExpenses || 0), 0);
+  const bank = getBankInRange();
+  const bankExp = bank.filter(b => !b.capital).reduce((s, b) => s + (Number(b.amount) || 0), 0);
+  const capital = bank.filter(b =>  b.capital).reduce((s, b) => s + (Number(b.amount) || 0), 0);
+  const net = income - cashExp - bankExp;
+
+  const allCash = loadEntries().slice().sort((a, b) => a.date.localeCompare(b.date));
+  const cashBal = allCash.length ? (allCash[allCash.length - 1].closing || 0) : 0;
+  const bankMeta = (function(){ try { return JSON.parse(localStorage.getItem('comedor_bankbal') || 'null'); } catch(e){ return null; } })();
+  const bankBal = bankMeta ? (Number(bankMeta.amount) || 0) : null;
+  const inr = n => '₹' + Number(n || 0).toLocaleString('en-IN');
+
+  const sEl = document.getElementById('pnl-summary');
+  if (sEl) sEl.innerHTML = `
+    <div class="card"><div class="card-label">Income (sales)</div><div class="card-value green">${inr(income)}</div><div class="card-sub">${cashEntries.length} day(s) recorded</div></div>
+    <div class="card"><div class="card-label">Cash Expenses</div><div class="card-value red">${inr(cashExp)}</div><div class="card-sub">Manager · petty cash</div></div>
+    <div class="card"><div class="card-label">Bank Expenses</div><div class="card-value red">${inr(bankExp)}</div><div class="card-sub">IDFC account debits</div></div>
+    <div class="card"><div class="card-label">Net P&amp;L</div><div class="card-value ${net >= 0 ? 'green' : 'red'}">${inr(net)}</div><div class="card-sub">Income − all expenses</div></div>`;
+
+  const bEl = document.getElementById('balance-row');
+  if (bEl) bEl.innerHTML = `
+    <div class="card"><div class="card-label">Cash in Hand</div><div class="card-value">${inr(cashBal)}</div><div class="card-sub">Latest closing balance</div></div>
+    <div class="card"><div class="card-label">Bank Balance</div><div class="card-value gold">${bankBal !== null ? inr(bankBal) : '—'}</div><div class="card-sub">${bankMeta && bankMeta.asOf ? ('As of ' + bankMeta.asOf) : 'Set from statement'}</div></div>
+    <div class="card"><div class="card-label">Capital Infused</div><div class="card-value">${inr(capital)}</div><div class="card-sub">This period · not income</div></div>`;
+
+  const btw = document.getElementById('bank-table-wrap');
+  if (btw) {
+    if (!bank.length) {
+      btw.innerHTML = '<div style="padding:16px;color:var(--text3);font-family:\'DM Mono\',monospace;font-size:12px;">No bank entries for this period.</div>';
+    } else {
+      const isOwner = currentRole === 'owner';
+      btw.innerHTML = `<table><thead><tr>
+          <th>Date</th><th>Category</th><th>Payee / Description</th><th>Added by</th><th class="num">Amount ₹</th>${isOwner ? '<th></th>' : ''}
+        </tr></thead><tbody>
+        ${bank.map(b => {
+          const d = new Date(b.date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short' });
+          const cat = b.capital ? '<span class="cat-badge cat-vegano">Capital In</span>' : ('<span class="cat-badge cat-antojitos">' + (b.category || '—') + '</span>');
+          return `<tr>
+            <td style="white-space:nowrap;">${d}</td>
+            <td>${cat}</td>
+            <td>${(b.desc || '').replace(/</g,'&lt;')}</td>
+            <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);">${b.addedBy || '—'}</td>
+            <td class="num ${b.capital ? 'green-text' : 'red-text'}">${b.capital ? '+' : '–'}${inr(b.amount)}</td>
+            ${isOwner ? `<td><button class="btn btn-ghost" style="padding:3px 9px;font-size:11px;" onclick="deleteBankExpense('${b.id}')">Delete</button></td>` : ''}
+          </tr>`;
+        }).join('')}
+      </tbody></table>`;
+    }
+  }
+}
+
+function bankCatOptions() {
+  const sel = document.getElementById('be-category');
+  if (sel && sel.options.length <= 1) {
+    EXPENSE_CATEGORIES.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
+  }
+}
+
+function submitBankExpense() {
+  const date     = document.getElementById('be-date').value;
+  const amount   = parseFloat(document.getElementById('be-amount').value) || 0;
+  const category = document.getElementById('be-category').value;
+  const desc     = document.getElementById('be-desc').value.trim();
+  const capital  = document.getElementById('be-capital').checked;
+
+  const errs = [];
+  if (!date)            errs.push('Date is required');
+  if (amount <= 0)      errs.push('Amount is required');
+  if (!capital && !category) errs.push('Category is required');
+  if (!desc)            errs.push('Payee / description is required');
+  const eb = document.getElementById('bank-form-errors');
+  if (errs.length) { eb.innerHTML = errs.map(e => '⚠ ' + e).join('<br>'); eb.style.display = 'block'; return; }
+  eb.style.display = 'none';
+
+  const entry = { id: 'b' + Date.now() + Math.floor(Math.random()*1000), date, amount, category: capital ? '' : category, desc, capital, addedBy: (currentUser ? currentUser.name : ''), at: new Date().toLocaleString('en-IN') };
+  saveBankExpense(entry);
+
+  const sb = document.getElementById('bank-form-success');
+  sb.innerHTML = `✓ Added — ${capital ? 'Capital infusion' : category} · ₹${amount.toLocaleString('en-IN')} · ${desc.replace(/</g,'&lt;')}<br><span style="color:var(--text3);font-family:'DM Mono',monospace;font-size:11px;">by ${currentUser ? currentUser.name : ''} · ${new Date().toLocaleString('en-IN')}</span>`;
+  sb.style.display = 'block';
+  document.getElementById('be-amount').value = '';
+  document.getElementById('be-desc').value = '';
+  document.getElementById('be-capital').checked = false;
+  renderBankList();
+}
+
+function saveBankExpense(entry) {
+  const list = loadBankEntries().filter(b => b.id !== entry.id);
+  list.push(entry);
+  localStorage.setItem('comedor_bank', JSON.stringify(list));
+  if (_db) _db.ref('comedor/bank_expenses/' + entry.id).set(entry).catch(e => console.warn('Bank write failed:', e));
+}
+
+function deleteBankExpense(id) {
+  if (!confirm('Delete this bank entry?')) return;
+  const list = loadBankEntries().filter(b => b.id !== id);
+  localStorage.setItem('comedor_bank', JSON.stringify(list));
+  if (_db) _db.ref('comedor/bank_expenses/' + id).remove().catch(() => {});
+  renderBankList();
+  if (document.getElementById('panel-dashboard').classList.contains('active')) renderDashboard();
+}
+
+function renderBankList() {
+  bankCatOptions();
+  const el = document.getElementById('bankexp-list');
+  if (!el) return;
+  const list = loadBankEntries().sort((a, b) => (b.date + (b.at||'')).localeCompare(a.date + (a.at||''))).slice(0, 50);
+  if (!list.length) { el.innerHTML = '<div style="color:var(--text3);font-family:\'DM Mono\',monospace;font-size:12px;padding:12px 0;">No bank entries yet.</div>'; return; }
+  const inr = n => '₹' + Number(n || 0).toLocaleString('en-IN');
+  el.innerHTML = `<div class="table-wrap"><table><thead><tr>
+      <th>Date</th><th>Category</th><th>Payee</th><th>Added by</th><th class="num">₹</th><th></th>
+    </tr></thead><tbody>
+    ${list.map(b => {
+      const d = new Date(b.date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short' });
+      const cat = b.capital ? '<span class="cat-badge cat-vegano">Capital In</span>' : ('<span class="cat-badge cat-antojitos">' + (b.category || '—') + '</span>');
+      return `<tr>
+        <td style="white-space:nowrap;">${d}</td>
+        <td>${cat}</td>
+        <td>${(b.desc || '').replace(/</g,'&lt;')}</td>
+        <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--text2);">${b.addedBy || '—'}</td>
+        <td class="num ${b.capital ? 'green-text' : 'red-text'}">${b.capital ? '+' : '–'}${inr(b.amount)}</td>
+        <td><button class="btn btn-ghost" style="padding:3px 9px;font-size:11px;" onclick="deleteBankExpense('${b.id}')">✕</button></td>
+      </tr>`;
+    }).join('')}
+  </tbody></table></div>`;
+}
+
+function saveBankBalance() {
+  const amt = parseFloat(document.getElementById('bank-bal-input').value) || 0;
+  const today = new Date().toISOString().split('T')[0];
+  const meta = { amount: amt, asOf: new Date(today + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }), by: (currentUser ? currentUser.name : '') };
+  localStorage.setItem('comedor_bankbal', JSON.stringify(meta));
+  if (_db) _db.ref('comedor/meta/bankBalance').set(meta).catch(() => {});
+  alert('Bank balance updated to ₹' + amt.toLocaleString('en-IN') + '.');
+}
+
+// ─── STATEMENT UPLOAD (generic CSV reader — tuned to IDFC once we have a sample) ─
+function handleStatementUpload(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => { try { parseStatementCSV(e.target.result); } catch (err) { document.getElementById('stmt-preview').innerHTML = '<div style="color:var(--red);font-size:12px;">Could not read file: ' + err.message + '</div>'; } };
+  reader.readAsText(file);
+}
+function parseStatementCSV(text) {
+  const rows = text.split(/\r?\n/).filter(r => r.trim()).map(r => r.split(',').map(c => c.replace(/^"|"$/g, '').trim()));
+  const preview = document.getElementById('stmt-preview');
+  if (rows.length < 2) { preview.innerHTML = '<div style="color:var(--red);font-size:12px;">No rows found in file.</div>'; return; }
+  const header = rows[0].map(h => h.toLowerCase());
+  const find = (...keys) => header.findIndex(h => keys.some(k => h.includes(k)));
+  const iDate = find('date','txn date','value date'), iDesc = find('narration','description','particular','remarks'),
+        iDebit = find('debit','withdrawal','dr'), iCredit = find('credit','deposit','cr'), iBal = find('balance','closing');
+  const parsed = rows.slice(1).map(r => ({
+    date: iDate >= 0 ? (r[iDate] || '') : '',
+    desc: iDesc >= 0 ? (r[iDesc] || '') : (r[1] || ''),
+    debit: parseFloat(((r[iDebit] || '') + '').replace(/[^0-9.]/g, '')) || 0,
+    credit: parseFloat(((r[iCredit] || '') + '').replace(/[^0-9.]/g, '')) || 0,
+    balance: iBal >= 0 ? (r[iBal] || '') : ''
+  }));
+  const debits = parsed.filter(p => p.debit > 0);
+  _stmtDebits = debits;
+  const ok = i => i >= 0 ? '✓' : '✗';
+  preview.innerHTML = `<div class="note" style="margin-bottom:10px;">Detected columns — Date ${ok(iDate)} · Description ${ok(iDesc)} · Debit ${ok(iDebit)} · Credit ${ok(iCredit)} · Balance ${ok(iBal)}. Found <b>${debits.length}</b> debit rows.</div>
+    <div class="table-wrap" style="max-height:260px;overflow:auto;"><table><thead><tr><th>Date</th><th>Description</th><th class="num">Debit ₹</th><th class="num">Credit ₹</th></tr></thead><tbody>
+    ${parsed.slice(0, 25).map(p => `<tr><td style="white-space:nowrap;">${(p.date||'').replace(/</g,'&lt;')}</td><td style="font-size:12px;">${(p.desc || '').replace(/</g,'&lt;').slice(0,60)}</td><td class="num red-text">${p.debit ? ('₹' + p.debit.toLocaleString('en-IN')) : ''}</td><td class="num green-text">${p.credit ? ('₹' + p.credit.toLocaleString('en-IN')) : ''}</td></tr>`).join('')}
+    </tbody></table></div>
+    <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+      <button class="btn" onclick="importStatementDebits()">Import ${debits.length} debits as bank expenses</button>
+      <span style="font-size:11px;color:var(--text3);font-family:'DM Mono',monospace;">Review first — you can delete or re-categorise any after import.</span>
+    </div>
+    <div class="note" style="margin-top:10px;">Generic reader for now. Send Edwin a real IDFC CSV and it'll be tuned to your exact columns + auto-categorised.</div>`;
+  const withBal = parsed.filter(p => p.balance);
+  if (withBal.length) { const b = parseFloat((withBal[withBal.length-1].balance + '').replace(/[^0-9.]/g,'')) || 0; if (b) document.getElementById('bank-bal-input').value = b; }
+}
+function importStatementDebits() {
+  const debits = _stmtDebits;
+  if (!Array.isArray(debits) || !debits.length) return;
+  debits.forEach((p, i) => {
+    const entry = { id: 'b' + Date.now() + i, date: normalizeDate(p.date), amount: p.debit, category: '', desc: p.desc || 'Statement import', capital: false, addedBy: (currentUser ? currentUser.name : '') + ' (import)', at: new Date().toLocaleString('en-IN') };
+    saveBankExpense(entry);
+  });
+  alert(debits.length + ' debits imported. Review & categorise them in the list below.');
+  _stmtDebits = [];
+  document.getElementById('stmt-preview').innerHTML = '';
+  renderBankList();
+}
+function normalizeDate(s) {
+  s = (s || '').trim();
+  let m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if (m) { let d = m[1], mo = m[2], y = m[3]; if (y.length === 2) y = '20' + y; return `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
+  m = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
+  if (m) return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
+  return new Date().toISOString().split('T')[0];
+}
+
 // ─── THEME ───────────────────────────────────────────────────────────────────
 function toggleTheme() {
   const current = document.documentElement.getAttribute('data-theme');
@@ -1853,6 +1655,12 @@ window.onload = function() {
   if (expenseRows.length === 0 || (expenseRows.length === 1 && !expenseRows[0].saved)) {
     renderExpenseRows();
   }
+  bankCatOptions();
+  const bd = document.getElementById('be-date');
+  if (bd) bd.value = new Date().toISOString().split('T')[0];
+  const bb = (function(){ try { return JSON.parse(localStorage.getItem('comedor_bankbal') || 'null'); } catch(e){ return null; } })();
+  const bbi = document.getElementById('bank-bal-input');
+  if (bb && bbi) bbi.value = bb.amount;
 };
 </script>
 </body>
