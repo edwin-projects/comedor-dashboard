@@ -248,13 +248,30 @@
   <div class="pin-card">
     <div class="pin-logo">COMEDOR</div>
     <div class="pin-sub">Finance Dashboard · Private Access</div>
-    <div class="pin-label">Enter your PIN</div>
-    <input id="pin-input" type="password" maxlength="4" inputmode="numeric" placeholder="••••" autofocus>
-    <button class="pin-btn" onclick="checkPin()">Unlock →</button>
-    <div id="pin-error">Incorrect PIN. Try again.</div>
-    <div class="pin-hint">
-      Owners: use your PIN for full access<br>
-      Manager: use your PIN for cash entry
+
+    <!-- FACE ID UNLOCK (shown when a biometric credential is enrolled on this device) -->
+    <div id="bio-unlock" style="display:none;">
+      <div style="font-size:40px; margin:4px 0 14px;">🔒</div>
+      <div class="pin-label" style="margin-bottom:6px;">Face ID · <span id="bio-role-label">—</span></div>
+      <button id="bio-btn" class="pin-btn" onclick="biometricUnlock(false)">Unlock with Face ID</button>
+      <div id="bio-status" style="margin-top:10px; font-size:12px; color:var(--text3); font-family:'DM Mono',monospace; min-height:16px;"></div>
+      <div class="pin-hint">
+        <a href="#" onclick="showPinEntry();return false;" style="color:var(--accent2); text-decoration:none;">Use PIN instead</a>
+        &nbsp;·&nbsp;
+        <a href="#" onclick="forgetBiometric();return false;" style="color:var(--text3); text-decoration:none;">Forget this device</a>
+      </div>
+    </div>
+
+    <!-- PIN ENTRY (enrollment anchor + fallback) -->
+    <div id="pin-entry">
+      <div class="pin-label">Enter your PIN</div>
+      <input id="pin-input" type="password" maxlength="4" inputmode="numeric" placeholder="••••">
+      <button class="pin-btn" onclick="checkPin()">Unlock →</button>
+      <div id="pin-error">Incorrect PIN. Try again.</div>
+      <div class="pin-hint">
+        Owners: use your PIN for full access<br>
+        Manager: use your PIN for cash entry
+      </div>
     </div>
   </div>
 </div>
@@ -952,18 +969,24 @@ const PINS = {
 
 let currentRole = null;
 
+// ─── ACCESS GRANT (shared by PIN + Face ID) ──────────────────────────────────
+function grantAccess(role) {
+  currentRole = role;
+  document.getElementById('pin-screen').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  applyRoleAccess(role);
+  const today = new Date().toISOString().split('T')[0];
+  const dateField = document.getElementById('entry-date');
+  if (dateField) dateField.value = today;
+}
+
 // ─── PIN SCREEN ──────────────────────────────────────────────────────────────
 function checkPin() {
   const input = document.getElementById('pin-input').value.trim();
   const role = PINS[input];
   if (role) {
-    currentRole = role;
-    document.getElementById('pin-screen').style.display = 'none';
-    document.getElementById('app').style.display = 'block';
-    applyRoleAccess(role);
-    const today = new Date().toISOString().split('T')[0];
-    const dateField = document.getElementById('entry-date');
-    if (dateField) dateField.value = today;
+    grantAccess(role);
+    maybeOfferEnroll(role);   // offer Face ID enrollment on this device
   } else {
     const err = document.getElementById('pin-error');
     err.style.display = 'block';
@@ -971,6 +994,136 @@ function checkPin() {
     document.getElementById('pin-input').focus();
     setTimeout(() => { err.style.display = 'none'; }, 2000);
   }
+}
+
+// ─── FACE ID / BIOMETRIC UNLOCK (WebAuthn platform authenticator) ─────────────
+// On iPhone/iPad this surfaces as Face ID (or Touch ID); on Android/desktop as
+// the platform fingerprint/face. Requires a secure context (HTTPS) — works on
+// the live site, not from a local file://. The role is bound to the device's
+// enrolled credential, so each phone unlocks straight into its owner/manager view.
+const BIO_KEY = 'comedor_biometric';
+
+function bioSupported() {
+  return !!(window.PublicKeyCredential && navigator.credentials && navigator.credentials.create);
+}
+async function bioPlatformAvailable() {
+  if (!bioSupported()) return false;
+  try { return await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable(); }
+  catch (e) { return false; }
+}
+function getBioStore() { try { return JSON.parse(localStorage.getItem(BIO_KEY) || 'null'); } catch (e) { return null; } }
+function setBioStore(o) { localStorage.setItem(BIO_KEY, JSON.stringify(o)); }
+function clearBioStore() { localStorage.removeItem(BIO_KEY); }
+function _bioRand(n) { const a = new Uint8Array(n); crypto.getRandomValues(a); return a; }
+function _bioB64u(buf) {
+  const b = new Uint8Array(buf); let s = '';
+  for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+  return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+function _bioUnB64u(str) {
+  str = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (str.length % 4) str += '=';
+  const bin = atob(str); const b = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) b[i] = bin.charCodeAt(i);
+  return b.buffer;
+}
+
+async function enrollBiometric(role) {
+  if (!(await bioPlatformAvailable())) { alert('Face ID / fingerprint is not available in this browser.'); return false; }
+  try {
+    const cred = await navigator.credentials.create({ publicKey: {
+      challenge: _bioRand(32),
+      rp: { name: 'COMEDOR Finance', id: location.hostname },
+      user: { id: _bioRand(16), name: role + '@comedor', displayName: role === 'owner' ? 'Owner' : 'Manager' },
+      pubKeyCredParams: [{ type: 'public-key', alg: -7 }, { type: 'public-key', alg: -257 }],
+      authenticatorSelection: { authenticatorAttachment: 'platform', userVerification: 'required', residentKey: 'preferred' },
+      timeout: 60000, attestation: 'none'
+    }});
+    setBioStore({ id: _bioB64u(cred.rawId), role: role });
+    return true;
+  } catch (e) { console.warn('Face ID enroll failed:', e); return false; }
+}
+
+async function biometricUnlock(auto) {
+  const store = getBioStore();
+  if (!store || !store.id) { showPinEntry(); return; }
+  const st = document.getElementById('bio-status');
+  if (st) st.textContent = 'Waiting for Face ID…';
+  try {
+    const assertion = await navigator.credentials.get({ publicKey: {
+      challenge: _bioRand(32),
+      allowCredentials: [{ type: 'public-key', id: _bioUnB64u(store.id), transports: ['internal'] }],
+      userVerification: 'required', rpId: location.hostname, timeout: 60000
+    }});
+    if (assertion) { if (st) st.textContent = ''; grantAccess(store.role); }
+  } catch (e) {
+    console.warn('Face ID unlock failed:', e);
+    if (st) st.textContent = auto
+      ? 'Tap “Unlock with Face ID” to continue.'
+      : 'Face ID cancelled or failed — try again, or use your PIN.';
+  }
+}
+
+async function maybeOfferEnroll(role) {
+  if (!(await bioPlatformAvailable())) return;
+  const store = getBioStore();
+  if (store && store.role === role) return;   // already enrolled for this role here
+  showEnrollBanner(role);
+}
+
+function showEnrollBanner(role) {
+  if (document.getElementById('bio-enroll-banner')) return;
+  const b = document.createElement('div');
+  b.id = 'bio-enroll-banner';
+  b.style.cssText = 'position:fixed; left:50%; bottom:18px; transform:translateX(-50%); z-index:10000; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:14px 16px; box-shadow:0 8px 32px rgba(0,0,0,0.35); display:flex; align-items:center; gap:12px; max-width:calc(100vw - 24px);';
+  b.innerHTML =
+    '<div style="font-size:24px;">🔒</div>' +
+    '<div style="flex:1; min-width:0;">' +
+      '<div style="font-size:13px; color:var(--text); font-weight:600;">Enable Face ID on this device?</div>' +
+      '<div style="font-size:11px; color:var(--text3); font-family:\'DM Mono\',monospace; margin-top:2px;">Unlock as ' + (role === 'owner' ? 'Owner' : 'Manager') + ' without typing your PIN.</div>' +
+    '</div>' +
+    '<button class="btn" style="padding:8px 14px; font-size:12px;" onclick="doEnroll(\'' + role + '\')">Enable</button>' +
+    '<button class="btn btn-ghost" style="padding:8px 12px; font-size:12px;" onclick="dismissEnroll()">Not now</button>';
+  document.body.appendChild(b);
+}
+function dismissEnroll() { const b = document.getElementById('bio-enroll-banner'); if (b) b.remove(); }
+async function doEnroll(role) {
+  const ok = await enrollBiometric(role);
+  dismissEnroll();
+  if (ok) alert('Face ID enabled. Next time you open COMEDOR on this device, just use Face ID.');
+  else alert('Could not enable Face ID. You can try again from the lock screen later.');
+}
+
+function showPinEntry() {
+  const pe = document.getElementById('pin-entry'); if (pe) pe.style.display = 'block';
+  const store = getBioStore();
+  const bu = document.getElementById('bio-unlock');
+  if (bu && !(store && store.id)) bu.style.display = 'none';
+  const pin = document.getElementById('pin-input'); if (pin) setTimeout(() => pin.focus(), 50);
+}
+function forgetBiometric() {
+  if (!confirm('Remove Face ID from this device? You will sign in with your PIN next time.')) return;
+  clearBioStore();
+  const bu = document.getElementById('bio-unlock'); if (bu) bu.style.display = 'none';
+  showPinEntry();
+}
+
+async function initAuth() {
+  try {
+    const store = getBioStore();
+    const avail = await bioPlatformAvailable();
+    const bu = document.getElementById('bio-unlock');
+    const pe = document.getElementById('pin-entry');
+    if (store && store.id && avail) {
+      if (bu) bu.style.display = 'block';
+      if (pe) pe.style.display = 'none';
+      const rl = document.getElementById('bio-role-label');
+      if (rl) rl.textContent = store.role === 'owner' ? 'Owner' : 'Manager';
+      biometricUnlock(true);        // best-effort auto-prompt (iOS may need one tap)
+    } else {
+      showPinEntry();
+    }
+  } catch (e) { console.warn('initAuth failed:', e); showPinEntry(); }
 }
 
 function applyRoleAccess(role) {
@@ -994,7 +1147,8 @@ function applyRoleAccess(role) {
 
 document.addEventListener('keydown', function(e) {
   if (e.key === 'Enter' && document.getElementById('pin-screen').style.display !== 'none') {
-    checkPin();
+    const pe = document.getElementById('pin-entry');
+    if (pe && pe.style.display !== 'none') checkPin();
   }
 });
 
@@ -1694,6 +1848,7 @@ function updateThemeToggle(theme) {
 // Init
 window.onload = function() {
   updateThemeToggle(document.documentElement.getAttribute('data-theme'));
+  initAuth();   // Face ID auto-prompt / PIN fallback on the lock screen
   loadDraftExpenses();
   if (expenseRows.length === 0 || (expenseRows.length === 1 && !expenseRows[0].saved)) {
     renderExpenseRows();
