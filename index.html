@@ -7,19 +7,44 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700;900&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script>
+(function() {
+  var saved = localStorage.getItem('comedor_theme');
+  var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  var theme = saved || (prefersDark ? 'dark' : 'light');
+  document.documentElement.setAttribute('data-theme', theme);
+})();
+</script>
 <style>
   :root {
-    --bg: #0f0d0a;
-    --surface: #1a1612;
-    --surface2: #241f19;
-    --border: #2e2820;
-    --accent: #d4843a;
-    --accent2: #e8b96a;
-    --green: #4caf7d;
-    --red: #e05252;
-    --text: #f0ebe3;
-    --text2: #9c8f7e;
-    --text3: #5c5245;
+    --bg: #F3F6F2; --surface: #FFFFFF; --surface2: #E8EFE5; --border: #D0DCCC;
+    --accent: #1A5C38; --accent2: #C9A040; --green: #1B7A4A; --red: #C03A2B;
+    --text: #0C1E14; --text2: #4A6255; --text3: #8FA898;
+    --cat-platos-c: #B06030; --cat-bebidas-c: #1E7A4A; --cat-antojitos-c: #906E08;
+    --cat-postres-c: #B43828; --cat-vegano-c: #288A58; --cat-acompana-c: #506050;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #080E0A; --surface: #0D1710; --surface2: #132118; --border: #1E3525;
+      --accent: #C9A040; --accent2: #D4B450; --green: #4ADE80; --red: #E05252;
+      --text: #C5D9CC; --text2: #6A9078; --text3: #3D5E47;
+      --cat-platos-c: #D47840; --cat-bebidas-c: #4ADE80; --cat-antojitos-c: #D4B040;
+      --cat-postres-c: #E05252; --cat-vegano-c: #3DAA72; --cat-acompana-c: #8FA898;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #080E0A; --surface: #0D1710; --surface2: #132118; --border: #1E3525;
+    --accent: #C9A040; --accent2: #D4B450; --green: #4ADE80; --red: #E05252;
+    --text: #C5D9CC; --text2: #6A9078; --text3: #3D5E47;
+    --cat-platos-c: #D47840; --cat-bebidas-c: #4ADE80; --cat-antojitos-c: #D4B040;
+    --cat-postres-c: #E05252; --cat-vegano-c: #3DAA72; --cat-acompana-c: #8FA898;
+  }
+  :root[data-theme="light"] {
+    --bg: #F3F6F2; --surface: #FFFFFF; --surface2: #E8EFE5; --border: #D0DCCC;
+    --accent: #1A5C38; --accent2: #C9A040; --green: #1B7A4A; --red: #C03A2B;
+    --text: #0C1E14; --text2: #4A6255; --text3: #8FA898;
+    --cat-platos-c: #B06030; --cat-bebidas-c: #1E7A4A; --cat-antojitos-c: #906E08;
+    --cat-postres-c: #B43828; --cat-vegano-c: #288A58; --cat-acompana-c: #506050;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; min-height: 100vh; }
@@ -68,19 +93,19 @@
   .red-text { color: var(--red); }
   .gold-text { color: var(--accent2); }
   .cat-badge { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-family: 'DM Mono', monospace; font-weight: 500; }
-  .cat-platos { background: rgba(212,132,58,0.15); color: var(--accent); }
-  .cat-bebidas { background: rgba(76,175,125,0.15); color: var(--green); }
-  .cat-antojitos { background: rgba(232,185,106,0.15); color: var(--accent2); }
-  .cat-postres { background: rgba(224,82,82,0.15); color: var(--red); }
-  .cat-vegano { background: rgba(76,175,125,0.2); color: #7ed4a8; }
-  .cat-acompana { background: rgba(156,143,126,0.2); color: var(--text2); }
+  .cat-platos   { background: rgba(180,100,40,0.14);  color: var(--cat-platos-c); }
+  .cat-bebidas  { background: rgba(30,130,80,0.14);   color: var(--cat-bebidas-c); }
+  .cat-antojitos{ background: rgba(180,145,20,0.14);  color: var(--cat-antojitos-c); }
+  .cat-postres  { background: rgba(185,50,42,0.14);   color: var(--cat-postres-c); }
+  .cat-vegano   { background: rgba(45,160,100,0.14);  color: var(--cat-vegano-c); }
+  .cat-acompana { background: rgba(90,110,90,0.14);   color: var(--cat-acompana-c); }
 
   /* BAR CHART */
   .bar-chart { margin-top: 8px; }
   .bar-row { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
   .bar-label { font-size: 11px; color: var(--text2); width: 190px; min-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .bar-track { flex: 1; background: var(--surface2); border-radius: 3px; height: 18px; overflow: hidden; }
-  .bar-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+  .bar-fill { height: 100%; border-radius: 3px; }
   .bar-val { font-family: 'DM Mono', monospace; font-size: 11px; color: var(--text2); width: 70px; text-align: right; }
 
   /* PNL TABLE */
@@ -136,7 +161,7 @@
 <style>
 /* PIN SCREEN */
 #pin-screen {
-  position: fixed; inset: 0; background: #0a0806; z-index: 9999;
+  position: fixed; inset: 0; background: var(--bg); z-index: 9999;
   display: flex; align-items: center; justify-content: center; flex-direction: column;
 }
 .pin-card {
@@ -168,6 +193,7 @@
   background: var(--surface2); border: 1px solid var(--border); border-radius: 5px;
   padding: 4px 10px; font-size: 11px; font-family: 'DM Mono', monospace; color: var(--accent2);
 }
+#role-badge.role-manager { background: rgba(26,92,56,0.12); color: var(--accent); border-color: rgba(26,92,56,0.3); }
 /* Manager cash entry form styles */
 .form-section { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 24px; margin-bottom: 16px; }
 .form-section h3 { font-size: 13px; color: var(--accent2); margin-bottom: 18px; font-family: 'DM Mono', monospace; letter-spacing: 1px; text-transform: uppercase; display: flex; align-items: center; }
@@ -225,6 +251,7 @@
     <div class="logo">COMEDOR <span>Finance Dashboard</span></div>
   </div>
   <div style="display:flex; gap:10px; align-items:center;">
+    <button id="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:6px;width:32px;height:32px;font-size:16px;cursor:pointer;line-height:1;flex-shrink:0;">◑</button>
     <div id="role-badge">—</div>
     <div class="period-badge">Mar 2026 – Apr 2026</div>
   </div>
@@ -838,7 +865,7 @@
 
 <!-- Bills Viewer Sidebar -->
 <div id="bills-overlay" onclick="closeBillsViewer()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:998;"></div>
-<div id="bills-sidebar" style="display:none;position:fixed;top:0;right:0;height:100%;width:min(460px,100vw);background:var(--card);border-left:1px solid var(--border);z-index:999;flex-direction:column;box-shadow:-8px 0 32px rgba(0,0,0,0.4);">
+<div id="bills-sidebar" style="display:none;position:fixed;top:0;right:0;height:100%;width:min(460px,100vw);background:var(--surface);border-left:1px solid var(--border);z-index:999;flex-direction:column;box-shadow:-8px 0 32px rgba(0,0,0,0.4);">
   <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border);flex-shrink:0;">
     <div>
       <div id="bills-title" style="font-size:14px;font-weight:600;color:var(--text);"></div>
@@ -936,8 +963,7 @@ function applyRoleAccess(role) {
     document.querySelectorAll('.owner-only').forEach(el => el.style.display = 'none');
     // Show manager view indicator
     document.getElementById('role-badge').textContent = 'Manager View';
-    document.getElementById('role-badge').style.background = '#2e4a2e';
-    document.getElementById('role-badge').style.color = '#7ed4a8';
+    document.getElementById('role-badge').classList.add('role-manager');
     // Hide non-relevant tabs, land on Daily Entry
     document.querySelector('[data-panel="cash"]').style.display = 'none';
     document.querySelector('[data-panel="menu"]').style.display = 'none';
@@ -1636,8 +1662,22 @@ function editEntry(date) {
   window.scrollTo(0, 0);
 }
 
+// ─── THEME ───────────────────────────────────────────────────────────────────
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme');
+  const newTheme = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', newTheme);
+  localStorage.setItem('comedor_theme', newTheme);
+  updateThemeToggle(newTheme);
+}
+function updateThemeToggle(theme) {
+  const btn = document.getElementById('theme-toggle');
+  if (btn) btn.textContent = theme === 'dark' ? '☀' : '◑';
+}
+
 // Init
 window.onload = function() {
+  updateThemeToggle(document.documentElement.getAttribute('data-theme'));
   loadDraftExpenses();
   if (expenseRows.length === 0 || (expenseRows.length === 1 && !expenseRows[0].saved)) {
     renderExpenseRows();
