@@ -2733,7 +2733,7 @@ function renderPnlBank() {
   const capRows = [
     { k: 'Capex · assets & build-out', v: tC, parts: [{ k: 'Edwin', v: capexC.Edwin }, { k: 'Prathvi', v: capexC.Prathvi }], type: 'capex' },
     { k: 'Setup · pre-opening costs',  v: tS, parts: [{ k: 'Edwin', v: setupS.Edwin }, { k: 'Prathvi', v: setupS.Prathvi }], type: 'capex' },
-    { k: 'Operating · in P&L',         v: tO, parts: [{ k: 'Edwin', v: opexO.Edwin }, { k: 'Prathvi', v: opexO.Prathvi }], type: 'opex' }
+    { k: 'Operating spend (counted as expense)', v: tO, parts: [{ k: 'Edwin', v: opexO.Edwin }, { k: 'Prathvi', v: opexO.Prathvi }], type: 'opex' }
   ].sort((a, b) => b.v - a.v);
 
   const sEl = document.getElementById('pnl-summary');
