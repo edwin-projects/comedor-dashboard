@@ -764,6 +764,7 @@ let _syncEverConnected = false;
 
 // Re-render whichever tab is open, so any device shows changes the instant they arrive.
 function renderActivePanel() {
+  if (!currentUser) return;   // never render (or crunch data) behind the lock screen
   const active = document.querySelector('.panel.active');
   if (!active) return;
   const id = active.id.replace('panel-', '');
@@ -2178,13 +2179,19 @@ function deleteIncomeRecord(id) {
   localStorage.setItem('comedor_income', JSON.stringify(loadIncome().filter(r => r.id !== id)));
   if (_db) _db.ref('comedor/income/' + id).remove().catch(syncWriteErr);
 }
-function isoAdd(iso, days) { const d = new Date(iso + 'T00:00:00'); d.setDate(d.getDate() + days); return d.toISOString().split('T')[0]; }
-function daysInclusive(a, b) { return Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000) + 1; }
+// Date math MUST be done in UTC. Parsing 'YYYY-MM-DDT00:00:00' (no zone) uses the
+// device's local time, and toISOString() then converts to UTC — in any UTC+ zone
+// (e.g. India, +5:30) that shifts the date back a day, so isoAdd() returned the
+// SAME date and the day-loops below spun forever, freezing the whole app. Forcing
+// UTC ('…Z' + getUTCDate/setUTCDate) makes it correct in every timezone.
+function isoAdd(iso, days) { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().split('T')[0]; }
+function daysInclusive(a, b) { return Math.round((new Date(b + 'T00:00:00Z') - new Date(a + 'T00:00:00Z')) / 86400000) + 1; }
 // Which report "owns" each day — earliest report wins overlaps, so nothing double-counts.
 function incomeDayOwner() {
   const recs = loadIncome().slice().sort((a, b) => (a.from||'').localeCompare(b.from||''));
   const owner = {};
-  recs.forEach(r => { if (!r.from || !r.to) return; for (let d = r.from; d <= r.to; d = isoAdd(d, 1)) if (owner[d] === undefined) owner[d] = r.id; });
+  // guard caps the loop (~11 years) so a malformed date can never hang the app.
+  recs.forEach(r => { if (!r.from || !r.to) return; let g = 0; for (let d = r.from; d <= r.to && g < 4000; d = isoAdd(d, 1), g++) if (owner[d] === undefined) owner[d] = r.id; });
   return owner;
 }
 function incomeFieldInRange(from, to, field) {
