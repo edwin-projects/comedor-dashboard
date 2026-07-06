@@ -37,3 +37,10 @@ localStorage. Deployed as a static page (GitHub Pages).
 
 7. **Audit trail.** Every entry is stamped with `addedBy` (and `editedBy` on edit). Preserve the
    original author when editing.
+
+8. **Income = Pet Pooja.** Sales/income come from uploaded Pet Pooja item-wise reports
+   (`comedor/income` records with a period + gross + category breakdown), NOT the daily cash
+   register (which is for cash reconciliation and undercounts delivery). Overlapping report
+   periods are deduped by day — the earliest report owns overlap days — so re-uploads never
+   double-count. P&L income for a dashboard period = each report's gross spread evenly across
+   its days, summed over the period.
