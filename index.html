@@ -89,7 +89,7 @@
   .hd-ic { width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0; }
   .step-num .hd-ic { width:13px; height:13px; }
   .cards2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; align-items:stretch; }
-  .cards2 .card { display:flex; flex-direction:column; }
+  .cards2 .card { display:flex; flex-direction:column; min-width:0; }
   .pnl-hero { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px 18px 22px; margin-bottom:12px; text-align:center; }
   .pnl-hero .card-value { font-size:40px; margin-top:4px; }
   .pnl-hero .card-label { letter-spacing:1.4px; }
@@ -128,8 +128,8 @@
   .card-value.green { color: var(--green); }
   .card-value.red { color: var(--red); }
   .card-value.gold { color: var(--accent2); }
-  .card-sub { font-size: 11px; color: var(--text3); margin-top: 5px; font-family: 'Inter', sans-serif; }
-  .tsplit-l { font-size: 11px; color: var(--text2); font-family: 'Inter', sans-serif; line-height: 1.55; white-space: normal; }
+  .card-sub { font-size: 11px; color: var(--text3); margin-top: 5px; font-family: 'Inter', sans-serif; overflow: hidden; }
+  .tsplit-l { font-size: 11px; color: var(--text2); font-family: 'Inter', sans-serif; line-height: 1.55; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tsplit-l b { font-weight: 500; color: var(--text); }
   .tpct { color: var(--text3); font-size: 10px; }
 
@@ -2405,8 +2405,29 @@ let _capCollapsed = true;
 function toggleCapCard() {
   _capCollapsed = !_capCollapsed;
   const c = document.getElementById('cap-card');
-  if (c) c.classList.toggle('cap-collapsed', _capCollapsed);
+  if (c) { c.classList.toggle('cap-collapsed', _capCollapsed); if (!_capCollapsed) fitSplitLines(c); }
 }
+
+// Keep every split line on ONE line at any screen width: shrink the whole
+// group's font (one uniform size per box) until the widest line fits, down to
+// a floor. Runs after each render and on resize.
+function fitSplitLines(root) {
+  root = root || document;
+  root.querySelectorAll('.card-sub, .cap-total-split, .cap-s').forEach(box => {
+    const lines = box.querySelectorAll('.tsplit-l');
+    if (!lines.length) return;
+    lines.forEach(l => { l.style.fontSize = ''; });   // reset to CSS base (11px)
+    if (!box.clientWidth) return;                       // hidden — skip
+    let s = 11, guard = 0;
+    const overflows = () => Array.from(lines).some(l => l.scrollWidth - l.clientWidth > 1);
+    while (s > 7 && overflows() && guard < 40) { s -= 0.5; lines.forEach(l => l.style.fontSize = s + 'px'); guard++; }
+  });
+}
+let _fitTimer = null;
+window.addEventListener('resize', () => {
+  if (_fitTimer) clearTimeout(_fitTimer);
+  _fitTimer = setTimeout(() => { _fitTimer = null; fitSplitLines(document); }, 150);
+});
 
 function renderPnlBank() {
   const cashEntries = getDashEntries();
@@ -2508,6 +2529,7 @@ function renderPnlBank() {
       </div>
     </div>`;
 
+  if (sEl) fitSplitLines(sEl);
   renderBankRich('dbank');
 }
 
