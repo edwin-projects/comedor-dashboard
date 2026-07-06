@@ -754,10 +754,12 @@ function renderActivePanel() {
   const active = document.querySelector('.panel.active');
   if (!active) return;
   const id = active.id.replace('panel-', '');
-  if (id === 'dashboard') renderDashboard();
-  else if (id === 'bankexp') renderBankList();
-  else if (id === 'entry') { renderEntryRecent(); checkOpening(); }
-  else if (id === 'people') renderPeople();
+  try {
+    if (id === 'dashboard') renderDashboard();
+    else if (id === 'bankexp') renderBankList();
+    else if (id === 'entry') { renderEntryRecent(); checkOpening(); }
+    else if (id === 'people') renderPeople();
+  } catch (e) { console.warn('Panel render failed (' + id + '):', e); }   // never let a synced record freeze the UI
 }
 
 function setSyncStatus(state) {
@@ -821,7 +823,7 @@ function initFirebase() {
 
     // Real-time listeners: any device's save is reflected everywhere within a second.
     _db.ref('comedor/entries').on('value', snap => {
-      if (snap.exists()) localStorage.setItem('comedor_entries', JSON.stringify(Object.values(snap.val()).sort((a, b) => a.date.localeCompare(b.date))));
+      if (snap.exists()) localStorage.setItem('comedor_entries', JSON.stringify(Object.values(snap.val()).sort((a, b) => (a.date||'').localeCompare(b.date||''))));
       else localStorage.removeItem('comedor_entries');
       renderActivePanel();
     }, onErr('entries'));
@@ -1125,7 +1127,7 @@ function showPanel(id) {
     if (_db) {
       _db.ref('comedor/entries').get().then(snap => {
         if (snap.exists()) {
-          const entries = Object.values(snap.val()).sort((a, b) => a.date.localeCompare(b.date));
+          const entries = Object.values(snap.val()).sort((a, b) => (a.date||'').localeCompare(b.date||''));
           localStorage.setItem('comedor_entries', JSON.stringify(entries));
           renderDashboard();
         }
@@ -1421,7 +1423,7 @@ function saveEntry(entry) {
   const entries = JSON.parse(localStorage.getItem('comedor_entries') || '[]');
   const rest = entries.filter(e => e.date !== entry.date);
   rest.push(entry);
-  rest.sort((a, b) => a.date.localeCompare(b.date));
+  rest.sort((a, b) => (a.date||'').localeCompare(b.date||''));
   localStorage.setItem('comedor_entries', JSON.stringify(rest));
   if (_db) {
     _db.ref('comedor/entries/' + entry.date.replace(/-/g, '_')).set(entry).catch(syncWriteErr);
@@ -1434,7 +1436,7 @@ function loadEntries() {
 
 function getPreviousEntry(currentDate) {
   const entries = loadEntries();
-  const before = entries.filter(e => e.date < currentDate).sort((a, b) => b.date.localeCompare(a.date));
+  const before = entries.filter(e => e.date < currentDate).sort((a, b) => (b.date||'').localeCompare(a.date||''));
   return before[0] || null;
 }
 
@@ -1541,13 +1543,16 @@ function getDashEntries() {
       to   = fmt(new Date(today.getFullYear(), today.getMonth() + 1, 0));
   }
   if (!from || !to) return [];
-  return all.filter(e => e.date >= from && e.date <= to).sort((a, b) => b.date.localeCompare(a.date));
+  return all.filter(e => e.date >= from && e.date <= to).sort((a, b) => (b.date||'').localeCompare(a.date||''));
 }
 
 function renderDashboard() {
-  renderPnlBank();
-  renderCashTable();
-  renderSalesCats();
+  // Each section is isolated: one bad record (e.g. a legacy entry missing a
+  // date) can never blank or freeze the whole dashboard — worst case a single
+  // tile shows a soft error and the rest still renders.
+  try { renderPnlBank(); }   catch (e) { console.warn('P&L render failed:', e); const s = document.getElementById('pnl-summary'); if (s) s.innerHTML = '<div class="pnl-hero"><div class="card-label">Dashboard</div><div class="card-sub" style="margin-top:8px;">Some figures couldn’t be totalled from the current data. Your entries are safe — try Cash / Bank tabs, or re-check a recent entry’s date.</div></div>'; }
+  try { renderCashTable(); } catch (e) { console.warn('Cash table render failed:', e); }
+  try { renderSalesCats(); } catch (e) { console.warn('Sales cats render failed:', e); }
 }
 
 function renderSalesCats() {
@@ -1565,8 +1570,8 @@ function renderSalesCats() {
 
 function sortEntries(list, sort) {
   const f = {
-    date_desc: (a,b) => b.date.localeCompare(a.date),
-    date_asc:  (a,b) => a.date.localeCompare(b.date),
+    date_desc: (a,b) => (b.date||'').localeCompare(a.date||''),
+    date_asc:  (a,b) => (a.date||'').localeCompare(b.date||''),
     sales_desc:(a,b) => (b.totalSales||0)-(a.totalSales||0),
     sales_asc: (a,b) => (a.totalSales||0)-(b.totalSales||0),
     exp_desc:  (a,b) => (b.totalExpenses||0)-(a.totalExpenses||0),
@@ -1809,7 +1814,7 @@ function renderEntryRecent() {
   const wrap = document.getElementById('entry-recent-wrap');
   const countEl = document.getElementById('count-entry');
   if (!wrap) return;
-  const mine = loadEntries().filter(e => canEditCash(e.addedBy)).sort((a, b) => b.date.localeCompare(a.date)).slice(0, 60);
+  const mine = loadEntries().filter(e => canEditCash(e.addedBy)).sort((a, b) => (b.date||'').localeCompare(a.date||'')).slice(0, 60);
   if (countEl) countEl.textContent = mine.length + (mine.length === 1 ? ' entry' : ' entries');
   if (!mine.length) { wrap.innerHTML = '<div class="log-empty">No entries yet. Your submitted days will appear here to edit.</div>'; return; }
   const inr = n => '₹' + Number(n || 0).toLocaleString('en-IN');
@@ -1880,7 +1885,7 @@ function renderPnlBank() {
   const capBy = {};
   bank.filter(b => b.capital).forEach(b => { const k = b.partner || b.addedBy || '—'; capBy[k] = (capBy[k] || 0) + (Number(b.amount) || 0); });
 
-  const allCash = loadEntries().slice().sort((a, b) => a.date.localeCompare(b.date));
+  const allCash = loadEntries().slice().sort((a, b) => (a.date||'').localeCompare(b.date||''));
   const cashBal = allCash.length ? (allCash[allCash.length - 1].closing || 0) : 0;
   const bankMeta = (function(){ try { return JSON.parse(localStorage.getItem('comedor_bankbal') || 'null'); } catch(e){ return null; } })();
   var bankBal = null;
@@ -2149,7 +2154,7 @@ function isoAdd(iso, days) { const d = new Date(iso + 'T00:00:00'); d.setDate(d.
 function daysInclusive(a, b) { return Math.round((new Date(b + 'T00:00:00') - new Date(a + 'T00:00:00')) / 86400000) + 1; }
 // Which report "owns" each day — earliest report wins overlaps, so nothing double-counts.
 function incomeDayOwner() {
-  const recs = loadIncome().slice().sort((a, b) => a.from.localeCompare(b.from));
+  const recs = loadIncome().slice().sort((a, b) => (a.from||'').localeCompare(b.from||''));
   const owner = {};
   recs.forEach(r => { if (!r.from || !r.to) return; for (let d = r.from; d <= r.to; d = isoAdd(d, 1)) if (owner[d] === undefined) owner[d] = r.id; });
   return owner;
@@ -2242,7 +2247,7 @@ function confirmPetpooja() {
 }
 function renderIncomeList() {
   const el = document.getElementById('pp-list'); if (!el) return;
-  const recs = loadIncome().slice().sort((a, b) => b.from.localeCompare(a.from));
+  const recs = loadIncome().slice().sort((a, b) => (b.from||'').localeCompare(a.from||''));
   if (!recs.length) { el.innerHTML = '<div class="log-empty">No sales reports uploaded yet.</div>'; return; }
   const fmtD = s => new Date(s + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
   el.innerHTML = recs.map(r => `<div class="txn-card"><div class="txn-row1"><div class="txn-title">${fmtD(r.from)} – ${fmtD(r.to)}</div><div class="txn-amt green-text">₹${Number(r.gross).toLocaleString('en-IN')}</div></div><div class="txn-chips"><span class="cat-badge cat-bebidas">${(r.items || 0).toLocaleString('en-IN')} items</span><span class="cat-badge cat-acompana">${esc(r.uploadedBy || '—')}</span></div>${canEditBank(r.uploadedBy) ? `<div class="txn-actions"><button class="btn btn-ghost" style="color:var(--red);border-color:rgba(224,82,82,0.4);" onclick="removeIncome('${r.id}')">Delete</button></div>` : ''}</div>`).join('');
@@ -2679,7 +2684,7 @@ function importHistorical() {
   if (!confirm('Load the Mar\u2013Jun 2026 IDFC bank expenses (from both statements) and the 30 Jun closing balance? Safe to run again \u2014 it replaces the previous backfill cleanly.')) return;
   var mapE = {}; (JSON.parse(localStorage.getItem('comedor_entries') || '[]')).forEach(function (x) { mapE[x.date] = x; });
   HIST_CASH.forEach(function (e) { mapE[e.date] = e; if (_db) _db.ref('comedor/entries/' + e.date.replace(/-/g, '_')).set(e).catch(function(){}); });
-  localStorage.setItem('comedor_entries', JSON.stringify(Object.values(mapE).sort(function (a, b) { return a.date.localeCompare(b.date); })));
+  localStorage.setItem('comedor_entries', JSON.stringify(Object.values(mapE).sort(function (a, b) { return (a.date||'').localeCompare(b.date||''); })));
   // Purge any earlier backfill bank rows first, so re-running replaces rather than duplicates.
   var mapB = {};
   (JSON.parse(localStorage.getItem('comedor_bank') || '[]')).forEach(function (x) {
