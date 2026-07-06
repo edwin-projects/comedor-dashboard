@@ -1922,6 +1922,320 @@ function getBankInRange() {
 
 function isGstEntry(b) { return !b.capital && b.category === 'GST'; }
 
+
+// ─── DAY-1 SETUP & CAPITAL LEDGER (partner-funded; equity + capex, kept out of P&L) ───
+// Day-1 setup & capital ledger (Wolfpack Ventures Ledger, 6 Jul 2026). Row = [date, INR, 'E'|'P' paid-by, capex(1/0), category]
+var LEDGER_OPEN='2026-03-05';
+var HIST_LEDGER=[["2026-07-06",118658.0,"P",0,"Grocery"],
+["2026-06-13",170000.0,"E",0,"Salary"],
+["2026-06-11",45000.0,"E",0,"Staff Rent"],
+["2025-11-24",24190.0,"E",1,"Equipments"],
+["2026-04-20",216161.0,"P",0,"Grocery"],
+["2026-04-10",45000.0,"E",0,"Staff Rent"],
+["2026-04-08",9332.0,"P",0,"Grocery"],
+["2026-04-07",14700.0,"E",0,"Grocery"],
+["2026-04-06",30151.0,"P",0,"Grocery"],
+["2026-03-24",46370.0,"P",0,"Grocery"],
+["2026-03-17",20650.0,"E",1,"Equipments"],
+["2026-03-17",50000.0,"E",1,"Painting"],
+["2026-03-17",15000.0,"E",0,"Staff Rent"],
+["2026-03-15",42091.0,"P",0,"Grocery"],
+["2026-03-15",30000.0,"E",0,"Staff Rent"],
+["2026-03-13",32000.0,"P",1,"Electrical"],
+["2026-03-13",7450.0,"P",0,"Gas"],
+["2026-03-13",108000.0,"P",0,"Salary"],
+["2026-03-13",130000.0,"E",0,"Salary"],
+["2026-03-13",20000.0,"P",1,"Painting"],
+["2026-03-13",22760.0,"E",1,"Awnings"],
+["2026-03-13",10000.0,"P",1,"Carpentry"],
+["2026-03-13",25000.0,"P",1,"Site Supervision"],
+["2026-03-13",8394.0,"P",1,"Equipments"],
+["2026-03-06",25000.0,"P",1,"Furniture"],
+["2026-03-06",20000.0,"E",1,"CCTV"],
+["2026-03-06",85784.0,"E",1,"UPS"],
+["2026-03-06",12000.0,"P",1,"Painting"],
+["2026-03-06",34491.0,"P",0,"Grocery"],
+["2026-03-04",7005.0,"P",1,"Cutlery & Crokery"],
+["2026-03-04",3900.0,"P",1,"Gas"],
+["2026-03-03",42865.0,"P",1,"Grocery"],
+["2026-02-26",3460.0,"P",1,"Miscellaneous"],
+["2026-02-26",12011.0,"P",1,"Phone"],
+["2026-02-26",5480.0,"P",1,"Interior"],
+["2026-02-26",100000.0,"E",1,"Current AC Deposit"],
+["2026-02-26",6480.0,"P",1,"Painting"],
+["2026-02-26",13310.0,"P",1,"Cutlery & Crokery"],
+["2026-02-26",14436.0,"E",1,"Interior"],
+["2026-02-26",24195.0,"P",1,"Grocery"],
+["2026-02-26",20000.0,"P",1,"Marketing"],
+["2026-02-26",25000.0,"P",1,"Plumbing"],
+["2026-02-26",12468.0,"P",1,"Ebill"],
+["2026-02-26",25675.0,"P",1,"Fabrication"],
+["2026-02-26",30000.0,"P",1,"Salary"],
+["2026-02-26",3600.0,"P",1,"Printing"],
+["2026-02-26",13650.0,"P",1,"POS Hardware"],
+["2026-02-24",53600.0,"E",1,"Cutlery & Crokery"],
+["2026-02-24",48700.0,"E",1,"Signage"],
+["2026-02-24",20000.0,"P",1,"Fabrication"],
+["2026-02-24",28000.0,"P",1,"Painting"],
+["2026-02-24",77880.0,"E",1,"POS Hardware"],
+["2026-02-24",108580.0,"E",1,"Unifrom"],
+["2026-02-24",10000.0,"P",1,"Canvas"],
+["2026-02-24",25682.0,"P",1,"R&D"],
+["2026-02-24",23465.0,"P",1,"Cutlery & Crokery"],
+["2026-02-24",16030.0,"P",1,"Tiles"],
+["2026-02-24",32600.0,"P",1,"Furniture"],
+["2026-02-24",12000.0,"P",1,"Chimney"],
+["2026-02-24",17946.0,"P",1,"Interior"],
+["2026-02-24",30000.0,"P",1,"Painting"],
+["2026-02-24",26994.0,"P",1,"Plumbing"],
+["2026-02-24",5364.0,"P",1,"R&D"],
+["2026-02-15",13252.0,"P",1,"Cutlery & Crokery"],
+["2026-02-15",31490.0,"P",1,"Wall Decor"],
+["2026-02-14",3000.0,"P",1,"Tiles"],
+["2026-02-14",74994.3,"E",1,"R&D"],
+["2026-02-14",12432.0,"P",1,"Cutlery & Crokery"],
+["2026-02-11",20000.0,"P",1,"Electrical"],
+["2026-02-11",20000.0,"P",1,"Fabrication"],
+["2026-02-11",144500.0,"E",1,"Salary"],
+["2026-02-11",20000.0,"P",1,"Plumbing"],
+["2026-02-11",5000.0,"P",1,"Tiles"],
+["2026-02-11",14000.0,"P",1,"Photoshoot"],
+["2026-02-10",5000.0,"P",1,"R&D"],
+["2026-02-10",16501.0,"P",1,"Cutlery & Crokery"],
+["2026-02-10",20400.0,"E",1,"Staff Rent"],
+["2026-02-10",15000.0,"E",1,"Broker fee"],
+["2026-02-10",40000.0,"E",1,"Security Deposit"],
+["2026-02-10",5000.0,"P",1,"Painting"],
+["2026-02-09",8000.0,"P",1,"Documentation"],
+["2026-02-09",18000.0,"P",1,"CA Fees"],
+["2026-02-08",20460.0,"E",1,"AC"],
+["2026-02-08",20000.0,"P",1,"Chimney"],
+["2026-02-05",24037.0,"P",1,"R&D"],
+["2026-02-05",36873.0,"P",1,"Equipments"],
+["2026-02-05",50000.0,"P",1,"Furniture"],
+["2026-02-05",171000.0,"E",1,"Rent Restaurant"],
+["2026-02-05",17360.0,"P",1,"Cutlery & Crokery"],
+["2026-02-05",10400.0,"P",1,"Fabrication"],
+["2026-02-05",10000.0,"P",1,"Painting"],
+["2026-02-03",20000.0,"P",1,"Electrical"],
+["2026-02-03",22656.0,"P",1,"Cutlery & Crokery"],
+["2026-02-03",22656.0,"P",1,"Cutlery & Crokery"],
+["2026-02-03",36645.0,"P",1,"Site Supervision"],
+["2026-02-03",14000.0,"P",1,"Fabrication"],
+["2026-02-03",15000.0,"P",1,"Fabrication"],
+["2026-02-03",15000.0,"P",1,"Awnings"],
+["2026-02-02",9155.0,"P",1,"Cutlery & Crokery"],
+["2026-02-01",25000.0,"P",1,"Furniture"],
+["2026-01-28",4615.0,"P",1,"Utensils"],
+["2026-01-28",10115.0,"P",1,"Lighting"],
+["2026-01-28",10000.0,"P",1,"Fabrication"],
+["2026-01-28",15700.0,"P",1,"Water Filter"],
+["2026-01-28",3000.0,"P",1,"AC"],
+["2026-01-28",23000.0,"E",1,"AC"],
+["2026-01-28",32853.0,"P",1,"Cutlery & Crokery"],
+["2026-01-28",25000.0,"P",1,"Chimney"],
+["2026-01-28",10000.0,"P",1,"Tiles"],
+["2026-01-27",11450.0,"P",1,"Miscellaneous"],
+["2026-01-27",15000.0,"P",1,"Furniture"],
+["2026-01-27",10000.0,"P",1,"Electrical"],
+["2026-01-27",113999.0,"E",1,"AC"],
+["2026-01-26",7877.0,"P",1,"R&D"],
+["2026-01-26",5799.0,"P",1,"Electrical"],
+["2026-01-26",1981.0,"P",1,"Utensils"],
+["2026-01-25",5000.0,"P",1,"Painting"],
+["2026-01-25",8000.0,"P",1,"Carpentry"],
+["2026-01-25",12000.0,"P",1,"Tiles"],
+["2026-01-24",11488.0,"E",1,"Lighting"],
+["2026-01-24",5139.0,"P",1,"Carpentry"],
+["2026-01-23",30000.0,"P",1,"Furniture"],
+["2026-01-23",5000.0,"P",1,"Fabrication"],
+["2026-01-23",30000.0,"P",1,"Security Deposit"],
+["2026-01-22",65000.0,"E",1,"Furniture"],
+["2026-01-22",2280.0,"P",1,"Electrical"],
+["2026-01-22",49964.0,"E",1,"Lighting"],
+["2026-01-22",14140.0,"P",1,"Tiles"],
+["2026-01-22",100000.0,"P",1,"Furniture"],
+["2026-01-15",164490.0,"E",1,"Electrical"],
+["2026-01-15",10000.0,"P",1,"Cutlery & Crokery"],
+["2026-01-15",7914.0,"P",1,"Utensils"],
+["2026-01-15",14931.0,"P",1,"Equipments"],
+["2026-01-15",10265.0,"P",1,"R&D"],
+["2026-01-15",15000.0,"P",1,"Signage"],
+["2026-01-15",2270.0,"P",1,"Cutlery & Crokery"],
+["2026-01-15",11389.0,"P",1,"R&D"],
+["2026-01-15",13000.0,"P",1,"Ebill"],
+["2026-01-15",3500.0,"P",1,"Interior"],
+["2026-01-15",12000.0,"P",1,"Carpentry"],
+["2026-01-15",30000.0,"P",1,"Painting"],
+["2026-01-15",900.0,"P",1,"R&D"],
+["2026-01-15",6998.0,"P",1,"Plumbing"],
+["2026-01-12",1500.0,"E",1,"R&D"],
+["2026-01-12",15789.0,"P",1,"Fabrication"],
+["2026-01-13",7619.0,"P",1,"R&D"],
+["2026-01-13",10000.0,"P",1,"Site Supervision"],
+["2026-01-12",6646.0,"P",1,"Carpentry"],
+["2026-01-12",50000.0,"E",1,"Fabrication"],
+["2026-01-12",75000.0,"E",1,"Equipments"],
+["2026-01-12",3250.0,"P",1,"Carpentry"],
+["2026-01-12",14000.0,"P",1,"Staff Rent"],
+["2026-01-12",98832.0,"P",1,"Salary"],
+["2026-01-12",182000.0,"E",1,"Equipments"],
+["2026-01-09",10000.0,"P",1,"Lighting"],
+["2026-01-09",7000.0,"P",1,"Painting"],
+["2026-01-09",200000.0,"E",1,"Equipments"],
+["2026-01-08",130272.0,"P",1,"Equipments"],
+["2026-01-08",6797.0,"P",1,"Fabrication"],
+["2026-01-05",35000.0,"P",1,"Fabrication"],
+["2026-01-05",190000.0,"E",1,"Rent Restaurant"],
+["2026-01-05",14313.0,"P",1,"Equipments"],
+["2026-01-05",6949.0,"P",1,"R&D"],
+["2026-01-05",16500.0,"P",1,"Salary"],
+["2025-12-31",6476.0,"P",1,"Staff Food"],
+["2025-12-31",17000.0,"P",1,"Site Supervision"],
+["2025-12-29",6393.0,"P",1,"R&D"],
+["2025-12-29",7500.0,"P",1,"Carpentry"],
+["2025-12-29",25000.0,"P",1,"Fabrication"],
+["2025-12-24",5058.0,"P",1,"R&D"],
+["2025-12-24",3000.0,"P",1,"Tiles"],
+["2025-12-24",5440.0,"P",1,"Interior"],
+["2025-12-24",2100.0,"P",1,"Staff Food"],
+["2025-12-24",15000.0,"P",1,"Fabrication"],
+["2025-12-24",18219.0,"P",1,"Miscellaneous"],
+["2025-12-24",222961.0,"E",1,"Equipments"],
+["2025-12-23",9000.0,"P",1,"Fabrication"],
+["2025-12-18",5015.0,"P",1,"R&D"],
+["2025-12-18",1115.0,"P",1,"Miscellaneous"],
+["2025-12-18",4000.0,"P",1,"Site Supervision"],
+["2025-12-18",4119.0,"P",1,"R&D"],
+["2025-12-18",12000.0,"P",1,"Fabrication"],
+["2025-12-18",50000.0,"P",1,"Electrical"],
+["2025-12-16",14140.0,"P",1,"Carpentry"],
+["2025-12-16",40000.0,"E",1,"Fabrication"],
+["2025-12-12",17334.0,"P",1,"Broker fee"],
+["2025-12-12",2500.0,"P",1,"Staff Food"],
+["2025-12-12",5172.0,"P",1,"R&D"],
+["2025-12-12",17110.0,"P",1,"Equipments"],
+["2025-12-12",6066.0,"P",1,"Rent Staff Room"],
+["2025-12-07",37040.0,"P",1,"Tiles"],
+["2025-12-05",190000.0,"E",1,"Rent Restaurant"],
+["2025-12-05",1150.0,"P",1,"Miscellaneous"],
+["2025-12-04",8736.0,"P",1,"R&D"],
+["2025-12-04",11500.0,"P",1,"Salary"],
+["2025-12-03",50000.0,"P",1,"CCTV"],
+["2025-12-02",100000.0,"E",1,"Fabrication"],
+["2025-12-02",15000.0,"P",1,"Site Supervision"],
+["2025-12-01",17825.0,"P",1,"R&D"],
+["2025-11-30",3460.0,"P",1,"Equipments"],
+["2025-11-30",20000.0,"P",1,"Chimney"],
+["2025-11-30",100000.0,"E",1,"Equipments"],
+["2025-11-23",18667.0,"P",1,"Broker fee"],
+["2025-11-23",20000.0,"P",1,"Fabrication"],
+["2025-11-28",10000.0,"P",1,"Site Supervision"],
+["2025-11-28",12000.0,"P",1,"Broker fee"],
+["2025-11-20",17220.0,"P",1,"Plumbing"],
+["2025-11-26",30000.0,"P",1,"Chimney"],
+["2025-11-24",11836.0,"P",1,"R&D"],
+["2025-11-24",96170.0,"P",1,"Equipments"],
+["2025-11-24",6750.0,"P",1,"Utensils"],
+["2025-11-24",5385.0,"P",1,"R&D"],
+["2025-11-24",3304.0,"P",1,"Equipments"],
+["2025-11-23",12000.0,"P",1,"Broker fee"],
+["2025-11-23",20000.0,"P",1,"Fabrication"],
+["2025-11-23",10000.0,"P",1,"Painting"],
+["2025-11-20",39094.0,"P",1,"Utensils"],
+["2025-11-20",2150.0,"P",1,"Miscellaneous"],
+["2025-11-20",21146.0,"P",1,"Plumbing"],
+["2025-11-20",25000.0,"P",1,"Fabrication"],
+["2025-11-19",177889.0,"P",1,"Equipments"],
+["2025-11-19",1680.0,"P",1,"Tiles"],
+["2025-10-19",2147.0,"P",1,"Miscellaneous"],
+["2025-10-19",30000.0,"P",1,"Fabrication"],
+["2025-11-18",9826.0,"P",1,"Electrical"],
+["2025-11-17",1200.0,"P",1,"Carpentry"],
+["2025-11-17",2000.0,"P",1,"Ebill"],
+["2025-11-17",10000.0,"P",1,"Carpentry"],
+["2025-11-17",40000.0,"P",1,"Security Deposit"],
+["2025-11-17",25000.0,"P",1,"Chimney"],
+["2025-11-17",20000.0,"P",1,"Carpentry"],
+["2025-11-14",8871.0,"P",1,"Carpentry"],
+["2025-11-14",2388.0,"P",1,"Equipments"],
+["2025-11-14",15000.0,"P",1,"Chimney"],
+["2025-10-14",25000.0,"P",1,"Fabrication"],
+["2025-10-13",23900.0,"E",1,"R&D"],
+["2025-11-12",7035.0,"P",1,"Carpentry"],
+["2025-11-12",8000.0,"P",1,"Site Supervision"],
+["2025-11-12",21556.0,"P",1,"Carpentry"],
+["2025-11-11",5000.0,"P",1,"Electrical"],
+["2025-11-11",12039.0,"P",1,"Carpentry"],
+["2025-11-10",17600.0,"P",1,"Carpentry"],
+["2025-11-09",25000.0,"P",1,"Fabrication"],
+["2025-11-07",33847.0,"P",1,"Equipments"],
+["2025-11-07",300000.0,"E",1,"Security Deposit"],
+["2025-11-07",17504.0,"P",1,"Interior"],
+["2025-11-06",10270.0,"P",1,"Carpentry"],
+["2025-11-04",20000.0,"P",1,"Electrical"],
+["2025-11-05",5000.0,"P",1,"Site Supervision"],
+["2025-11-04",20000.0,"P",1,"Electrical"],
+["2025-11-04",46736.0,"P",1,"Carpentry"],
+["2025-11-04",1855.0,"P",1,"Miscellaneous"],
+["2025-11-04",10000.0,"P",1,"Site Supervision"],
+["2025-11-04",15000.0,"P",1,"Painting"],
+["2025-11-01",25000.0,"P",1,"Painting"],
+["2025-10-27",2746.0,"P",1,"Ebill"],
+["2025-10-27",5130.0,"P",1,"Concrete work"],
+["2025-10-25",10000.0,"P",1,"Painting"],
+["2025-10-24",10000.0,"P",1,"Carpentry"],
+["2025-10-23",5000.0,"P",1,"Tiles"],
+["2025-10-22",1500.0,"P",1,"Electrical"],
+["2025-10-22",5000.0,"P",1,"Painting"],
+["2025-10-22",5000.0,"P",1,"Site Supervision"],
+["2025-10-20",54675.0,"P",1,"Interior"],
+["2025-10-20",6390.0,"P",1,"Concrete work"],
+["2025-10-05",28463.0,"P",1,"Carpentry"],
+["2025-10-16",50000.0,"P",1,"Furniture"],
+["2025-10-16",1230.0,"P",1,"R&D"],
+["2025-10-16",4089.0,"P",1,"Carpentry"],
+["2025-10-16",20000.0,"P",1,"Broker fee"],
+["2025-10-14",19360.0,"P",1,"Tiles"],
+["2025-10-11",5000.0,"P",1,"Site Supervision"],
+["2025-10-11",23870.0,"P",1,"Tiles"],
+["2025-10-10",7500.0,"P",1,"Demolition"],
+["2025-10-10",11050.0,"P",1,"Tiles"],
+["2025-10-09",15000.0,"P",1,"Tiles"],
+["2025-10-07",2080.0,"P",1,"Lock"],
+["2025-10-07",25000.0,"P",1,"Electrical"],
+["2025-10-07",1500.0,"P",1,"Tiles"],
+["2025-10-06",10000.0,"P",1,"Concrete work"],
+["2025-10-06",24783.0,"E",1,"Consultancy"],
+["2025-10-05",10000.0,"P",1,"Carpentry"],
+["2025-10-04",20000.0,"P",1,"Broker fee"],
+["2025-10-04",8860.0,"P",1,"Concrete work"],
+["2025-10-01",57110.0,"P",1,"Carpentry"],
+["2025-09-30",23302.0,"E",1,"Consultancy"],
+["2025-09-28",2470.0,"P",1,"Concrete work"],
+["2025-09-28",15000.0,"P",1,"Plumbing"],
+["2025-09-27",11435.0,"P",1,"Plumbing"],
+["2025-09-25",26617.0,"E",1,"Consultancy"],
+["2025-09-22",34735.0,"P",1,"Plumbing"],
+["2025-09-22",12000.0,"P",1,"Tiles"],
+["2025-09-22",138534.0,"P",1,"Tiles"],
+["2025-09-20",25000.0,"E",1,"Consultancy"],
+["2025-09-15",22458.0,"P",1,"Concrete work"],
+["2025-09-13",22100.0,"P",1,"Concrete work"],
+["2025-09-11",20000.0,"P",1,"Concrete work"],
+["2025-09-10",5000.0,"P",1,"Demolition"],
+["2025-09-08",120000.0,"P",1,"Broker fee"],
+["2025-09-06",106794.0,"E",1,"Consultancy"],
+["2025-09-06",5000.0,"P",1,"Broker fee"],
+["2025-09-05",1000000.0,"E",1,"Security Deposit"],
+["2025-09-03",4500.0,"P",1,"Outlet Survey"],
+["2025-09-01",30000.0,"P",1,"Security Deposit"]];
+function loadLedger(){ return (typeof HIST_LEDGER!=='undefined')?HIST_LEDGER:[]; }
+function ledgerCapitalBy(){ var o={Edwin:0,Prathvi:0}; loadLedger().forEach(function(r){ o[r[2]==='E'?'Edwin':'Prathvi']+=r[1]; }); return o; }
+function ledgerCapexBy(){ var o={Edwin:0,Prathvi:0}; loadLedger().forEach(function(r){ if(r[3]===1) o[r[2]==='E'?'Edwin':'Prathvi']+=r[1]; }); return o; }
+// Partner-paid operating expenses (post-opening) that belong in the P&L for a period.
+function ledgerOpexInRange(from,to){ if(!from||!to) return 0; return loadLedger().reduce(function(s,r){ return s + ((r[3]===0 && r[0]>=from && r[0]<=to)?r[1]:0); },0); }
+
 function renderPnlBank() {
   const cashEntries = getDashEntries();
   const range = getRange();
@@ -1931,13 +2245,21 @@ function renderPnlBank() {
   const bank = getBankInRange();
   const bankExp = bank.filter(b => !b.capital && !isGstEntry(b)).reduce((s, b) => s + (Number(b.amount) || 0), 0);
   const gstPaid = bank.filter(isGstEntry).reduce((s, b) => s + (Number(b.amount) || 0), 0);
-  const capital = bank.filter(b => b.capital).reduce((s, b) => s + (Number(b.amount) || 0), 0);
-  const totalExp = cashExp + bankExp;
+  const ledgerOpex = ledgerOpexInRange(range.from, range.to);   // partner-paid opex (post-opening) in this period
+  const totalExp = cashExp + bankExp + ledgerOpex;
   const net = income - totalExp;
 
-  // Capital split by contributing partner
-  const capBy = {};
-  bank.filter(b => b.capital).forEach(b => { const k = b.partner || b.addedBy || '—'; capBy[k] = (capBy[k] || 0) + (Number(b.amount) || 0); });
+  // Capital Infused (equity) and Setup/Capex are CUMULATIVE (balance-sheet items),
+  // not period flows, and never touch the P&L or the available bank balance.
+  const capBy = {};   // capital contributed per partner, all time
+  loadBankEntries().filter(b => b.capital).forEach(b => { const k = b.partner || b.addedBy || '—'; capBy[k] = (capBy[k] || 0) + (Number(b.amount) || 0); });
+  const capL = ledgerCapitalBy();
+  if (capL.Edwin)   capBy['Edwin']   = (capBy['Edwin']   || 0) + capL.Edwin;
+  if (capL.Prathvi) capBy['Prathvi'] = (capBy['Prathvi'] || 0) + capL.Prathvi;
+  const capital = Object.values(capBy).reduce((s, v) => s + v, 0);
+  const capexBy = ledgerCapexBy();
+  const capexTotal = capexBy.Edwin + capexBy.Prathvi;
+  const splitStr = (obj) => Object.entries(obj).filter(kv => kv[1] > 0).sort((a, b) => b[1] - a[1]).map(kv => esc(kv[0]) + ' ' + inr(kv[1])).join(' · ') || '—';
 
   const allCash = loadEntries().slice().sort((a, b) => (a.date||'').localeCompare(b.date||''));
   const cashBal = allCash.length ? (allCash[allCash.length - 1].closing || 0) : 0;
@@ -1953,9 +2275,6 @@ function renderPnlBank() {
   }
   const inr = n => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN');
   const available = (bankBal || 0) + cashBal;
-  const capSplit = Object.keys(capBy).length
-    ? Object.entries(capBy).sort((a, b) => b[1] - a[1]).map(kv => esc(kv[0]) + ' ' + inr(kv[1])).join(' · ')
-    : 'No capital yet';
 
   const sEl = document.getElementById('pnl-summary');
   if (sEl) sEl.innerHTML = `
@@ -1966,7 +2285,7 @@ function renderPnlBank() {
     </div>
     <div class="cards2">
       <div class="card card-click" onclick="focusLog('sales')"><div class="card-label">Income (Sales)</div><div class="card-value green">${inr(income)}</div><div class="card-sub">Pet Pooja · all channels</div></div>
-      <div class="card card-click" onclick="focusLog('bank',{type:'expense'})"><div class="card-label">Expenses</div><div class="card-value red">${inr(totalExp)}</div><div class="card-sub">Cash ${inr(cashExp)} · Bank ${inr(bankExp)}</div></div>
+      <div class="card card-click" onclick="focusLog('bank',{type:'expense'})"><div class="card-label">Expenses</div><div class="card-value red">${inr(totalExp)}</div><div class="card-sub">Cash ${inr(cashExp)} · Bank ${inr(bankExp)}${ledgerOpex ? ' · Direct ' + inr(ledgerOpex) : ''}</div></div>
     </div>
     <div class="cards2">
       <div class="card card-click" onclick="focusLog('bank',{type:'gst'})"><div class="card-label">GST Paid</div><div class="card-value gold">${inr(gstPaid)}</div><div class="card-sub">Remitted · not an expense</div></div>
@@ -1975,7 +2294,12 @@ function renderPnlBank() {
     <div class="pnl-divider"><span>Balances</span></div>
     <div class="cards2">
       <div class="card card-click" onclick="focusLog('bank')"><div class="card-label">Available Balance</div><div class="card-value gold">${inr(available)}</div><div class="card-sub">Bank ${bankBal !== null ? inr(bankBal) : '—'} · Cash ${inr(cashBal)}</div></div>
-      <div class="card card-click" onclick="focusLog('bank',{type:'capital'})"><div class="card-label">Capital Infused</div><div class="card-value">${inr(capital)}</div><div class="card-sub">${capSplit}</div></div>
+      <div class="card"><div class="card-label">Capital Infused</div><div class="card-value">${inr(capital)}</div><div class="card-sub">${splitStr(capBy)} · total to date</div></div>
+    </div>
+    <div class="pnl-divider"><span>Setup &amp; investment (out of P&amp;L)</span></div>
+    <div class="cards2">
+      <div class="card"><div class="card-label">Setup / Capex</div><div class="card-value gold">${inr(capexTotal)}</div><div class="card-sub">${splitStr(capexBy)}</div></div>
+      <div class="card"><div class="card-label">Operating spend to date</div><div class="card-value">${inr(capital - capexTotal)}</div><div class="card-sub">Funded from capital · in P&amp;L by month</div></div>
     </div>`;
 
   renderBankRich('dbank');
