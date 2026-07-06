@@ -975,6 +975,10 @@ async function biometricUnlock(auto) {
     if (st) st.textContent = auto
       ? 'Tap “Unlock with Face ID” to continue.'
       : 'Face ID cancelled or failed — try again, or use your PIN.';
+    // Never strand the user behind Face ID — surface the PIN entry as a fallback.
+    const pe = document.getElementById('pin-entry');
+    if (pe) pe.style.display = 'block';
+    if (!auto) { const pin = document.getElementById('pin-input'); if (pin) setTimeout(() => pin.focus(), 50); }
   }
 }
 
@@ -1037,6 +1041,13 @@ async function initAuth() {
       const rl = document.getElementById('bio-role-label');
       if (rl) rl.textContent = _bioUser(store).name;
       biometricUnlock(true);        // best-effort auto-prompt (iOS may need one tap)
+      // Watchdog: if Face ID hasn't let us in within a few seconds (sheet dismissed,
+      // in-app browser without WebAuthn, iOS quirk), reveal the PIN so nobody is stuck.
+      setTimeout(function () {
+        const appShown = document.getElementById('app').style.display === 'block';
+        const pe2 = document.getElementById('pin-entry');
+        if (!appShown && pe2 && pe2.style.display === 'none') pe2.style.display = 'block';
+      }, 4000);
     } else {
       showPinEntry();
     }
