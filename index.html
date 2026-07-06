@@ -92,6 +92,9 @@
   .cards2 .card { display:flex; flex-direction:column; min-width:0; }
   .pnl-hero { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px 18px 22px; margin-bottom:12px; text-align:center; }
   .pnl-hero .card-value { font-size:40px; margin-top:4px; }
+  /* Centre only the digits of the P/L; the ₹ and minus hang just to the left. */
+  .pnl-hero .card-value .cv-fig { position:relative; display:inline-block; }
+  .pnl-hero .card-value .cv-pre { position:absolute; right:calc(100% + 4px); top:0; white-space:nowrap; }
   .pnl-hero .card-label { letter-spacing:1.4px; }
   .pnl-divider { display:flex; align-items:center; gap:12px; margin:20px 2px 14px; }
   .pnl-divider::before, .pnl-divider::after { content:""; flex:1; height:1px; background:var(--border); }
@@ -2736,6 +2739,11 @@ function renderPnlBank() {
     { k: 'Operating spend (counted as expense)', v: tO, parts: [{ k: 'Edwin', v: opexO.Edwin }, { k: 'Prathvi', v: opexO.Prathvi }], type: 'opex' }
   ].sort((a, b) => b.v - a.v);
 
+  // Hero P/L: centre the number itself; the ₹ (and any minus) sit just to its
+  // left, absolutely positioned, so they don't shift the optical centre.
+  const netParts = inr(net).match(/^(\D*)(.*)$/);
+  const heroNet = `<span class="cv-fig"><span class="cv-pre">${netParts[1]}</span>${netParts[2]}</span>`;
+
   const sEl = document.getElementById('pnl-summary');
   if (sEl) sEl.innerHTML = `
     <div class="cards2">
@@ -2744,7 +2752,7 @@ function renderPnlBank() {
     </div>
     <div class="pnl-hero">
       <div class="card-label">Net Profit / Loss</div>
-      <div class="card-value ${net >= 0 ? 'green' : 'red'}">${inr(net)}</div>
+      <div class="card-value ${net >= 0 ? 'green' : 'red'}">${heroNet}</div>
       <div class="card-sub">Income ${inr(income)} − expenses ${inr(totalExp)}</div>
     </div>
     <div class="cards2">
