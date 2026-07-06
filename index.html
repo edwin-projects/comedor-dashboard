@@ -97,11 +97,11 @@
   .pnl-divider::before, .pnl-divider::after { content:""; flex:1; height:1px; background:var(--border); }
   /* Consolidated capital & investment tile */
   .cap-invest { padding:16px 18px; }
-  .cap-total { position:relative; display:flex; justify-content:center; align-items:center; gap:10px; cursor:pointer; }
-  .cap-total-mid { display:flex; align-items:baseline; justify-content:center; flex-wrap:wrap; gap:4px 10px; text-align:center; }
-  .cap-total-mid .card-label { margin-bottom:0; }
-  .cap-chev { position:absolute; right:0; top:50%; transform:translateY(-50%); color:var(--text3); font-size:13px; transition:transform 0.2s; }
-  .cap-invest.cap-collapsed .cap-chev { transform:translateY(-50%) rotate(-90deg); }
+  .cap-total { display:flex; justify-content:space-between; align-items:center; gap:10px; cursor:pointer; }
+  .cap-total .card-label { margin-bottom:0; }
+  .cap-total-right { display:flex; align-items:center; gap:12px; }
+  .cap-chev { color:var(--text3); font-size:13px; transition:transform 0.2s; flex-shrink:0; }
+  .cap-invest.cap-collapsed .cap-chev { transform:rotate(-90deg); }
   .cap-invest.cap-collapsed .cap-body { display:none; }
   .cap-body { padding-top:2px; }
   .cap-total-val { font-family:'Inter',sans-serif; font-weight:400; font-size:26px; letter-spacing:-0.3px; font-variant-numeric:lining-nums tabular-nums; }
@@ -2038,7 +2038,7 @@ function renderCashTable() {
   const tCash = r('cash'), tUpi = r('upi'), tCard = r('card'), tSales = r('totalSales'), tExp = r('totalExpenses');
 
   const countCashEl = document.getElementById('count-cash');
-  if (countCashEl) { const allSales = all.reduce((s, e) => s + (e.totalSales || 0), 0); countCashEl.textContent = '₹' + allSales.toLocaleString('en-IN'); }
+  if (countCashEl) { const allCashExp = all.reduce((s, e) => s + (e.totalExpenses || 0), 0); countCashEl.textContent = '₹' + allCashExp.toLocaleString('en-IN'); }
   const sm = document.getElementById('dcash-summary');
   if (sm) sm.innerHTML = `${entries.length} ${entries.length === 1 ? 'day' : 'days'} · sales <b>₹${tSales.toLocaleString('en-IN')}</b> · exp ₹${tExp.toLocaleString('en-IN')}`;
 
@@ -2741,11 +2741,11 @@ function renderPnlBank() {
     <div class="pnl-divider"><span>Capital &amp; investment</span></div>
     <div class="card cap-invest ${_capCollapsed ? 'cap-collapsed' : ''}" id="cap-card">
       <div class="cap-total" onclick="toggleCapCard()">
-        <span class="cap-total-mid">
-          <span class="card-label">Total Capital Infused</span>
+        <span class="card-label">Total Capital Infused</span>
+        <span class="cap-total-right">
           <span class="cap-total-val" style="color:#4d9de0;">${inr(capital)}</span>
+          <span class="cap-chev">▾</span>
         </span>
-        <span class="cap-chev">▾</span>
       </div>
       <div class="cap-body">
         <div class="cap-total-split">${splitBox([{k:'Edwin',v:capBy['Edwin']||0},{k:'Prathvi',v:capBy['Prathvi']||0}], capital)}</div>
@@ -3227,22 +3227,45 @@ function renderLedger(p) {
   if (sm) sm.innerHTML = `${list.length} ${list.length === 1 ? 'item' : 'items'} · <b>₹${Math.round(total).toLocaleString('en-IN')}</b>`;
   const cnt = document.getElementById('count-ledger'); if (cnt) cnt.textContent = '₹' + Math.round(srcTotal).toLocaleString('en-IN');
   const el = document.getElementById(p + '-list');
-  if (el) el.innerHTML = list.length ? ledgerTable(list) : '<div class="log-empty">No items match these filters.</div>';
+  if (el) el.innerHTML = list.length ? ledgerAccordion(list) : '<div class="log-empty">No items match these filters.</div>';
   updateClearBtn(p);
 }
 
-// Ledger entries as a clean, Excel-style table (Date · Category · Type · By · Amount).
-function ledgerTable(list) {
-  const inr = n => '₹' + Number(n || 0).toLocaleString('en-IN');
+// Generic category accordion: groups rows by category (biggest total first),
+// each category expands to its individual line items. Shared by the Bank and
+// Ledger logs and mirrors the Expenses-by-category look.
+function catAccordion(prefix, list, rowFn) {
+  const inr = n => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN');
+  const groups = {};
+  list.forEach(x => { const c = x._cat || x.category || 'Uncategorised'; (groups[c] = groups[c] || []).push(x); });
+  const entries = Object.keys(groups).map(c => [c, groups[c], groups[c].reduce((s, x) => s + (Number(x.amount) || 0), 0)]).sort((a, b) => b[2] - a[2]);
+  const total = entries.reduce((s, e) => s + e[2], 0);
+  return `<div class="sc-list">${entries.map((e, i) => {
+    const cat = e[0], items = e[1], amt = e[2], pct = total ? (amt / total * 100).toFixed(0) : 0;
+    return `<div class="sc-cat">
+      <div class="sc-cat-head" onclick="toggleAcc('${prefix}',${i})">
+        <span class="sc-chev" id="${prefix}-chev-${i}">▸</span>
+        <span class="sc-cat-name">${esc(cat)}</span>
+        <span class="sc-cat-amt">${inr(amt)} <span class="sc-share">${pct}%</span></span>
+      </div>
+      <div class="sc-items" id="${prefix}-items-${i}" hidden><table class="sc-itable"><tbody>${items.map(rowFn).join('')}</tbody></table></div>
+    </div>`;
+  }).join('')}</div>`;
+}
+function toggleAcc(prefix, i) {
+  const box = document.getElementById(prefix + '-items-' + i);
+  const chev = document.getElementById(prefix + '-chev-' + i);
+  if (!box) return;
+  const show = box.hasAttribute('hidden');
+  if (show) box.removeAttribute('hidden'); else box.setAttribute('hidden', '');
+  if (chev) chev.style.transform = show ? 'rotate(90deg)' : '';
+}
+// Ledger grouped by category → tap a category to see each entry (date · type · by).
+function ledgerAccordion(list) {
+  const inr = n => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN');
   const d = iso => new Date(iso + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
-  const rows = list.map(x => `<tr>
-    <td style="white-space:nowrap;">${d(x.date)}</td>
-    <td>${esc(x.category || '—')}</td>
-    <td style="color:var(--text2);white-space:nowrap;">${esc(x.bucketLabel)}</td>
-    <td style="color:var(--text2);white-space:nowrap;">${esc(x.by)}</td>
-    <td class="num red-text">–${inr(x.amount)}</td>
-  </tr>`).join('');
-  return `<table><thead><tr><th>Date</th><th>Category</th><th>Type</th><th>By</th><th class="num">Amount ₹</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const row = x => `<tr><td>${d(x.date)} <span style="color:var(--text3);">${esc(x.bucketLabel)} · ${esc(x.by)}</span></td><td class="num red-text">–${inr(x.amount)}</td></tr>`;
+  return catAccordion('ledgercat', list, row);
 }
 
 function sortBank(list, sort) {
@@ -3314,8 +3337,21 @@ function renderBankRich(p) {
   if (p === 'dbank') { const srcSpent = src.filter(b => !b.capital).reduce((s, b) => s + (Number(b.amount)||0), 0); const cb = document.getElementById('count-bank'); if (cb) cb.textContent = '₹' + srcSpent.toLocaleString('en-IN'); }
 
   const el = document.getElementById(p + '-list');
-  if (el) el.innerHTML = list.length ? bankTable(list) : '<div class="log-empty">No entries match these filters.</div>';
+  if (el) el.innerHTML = list.length ? bankAccordion(list) : '<div class="log-empty">No entries match these filters.</div>';
   updateClearBtn(p);
+}
+// Bank entries grouped by category → tap a category to see each entry.
+function bankAccordion(list) {
+  const inr = n => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN');
+  const d = iso => new Date(iso + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short' });
+  const mapped = list.map(b => Object.assign({}, b, { _cat: b.capital ? 'Capital in' : (isGstEntry(b) ? 'GST' : (b.category || 'Uncategorised')) }));
+  const row = b => {
+    const cap = !!b.capital, gst = isGstEntry(b);
+    const title = (b.desc && b.desc !== 'Capital infusion') ? b.desc : (cap ? 'Capital infusion' : gst ? 'GST paid' : (b.category || '—'));
+    const acts = canEditBank(b.addedBy) ? ` <button class="cat-act cat-edit" style="padding:1px 6px;" onclick="editBankExpense('${b.id}')">Edit</button>` : '';
+    return `<tr><td>${d(b.date)} · ${esc(title)} <span style="color:var(--text3);">${esc(b.partner || b.addedBy || '—')}</span></td><td class="num ${cap ? 'green-text' : 'red-text'}">${cap ? '+' : '–'}${inr(b.amount)}${acts}</td></tr>`;
+  };
+  return catAccordion('bankcat', mapped, row);
 }
 
 // Bank entries as a clean, Excel-style table (Date · Description · Category · By · Amount).
