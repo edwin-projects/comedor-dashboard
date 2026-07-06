@@ -328,6 +328,9 @@
 .fchip { flex-shrink:0; background:var(--surface2); border:1px solid var(--border); color:var(--text2); border-radius:20px; padding:6px 13px; font-size:12px; font-family:'Inter',sans-serif; cursor:pointer; white-space:nowrap; transition:all 0.15s; }
 .fchip:hover { border-color:var(--accent); color:var(--text); }
 .fchip.active { background:var(--accent); border-color:var(--accent); color:var(--bg); font-weight:600; }
+.fchip-clear { color:var(--red); border-color:rgba(224,82,82,0.35); background:transparent; }
+.fchip-clear:hover { border-color:var(--red); color:var(--red); background:rgba(224,82,82,0.08); }
+.fchip-clear.active { background:transparent; border-color:rgba(224,82,82,0.35); color:var(--red); font-weight:400; }
 .log-toolrow { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
 .log-select { background:var(--surface2); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:8px 12px; font-size:12.5px; font-family:'Inter',sans-serif; cursor:pointer; outline:none; }
 .log-select:focus { border-color:var(--accent); }
@@ -455,6 +458,7 @@
     <button class="dfbtn" onclick="setDashFilter('quarter',this)">This Quarter</button>
     <button class="dfbtn" onclick="setDashFilter('half',this)">Half Year</button>
     <button class="dfbtn" onclick="setDashFilter('ytd',this)">FY&nbsp;YTD</button>
+    <button class="dfbtn" onclick="setDashFilter('lifetime',this)">Lifetime</button>
     <button class="dfbtn" onclick="setDashFilter('custom',this)">Custom</button>
   </div>
   <div id="dash-period" style="font-size:11px; color:var(--text3); font-family:'Inter',sans-serif; letter-spacing:0.5px; margin:2px 0 16px;"></div>
@@ -480,6 +484,7 @@
       <div class="log-toolbar">
         <input class="log-search" id="search-cash" placeholder="Search date, amount, person…" oninput="filterLog('cash')">
         <div class="chip-row" id="dcash-bychips"></div>
+        <div class="chip-row"><button class="fchip fchip-clear" onclick="clearLog('dcash')">✕ Clear filters</button></div>
         <div class="log-toolrow">
           <select class="log-select" id="dcash-sort" onchange="setSort('dcash',this.value)">
             <option value="date_desc">Newest first</option>
@@ -516,6 +521,7 @@
           <button class="fchip" data-v="expense" onclick="setType('dbank','expense')">Expenses</button>
           <button class="fchip" data-v="gst" onclick="setType('dbank','gst')">GST</button>
           <button class="fchip" data-v="capital" onclick="setType('dbank','capital')">Capital in</button>
+          <button class="fchip fchip-clear" onclick="clearLog('dbank')">✕ Clear filters</button>
         </div>
         <div class="log-toolrow">
           <select class="log-select" id="dbank-cat" onchange="setCat('dbank',this.value)"><option value="all">All categories</option></select>
@@ -540,6 +546,37 @@
     </div>
     <div class="logcard-body">
       <div id="sales-cat-wrap" class="log-scroll"></div>
+    </div>
+  </div>
+
+  <!-- Collapsible: Setup & capital ledger (day-1 partner spend) -->
+  <div class="logcard collapsed" id="logcard-ledger">
+    <div class="logcard-head" onclick="toggleLog('ledger')">
+      <span class="logcard-title"><svg class="hd-ic" viewBox="0 0 24 24"><path d="M6 3.5h9l3 3V20.5H6z"/><path d="M9 8.5h6M9 12h6M9 15.5h4"/></svg> Setup &amp; capital ledger <span class="logcard-count" id="count-ledger">0</span></span>
+      <span class="logcard-chev" id="chev-ledger">▾</span>
+    </div>
+    <div class="logcard-body">
+      <div class="log-toolbar">
+        <input class="log-search" id="dledger-search" placeholder="Search category, person, date…" oninput="setSearch('dledger',this.value)">
+        <div class="chip-row" id="dledger-bychips"></div>
+        <div class="chip-row" id="dledger-typechips">
+          <button class="fchip active" data-v="all" onclick="setType('dledger','all')">All</button>
+          <button class="fchip" data-v="capex" onclick="setType('dledger','capex')">Setup / Capex</button>
+          <button class="fchip" data-v="opex" onclick="setType('dledger','opex')">Operating</button>
+          <button class="fchip fchip-clear" onclick="clearLog('dledger')">✕ Clear filters</button>
+        </div>
+        <div class="log-toolrow">
+          <select class="log-select" id="dledger-cat" onchange="setCat('dledger',this.value)"><option value="all">All categories</option></select>
+          <select class="log-select" id="dledger-sort" onchange="setSort('dledger',this.value)">
+            <option value="date_desc">Newest first</option>
+            <option value="date_asc">Oldest first</option>
+            <option value="amt_desc">Amount: high → low</option>
+            <option value="amt_asc">Amount: low → high</option>
+          </select>
+          <div class="log-summary" id="dledger-summary"></div>
+        </div>
+      </div>
+      <div id="dledger-list" class="txn-list"></div>
     </div>
   </div>
 </div>
@@ -1594,6 +1631,8 @@ function computeDashRange() {
     }
     case 'ytd':
       from = fmt(fyStartDate(today)); to = todayStr; break;
+    case 'lifetime':
+      from = '1970-01-01'; to = '2999-12-31'; break;   // everything, since day 1
     case 'custom':
       from = dashCustomFrom; to = dashCustomTo; break;
     default:
@@ -1610,6 +1649,7 @@ function getDashEntries() {
 
 function renderPeriodLabel() {
   const el = document.getElementById('dash-period'); if (!el) return;
+  if (currentDashFilter === 'lifetime') { el.textContent = 'All time · every entry since day 1'; return; }
   const { from, to } = computeDashRange();
   if (!from || !to) { el.textContent = ''; return; }
   const d = iso => { const [y, m, day] = iso.split('-'); const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m - 1]; return `${+day} ${mon} ${y}`; };
@@ -1624,6 +1664,7 @@ function renderDashboard() {
   try { renderPnlBank(); }   catch (e) { console.warn('P&L render failed:', e); const s = document.getElementById('pnl-summary'); if (s) s.innerHTML = '<div class="pnl-hero"><div class="card-label">Dashboard</div><div class="card-sub" style="margin-top:8px;">Some figures couldn’t be totalled from the current data. Your entries are safe — try Cash / Bank tabs, or re-check a recent entry’s date.</div></div>'; }
   try { renderCashTable(); } catch (e) { console.warn('Cash table render failed:', e); }
   try { renderSalesCats(); } catch (e) { console.warn('Sales cats render failed:', e); }
+  try { renderLedger('dledger'); } catch (e) { console.warn('Ledger render failed:', e); }
 }
 
 function renderSalesCats() {
@@ -2294,12 +2335,12 @@ function renderPnlBank() {
     <div class="pnl-divider"><span>Balances</span></div>
     <div class="cards2">
       <div class="card card-click" onclick="focusLog('bank')"><div class="card-label">Available Balance</div><div class="card-value gold">${inr(available)}</div><div class="card-sub">Bank ${bankBal !== null ? inr(bankBal) : '—'} · Cash ${inr(cashBal)}</div></div>
-      <div class="card"><div class="card-label">Capital Infused</div><div class="card-value">${inr(capital)}</div><div class="card-sub">${splitStr(capBy)} · total to date</div></div>
+      <div class="card card-click" onclick="focusLog('ledger')"><div class="card-label">Capital Infused</div><div class="card-value">${inr(capital)}</div><div class="card-sub">${splitStr(capBy)} · total to date</div></div>
     </div>
     <div class="pnl-divider"><span>Setup &amp; investment (out of P&amp;L)</span></div>
     <div class="cards2">
-      <div class="card"><div class="card-label">Setup / Capex</div><div class="card-value gold">${inr(capexTotal)}</div><div class="card-sub">${splitStr(capexBy)}</div></div>
-      <div class="card"><div class="card-label">Operating spend to date</div><div class="card-value">${inr(capital - capexTotal)}</div><div class="card-sub">Funded from capital · in P&amp;L by month</div></div>
+      <div class="card card-click" onclick="focusLog('ledger',{type:'capex'})"><div class="card-label">Setup / Capex</div><div class="card-value gold">${inr(capexTotal)}</div><div class="card-sub">${splitStr(capexBy)}</div></div>
+      <div class="card card-click" onclick="focusLog('ledger',{type:'opex'})"><div class="card-label">Operating spend to date</div><div class="card-value">${inr(capital - capexTotal)}</div><div class="card-sub">Funded from capital · in P&amp;L by month</div></div>
     </div>`;
 
   renderBankRich('dbank');
@@ -2477,8 +2518,24 @@ function renderBankList() {
 const LOGF = {
   dcash: { by: 'all', sort: 'date_desc' },
   dbank: { by: 'all', type: 'all', cat: 'all', search: '', sort: 'date_desc' },
+  dledger: { by: 'all', type: 'all', cat: 'all', search: '', sort: 'date_desc' },
   pbank: { by: 'all', type: 'all', cat: 'all', search: '', sort: 'date_desc' }
 };
+const LOGF_DEFAULTS = {
+  dcash: { by: 'all', sort: 'date_desc' },
+  dbank: { by: 'all', type: 'all', cat: 'all', search: '', sort: 'date_desc' },
+  dledger: { by: 'all', type: 'all', cat: 'all', search: '', sort: 'date_desc' },
+  pbank: { by: 'all', type: 'all', cat: 'all', search: '', sort: 'date_desc' }
+};
+// Reset a log's filters back to defaults (the "Clear filters" action).
+function clearLog(p) {
+  LOGF[p] = Object.assign({}, LOGF_DEFAULTS[p] || { by: 'all', sort: 'date_desc' });
+  const searchIds = { dcash: 'search-cash', dbank: 'dbank-search', dledger: 'dledger-search' };
+  const si = document.getElementById(searchIds[p]); if (si) si.value = '';
+  if (p === 'dcash') { filterLog('cash'); renderCashTable(); }
+  else if (p === 'dledger') renderLedger('dledger');
+  else renderBankRich(p);
+}
 const _chip = {};
 
 function esc(s) { return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])); }
@@ -2651,7 +2708,59 @@ function setType(p, v) { LOGF[p].type = v; rerenderLog(p); }
 function setCat(p, v)  { LOGF[p].cat = v; rerenderLog(p); }
 function setSort(p, v) { LOGF[p].sort = v; rerenderLog(p); }
 function setSearch(p, v) { LOGF[p].search = v; rerenderLog(p); }
-function rerenderLog(p) { if (p === 'dcash') renderCashTable(); else renderBankRich(p); }
+function rerenderLog(p) { if (p === 'dcash') renderCashTable(); else if (p === 'dledger') renderLedger(p); else renderBankRich(p); }
+
+// ─── SETUP & CAPITAL LEDGER (browsable table of the day-1 ledger) ─────────────
+function ledgerRows() {
+  return loadLedger().map(function (r) {
+    const who = r[2] === 'E' ? 'Edwin' : 'Prathvi';
+    return { date: r[0], amount: r[1], by: who, addedBy: who, capex: r[3] === 1, category: r[4] };
+  });
+}
+function ledgerCard(x) {
+  const inr = n => '₹' + Number(n || 0).toLocaleString('en-IN');
+  const d = new Date(x.date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+  const typeChip = x.capex
+    ? '<span class="cat-badge" style="background:rgba(212,175,55,0.16);color:var(--accent);">Setup / Capex</span>'
+    : '<span class="cat-badge cat-antojitos">Operating</span>';
+  return `<div class="txn-card">
+    <div class="txn-row1"><div class="txn-title">${esc(x.category || '—')}</div><div class="txn-amt red-text">–${inr(x.amount)}</div></div>
+    <div class="txn-chips">${typeChip}<span class="cat-badge cat-acompana">${d}</span><span class="cat-badge cat-vegano">${esc(x.by)}</span></div>
+  </div>`;
+}
+function renderLedger(p) {
+  p = p || 'dledger';
+  const st = LOGF[p];
+  const src = ledgerRows();
+  const bc = document.getElementById(p + '-bychips'); if (bc) bc.innerHTML = byChipsHTML(p, src);
+  const cs = document.getElementById(p + '-cat');
+  if (cs) {
+    const cats = Array.from(new Set(src.map(x => x.category).filter(Boolean))).sort();
+    if (st.cat !== 'all' && !cats.includes(st.cat)) st.cat = 'all';
+    cs.innerHTML = '<option value="all">All categories</option>' + cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    cs.value = st.cat;
+  }
+  document.querySelectorAll('#' + p + '-typechips .fchip').forEach(el => el.classList.toggle('active', el.getAttribute('data-v') === st.type));
+  const sortSel = document.getElementById(p + '-sort'); if (sortSel) sortSel.value = st.sort;
+  let list = src.filter(x => {
+    if (st.by !== 'all' && x.by !== st.by) return false;
+    if (st.type === 'capex' && !x.capex) return false;
+    if (st.type === 'opex' && x.capex) return false;
+    if (st.cat !== 'all' && x.category !== st.cat) return false;
+    if (st.search) {
+      const hay = (x.category + ' ' + x.by + ' ' + x.date + ' ' + x.amount).toLowerCase();
+      if (!hay.includes(st.search.toLowerCase())) return false;
+    }
+    return true;
+  });
+  list = sortBank(list, st.sort);
+  const total = list.reduce((s, x) => s + x.amount, 0);
+  const sm = document.getElementById(p + '-summary');
+  if (sm) sm.innerHTML = `${list.length} ${list.length === 1 ? 'item' : 'items'} · <b>₹${Math.round(total).toLocaleString('en-IN')}</b>`;
+  const cnt = document.getElementById('count-ledger'); if (cnt) cnt.textContent = src.length + ' items';
+  const el = document.getElementById(p + '-list');
+  if (el) el.innerHTML = list.length ? list.map(ledgerCard).join('') : '<div class="log-empty">No items match these filters.</div>';
+}
 
 function sortBank(list, sort) {
   const f = {
@@ -2734,6 +2843,7 @@ function focusLog(which, opts) {
   if (which === 'bank') { LOGF.dbank.type = opts.type || 'all'; renderBankRich('dbank'); }
   else if (which === 'cash') { renderCashTable(); }
   else if (which === 'sales') { renderSalesCats(); }
+  else if (which === 'ledger') { LOGF.dledger.type = opts.type || 'all'; renderLedger('dledger'); }
   setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
 }
 
