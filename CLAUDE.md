@@ -1,0 +1,39 @@
+# Comedor Finance Dashboard — working notes for Claude
+
+Single-file app: everything lives in `index.html` (inline CSS + HTML + JS). No build step.
+Data syncs live across devices via Firebase Realtime Database (`comedor/*`), mirrored to
+localStorage. Deployed as a static page (GitHub Pages).
+
+## Design thumb-rules (apply to every change)
+
+1. **Money inputs — live Indian-lakh grouping.** Any field where a person types an amount
+   must show Indian comma grouping *as they type* (e.g. `12,34,567`), so the number being
+   entered is instantly readable. Use `type="text" inputmode="decimal"` with
+   `oninput="onMoneyInput(this)"`, read the value with `money(id)` (strips commas), and set
+   values with `setMoney(id, val)`. Never use a bare `type="number"` for rupee amounts.
+
+2. **Add / Save feedback lives in the button.** When the user hits an add/save action, the
+   button itself shows an interim state (`Saving…` / `Adding…`), then a confirmation
+   (`Saved ✓` / `Added ✓`) for ~2 seconds, then returns to its label. Use `btnFlash(id, interim,
+   done, restLabel)`. Do **not** show a separate success/confirmation box above or below the
+   form — the button is the acknowledgement. (Validation errors may still use inline error text.)
+
+3. **Mobile-first.** This is used mainly on phones (iPhone/Android) and iPads. Every screen
+   must fit the viewport with no horizontal overflow; prefer card layouts over wide tables on
+   small screens; keep tap targets large.
+
+4. **Black · white · gold, Grotesque type.** Dark theme is near-black background with bright
+   white text/accents and the gold Wolfpack emblem; light theme is the green "Jardín" palette.
+   Fonts: Inter throughout, lightened numerals, uppercase letter-spaced section titles.
+   Positive/negative figures stay green/red.
+
+5. **Capital ≠ expense.** Capital infusions (`capital: true`) never count as expenses and never
+   touch the P&L — they only move the bank balance up. Expenses move it down.
+
+6. **Bank balance is derived.** Displayed balance = the last statement balance
+   (`comedor/meta/bankBalance`, with `asOfISO`) + capital − expenses dated *after* that date.
+   Historical entries on/before the statement date are already baked into the base and must not
+   be re-applied.
+
+7. **Audit trail.** Every entry is stamped with `addedBy` (and `editedBy` on edit). Preserve the
+   original author when editing.
