@@ -96,8 +96,13 @@
   .pnl-divider { display:flex; align-items:center; gap:12px; margin:20px 2px 14px; }
   .pnl-divider::before, .pnl-divider::after { content:""; flex:1; height:1px; background:var(--border); }
   /* Consolidated capital & investment tile */
-  .cap-invest { padding:18px; }
-  .cap-total { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+  .cap-invest { padding:16px 18px; }
+  .cap-total { display:flex; justify-content:space-between; align-items:center; gap:10px; cursor:pointer; }
+  .cap-total-right { display:flex; align-items:center; gap:12px; }
+  .cap-chev { color:var(--text3); font-size:13px; transition:transform 0.2s; flex-shrink:0; }
+  .cap-invest.cap-collapsed .cap-chev { transform:rotate(-90deg); }
+  .cap-invest.cap-collapsed .cap-body { display:none; }
+  .cap-body { padding-top:2px; }
   .cap-total-val { font-family:'Inter',sans-serif; font-weight:400; font-size:26px; letter-spacing:-0.3px; font-variant-numeric:lining-nums tabular-nums; }
   .cap-total-split { font-size:11px; color:var(--text3); font-family:'Inter',sans-serif; margin-top:5px; }
   .cap-rows { display:flex; flex-direction:column; margin-top:14px; }
@@ -2395,6 +2400,14 @@ function ledgerCapexBy(){ return ledgerSumBy('CS'); }   // Setup/Capex kept out 
 // Partner-paid operating expenses (post-opening) that belong in the P&L for a period.
 function ledgerOpexInRange(from,to){ if(!from||!to) return 0; return loadLedger().reduce(function(s,r){ return s + ((r[3]==='O' && r[0]>=from && r[0]<=to)?r[1]:0); },0); }
 
+// Capital & investment tile starts collapsed; survives dashboard re-renders.
+let _capCollapsed = true;
+function toggleCapCard() {
+  _capCollapsed = !_capCollapsed;
+  const c = document.getElementById('cap-card');
+  if (c) c.classList.toggle('cap-collapsed', _capCollapsed);
+}
+
 function renderPnlBank() {
   const cashEntries = getDashEntries();
   const range = getRange();
@@ -2475,18 +2488,23 @@ function renderPnlBank() {
       <div class="card card-click" onclick="focusLog('sales')"><div class="card-label">Discounts &amp; Comps</div><div class="card-value">${inr(discount)}</div><div class="card-sub">${discPct ? discPct.trim() : 'From Pet Pooja'}</div></div>
     </div>
     <div class="pnl-divider"><span>Capital &amp; investment</span></div>
-    <div class="card cap-invest card-click" onclick="focusLog('ledger')">
-      <div class="cap-total">
+    <div class="card cap-invest ${_capCollapsed ? 'cap-collapsed' : ''}" id="cap-card">
+      <div class="cap-total" onclick="toggleCapCard()">
         <span class="card-label">Total Capital Infused</span>
-        <span class="cap-total-val" style="color:var(--accent);">${inr(capital)}</span>
+        <span class="cap-total-right">
+          <span class="cap-total-val" style="color:var(--accent);">${inr(capital)}</span>
+          <span class="cap-chev">▾</span>
+        </span>
       </div>
-      <div class="cap-total-split">${splitBox([{k:'Edwin',v:capBy['Edwin']||0},{k:'Prathvi',v:capBy['Prathvi']||0}], capital)}</div>
-      <div class="cap-rows">
-        ${capRows.map(row => `
-        <div class="cap-row" onclick="event.stopPropagation();focusLog('ledger',{type:'${row.type}'})">
-          <div class="cap-left"><span class="cap-k">${esc(row.k)}</span><span class="cap-s">${splitBox(row.parts, row.v)}</span></div>
-          <span class="cap-v">${inr(row.v)}</span>
-        </div>`).join('')}
+      <div class="cap-body">
+        <div class="cap-total-split">${splitBox([{k:'Edwin',v:capBy['Edwin']||0},{k:'Prathvi',v:capBy['Prathvi']||0}], capital)}</div>
+        <div class="cap-rows">
+          ${capRows.map(row => `
+          <div class="cap-row" onclick="event.stopPropagation();focusLog('ledger',{type:'${row.type}'})">
+            <div class="cap-left"><span class="cap-k">${esc(row.k)}</span><span class="cap-s">${splitBox(row.parts, row.v)}</span></div>
+            <span class="cap-v">${inr(row.v)}</span>
+          </div>`).join('')}
+        </div>
       </div>
     </div>`;
 
