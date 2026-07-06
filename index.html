@@ -272,6 +272,9 @@
   font-family: 'Inter', sans-serif;
 }
 /* On-screen PIN keypad — no OS keyboard or password autofill involved. */
+.pin-namewrap { margin: 4px 0 18px; text-align: center; }
+.pin-namewrap .pin-label { display: block; margin-bottom: 7px; }
+.pin-name-sel { width: 100%; text-align: center; text-align-last: center; }
 .pin-dots { display: flex; justify-content: center; gap: 18px; margin: 10px 0 22px; }
 .pin-dots span { width: 13px; height: 13px; border-radius: 50%; border: 1.5px solid var(--text3); transition: all 0.15s; }
 .pin-dots span.on { background: var(--accent); border-color: var(--accent); transform: scale(1.05); }
@@ -354,6 +357,26 @@
 .sc-itable tr:last-child td { border-bottom: none; }
 .sc-itable td.num { color: var(--text); }
 .sc-nodetail { font-size: 11.5px; color: var(--text3); font-style: italic; padding: 4px 0; }
+/* Collapsible settings cards */
+.setcard { border:1px solid var(--border); border-radius:12px; background:var(--surface); margin-bottom:14px; overflow:hidden; }
+.setcard-head { display:flex; align-items:center; justify-content:space-between; padding:15px 18px; cursor:pointer; user-select:none; transition:background 0.15s; }
+.setcard-head:hover { background:var(--surface2); }
+.setcard-title { font-family:'Inter',sans-serif; font-size:12.5px; font-weight:600; color:var(--text); text-transform:uppercase; letter-spacing:1.6px; }
+.setcard-chev { color:var(--text3); font-size:13px; transition:transform 0.2s; }
+.setcard.collapsed .setcard-chev { transform:rotate(-90deg); }
+.setcard.collapsed .setcard-body { display:none; }
+.setcard-body { padding:2px 16px 16px; }
+/* Expense-category editor rows */
+.cat-add { display:flex; gap:8px; margin-bottom:14px; }
+.cat-add .field-input { flex:1; min-width:0; }
+.cat-add .btn { flex-shrink:0; padding:0 16px; }
+.cat-row { display:flex; align-items:center; gap:10px; padding:9px 2px; border-bottom:1px solid var(--border); }
+.cat-row:last-child { border-bottom:none; }
+.cat-row .cat-name { flex:1; min-width:0; font-size:13.5px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cat-row .cat-act { flex-shrink:0; background:none; border:none; cursor:pointer; font-size:11.5px; font-family:'Inter',sans-serif; padding:5px 8px; border-radius:6px; }
+.cat-row .cat-edit { color:var(--accent2); }
+.cat-row .cat-del { color:var(--red); }
+.cat-row .cat-act:hover { background:var(--surface2); }
 /* People — mobile-friendly card list */
 .person-list { display:flex; flex-direction:column; gap:10px; }
 .person-card { border:1px solid var(--border); border-radius:11px; background:var(--surface); padding:14px 15px; }
@@ -448,6 +471,10 @@
         <div style="font-size:11px; margin-top:2px;"><a href="#" onclick="forgetBiometric();return false;" style="color:var(--text3); text-decoration:none;">Forget Face ID on this device</a></div>
         <div class="pin-or">or</div>
       </div>
+      <div class="pin-namewrap">
+        <label class="pin-label" for="pin-name">Who's signing in?</label>
+        <select id="pin-name" class="field-select pin-name-sel" onchange="rememberName()"></select>
+      </div>
       <div class="pin-label">Enter your PIN</div>
       <div id="pin-dots" class="pin-dots" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
       <div id="pin-error">Incorrect PIN. Try again.</div>
@@ -466,8 +493,7 @@
         <button type="button" class="pin-key pin-key-go" onclick="pinPad('go')" aria-label="Unlock">→</button>
       </div>
       <div class="pin-hint">
-        Owners: use your PIN for full access<br>
-        Manager: use your PIN for cash entry
+        Pick your name, then enter your 4-digit PIN
       </div>
     </div>
   </div>
@@ -496,7 +522,7 @@
   <div class="tab" data-panel="dashboard" data-cap="dashboard" onclick="showPanel('dashboard')"><svg class="tab-ic" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="8" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="11" width="7" height="10" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>Dashboard</div>
   <div class="tab" data-panel="entry" data-cap="cash" onclick="showPanel('entry')"><svg class="tab-ic" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v5M18 9.5v5"/></svg>Cash</div>
   <div class="tab" data-panel="bankexp" data-cap="bank" onclick="showPanel('bankexp')"><svg class="tab-ic" viewBox="0 0 24 24"><path d="M3.5 9.5 12 4l8.5 5.5"/><path d="M5 10.5v8M10 10.5v8M14 10.5v8M19 10.5v8"/><path d="M3.5 20.5h17"/></svg>Bank</div>
-  <div class="tab" data-panel="people" data-cap="people" onclick="showPanel('people')"><svg class="tab-ic" viewBox="0 0 24 24"><circle cx="9" cy="8.5" r="3.2"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0"/><path d="M16 6.2a3 3 0 0 1 .2 5.8"/><path d="M19.6 18.6A5 5 0 0 0 16 14.4"/></svg>People</div>
+  <div class="tab" data-panel="people" data-cap="people" onclick="showPanel('people')"><svg class="tab-ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M4.2 6.5l2.1 2.1M17.7 15.4l2.1 2.1M2.5 12h3M18.5 12h3M4.2 17.5l2.1-2.1M17.7 8.6l2.1-2.1"/></svg>Settings</div>
 </div>
 
 <!-- ===================== DASHBOARD ===================== -->
@@ -812,32 +838,56 @@
 
   <div id="people-msg" style="display:none; border-radius:7px; padding:10px 12px; font-size:12px; font-family:'Inter',sans-serif; margin-bottom:14px;"></div>
 
-  <div class="form-section">
-    <h3><span class="step-num">＋</span> Add Person</h3>
-    <p class="exp-note">Add partners, managers or staff. Each person gets their own PIN, so every entry they make is tagged to them for the audit trail.</p>
-    <div style="display:grid; grid-template-columns:1fr 130px 1fr; gap:12px; margin-bottom:10px;">
-      <div><label class="field-label">Name</label><input id="pp-name" class="field-input" placeholder="e.g. Rahul" style="width:100%;"></div>
-      <div><label class="field-label">PIN (4 digits)</label><input id="pp-pin" class="field-input field-input-mono" maxlength="4" inputmode="numeric" placeholder="••••" style="width:100%;"></div>
-      <div><label class="field-label">Role / Access</label><select id="pp-role" class="field-select"></select></div>
+  <!-- Add / edit a person -->
+  <div class="setcard collapsed" id="setcard-addperson">
+    <div class="setcard-head" onclick="toggleSet('addperson')"><span class="setcard-title">Add Person</span><span class="setcard-chev">▾</span></div>
+    <div class="setcard-body">
+      <p class="exp-note">Add partners, managers or staff. Each person gets their own PIN, so every entry they make is tagged to them for the audit trail.</p>
+      <div style="display:grid; grid-template-columns:1fr 130px 1fr; gap:12px; margin-bottom:10px;">
+        <div><label class="field-label">Name</label><input id="pp-name" class="field-input" placeholder="e.g. Rahul" style="width:100%;"></div>
+        <div><label class="field-label">PIN (4 digits)</label><input id="pp-pin" class="field-input field-input-mono" maxlength="4" inputmode="numeric" placeholder="••••" style="width:100%;"></div>
+        <div><label class="field-label">Role / Access</label><select id="pp-role" class="field-select"></select></div>
+      </div>
+      <div id="pp-role-desc" class="exp-note" style="margin-bottom:12px; color:var(--text2);"></div>
+      <button id="pp-submit-btn" class="btn" style="width:100%; padding:12px;" onclick="addPerson()">Add Person ✓</button>
     </div>
-    <div id="pp-role-desc" class="exp-note" style="margin-bottom:12px; color:var(--text2);"></div>
-    <button id="pp-submit-btn" class="btn" style="width:100%; padding:12px;" onclick="addPerson()">Add Person ✓</button>
   </div>
 
-  <div class="section-title">People &amp; Access</div>
-  <div id="people-list"></div>
-  <div class="note" style="margin-top:16px;">
-    <strong>Roles decide what each person sees:</strong>
-    <b>Partner</b> — full access incl. this People tab ·
-    <b>Manager / Staff</b> — cash expenses only ·
-    <b>Accountant</b> — dashboard + bank expenses ·
-    <b>Viewer</b> — dashboard only.
+  <!-- People & access -->
+  <div class="setcard" id="setcard-people">
+    <div class="setcard-head" onclick="toggleSet('people')"><span class="setcard-title">People &amp; Access</span><span class="setcard-chev">▾</span></div>
+    <div class="setcard-body">
+      <div id="people-list"></div>
+      <div class="note" style="margin-top:16px;">
+        <strong>Roles decide what each person sees:</strong>
+        <b>Partner</b> — full access incl. this Settings tab ·
+        <b>Manager / Staff</b> — cash expenses only ·
+        <b>Accountant</b> — dashboard + bank expenses ·
+        <b>Viewer</b> — dashboard only. Disabling or removing someone stops their PIN from working.
+      </div>
+    </div>
   </div>
 
-  <div class="section-title" style="margin-top:26px;">Historical Data</div>
-  <div class="form-section">
-    <p class="exp-note">One-time: load the <b>Mar–Apr 2026</b> cash register and IDFC bank expenses (from the original statement) so the Dashboard shows real numbers. Safe to tap once — it just rewrites the same records if run again.</p>
-    <button class="btn btn-ghost" onclick="importHistorical()">⬇ Load Mar–Apr 2026 historical data</button>
+  <!-- Expense categories -->
+  <div class="setcard collapsed" id="setcard-cats">
+    <div class="setcard-head" onclick="toggleSet('cats')"><span class="setcard-title">Expense Categories</span><span class="setcard-chev">▾</span></div>
+    <div class="setcard-body">
+      <p class="exp-note">These are the categories shown when adding cash or bank expenses. Add, rename or remove them here — changes sync to every device.</p>
+      <div class="cat-add">
+        <input id="cat-new" class="field-input" placeholder="New category name" onkeydown="if(event.key==='Enter'){event.preventDefault();addCategory();}">
+        <button class="btn" id="cat-add-btn" onclick="addCategory()">Add ✓</button>
+      </div>
+      <div id="cat-list"></div>
+    </div>
+  </div>
+
+  <!-- Historical data -->
+  <div class="setcard collapsed" id="setcard-hist">
+    <div class="setcard-head" onclick="toggleSet('hist')"><span class="setcard-title">Historical Data</span><span class="setcard-chev">▾</span></div>
+    <div class="setcard-body">
+      <p class="exp-note">One-time: load the <b>Mar–Apr 2026</b> cash register and IDFC bank expenses (from the original statement) so the Dashboard shows real numbers. Safe to tap once — it just rewrites the same records if run again.</p>
+      <button class="btn btn-ghost" onclick="importHistorical()">⬇ Load Mar–Apr 2026 historical data</button>
+    </div>
   </div>
 </div>
 
@@ -986,7 +1036,18 @@ function initFirebase() {
       if (snap.exists()) localStorage.setItem('comedor_users', JSON.stringify(Object.values(snap.val())));
       else localStorage.removeItem('comedor_users');
       if (document.getElementById('panel-people')?.classList.contains('active')) renderPeople();
+      if (document.getElementById('pin-screen')?.style.display !== 'none') populatePinNames();
     }, onErr('users'));
+
+    _db.ref('comedor/expense_categories').on('value', snap => {
+      const val = snap.exists() ? snap.val() : null;
+      const list = Array.isArray(val) ? val : (val && typeof val === 'object' ? Object.values(val) : null);
+      if (list && list.length) localStorage.setItem('comedor_expcats', JSON.stringify(list));
+      else localStorage.removeItem('comedor_expcats');
+      bankCatOptions(true);
+      if (document.getElementById('panel-entry')?.classList.contains('active')) renderExpenseRows();
+      if (document.getElementById('panel-people')?.classList.contains('active')) renderCategories();
+    }, onErr('expense_categories'));
 
     _db.ref('comedor/income').on('value', snap => {
       localStorage.setItem('comedor_income', JSON.stringify(snap.exists() ? Object.values(snap.val()) : []));
@@ -1016,13 +1077,17 @@ const DEFAULT_USERS = [
 ];
 function loadUsers() { try { const u = JSON.parse(localStorage.getItem('comedor_users') || 'null'); return (u && u.length) ? u : null; } catch (e) { return null; } }
 function getUsers() { return loadUsers() || DEFAULT_USERS.slice(); }
-// Break-glass login: compare PINs as strings (a synced list may store them as
-// numbers) and ALWAYS accept the built-in owner PINs as a fallback, so a bad or
-// unexpected users list synced from Firebase can never lock everyone out.
-function findUserByPin(pin) {
+// Login is name + PIN. Everyone must be an ACTIVE user in the current list, so
+// disabling or deleting someone stops their PIN from working. The one exception
+// is the built-in owner (Edwin) whose PIN is a permanent break-glass, so the
+// business can never be fully locked out. PINs compare as strings (a synced
+// list may store them as numbers).
+function findUser(name, pin) {
   const key = String(pin == null ? '' : pin).trim();
-  const hit = list => (list || []).find(u => u && u.active !== false && String(u.pin) === key);
-  return hit(getUsers()) || hit(DEFAULT_USERS) || null;
+  const nm  = String(name == null ? '' : name).trim().toLowerCase();
+  const owner = DEFAULT_USERS.find(u => u.id === 'u_edwin');
+  if (owner && key === String(owner.pin) && (!nm || nm === owner.name.toLowerCase())) return owner;   // master PIN
+  return (getUsers() || []).find(u => u && u.active !== false && String(u.name).trim().toLowerCase() === nm && String(u.pin) === key) || null;
 }
 // 'owner' is a legacy role (older Face ID credentials) — treat it as a full partner.
 function normRole(r) { return r === 'owner' ? 'partner' : r; }
@@ -1060,8 +1125,11 @@ function pinPad(k) {
   if (_pinBuffer.length === 4) setTimeout(checkPin, 160);   // auto-submit on the 4th digit
 }
 function checkPin() {
-  const user = findUserByPin(_pinBuffer.trim());
+  const nameSel = document.getElementById('pin-name');
+  const name = nameSel ? nameSel.value : '';
+  const user = findUser(name, _pinBuffer.trim());
   if (user) {
+    rememberName();
     grantAccess(user);
     maybeOfferEnroll(user);   // offer to enable Face ID on this device
   } else {
@@ -1069,6 +1137,23 @@ function checkPin() {
     if (err) { err.style.display = 'block'; setTimeout(() => { err.style.display = 'none'; }, 2000); }
     _pinBuffer = ''; renderPinDots();
   }
+}
+// Fill the lock-screen name picker from the active users (owner always listed).
+function populatePinNames() {
+  const sel = document.getElementById('pin-name');
+  if (!sel) return;
+  const names = [];
+  getUsers().forEach(u => { if (u && u.active !== false && u.name && !names.some(n => n.toLowerCase() === u.name.toLowerCase())) names.push(u.name); });
+  if (!names.some(n => n.toLowerCase() === 'edwin')) names.unshift('Edwin');
+  const last = localStorage.getItem('comedor_lastname');
+  const keep = sel.value;
+  sel.innerHTML = names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  if (keep && names.includes(keep)) sel.value = keep;
+  else if (last && names.includes(last)) sel.value = last;
+}
+function rememberName() {
+  const sel = document.getElementById('pin-name');
+  if (sel && sel.value) localStorage.setItem('comedor_lastname', sel.value);
 }
 // Physical keyboards (iPad Magic Keyboard, desktop) still work on the lock screen.
 document.addEventListener('keydown', function (e) {
@@ -1212,6 +1297,7 @@ async function initAuth() {
   _pinBuffer = '';
   const pe = document.getElementById('pin-entry');
   if (pe) pe.style.display = 'block';
+  populatePinNames();
   renderPinDots();
   try {
     const store = getBioStore();
@@ -1220,6 +1306,7 @@ async function initAuth() {
       if (bu) bu.style.display = 'block';
       const rl = document.getElementById('bio-role-label');
       if (rl) rl.textContent = _bioUser(store).name || 'this device';
+      biometricUnlock(true);   // auto-prompt Face ID on open / refresh; name + PIN stays available underneath
     }
   } catch (e) { /* keypad remains available regardless */ }
 }
@@ -1404,6 +1491,65 @@ const EXPENSE_CATEGORIES = [
   'Miscellaneous'
 ];
 
+// The active category list is editable from the Settings tab and synced across
+// devices; it falls back to the built-in defaults until someone customises it.
+function getExpenseCategories() {
+  try { const c = JSON.parse(localStorage.getItem('comedor_expcats') || 'null'); if (Array.isArray(c) && c.length) return c; } catch (e) {}
+  return EXPENSE_CATEGORIES.slice();
+}
+function saveExpenseCategories(list) {
+  const clean = [];
+  (list || []).forEach(c => { c = String(c || '').trim(); if (c && !clean.some(x => x.toLowerCase() === c.toLowerCase())) clean.push(c); });
+  localStorage.setItem('comedor_expcats', JSON.stringify(clean));
+  if (_db) _db.ref('comedor/expense_categories').set(clean).catch(syncWriteErr);
+  // Refresh anything showing the category list.
+  bankCatOptions(true);
+  renderExpenseRows();
+  if (document.getElementById('panel-people') && document.getElementById('panel-people').classList.contains('active')) renderCategories();
+}
+function renderCategories() {
+  const el = document.getElementById('cat-list');
+  if (!el) return;
+  const cats = getExpenseCategories();
+  el.innerHTML = cats.map((c, i) => `<div class="cat-row">
+    <span class="cat-name">${esc(c)}</span>
+    <button class="cat-act cat-edit" onclick="editCategory(${i})">Rename</button>
+    <button class="cat-act cat-del" onclick="deleteCategory(${i})">Delete</button>
+  </div>`).join('') || '<div class="log-empty">No categories yet — add one above.</div>';
+}
+function addCategory() {
+  const inp = document.getElementById('cat-new');
+  const name = (inp.value || '').trim();
+  if (!name) return;
+  const cats = getExpenseCategories();
+  if (cats.some(c => c.toLowerCase() === name.toLowerCase())) { peopleMsg('“' + name + '” already exists', false); return; }
+  cats.push(name);
+  saveExpenseCategories(cats);
+  inp.value = '';
+  renderCategories();
+  btnFlash('cat-add-btn', 'Adding…', 'Added ✓', 'Add ✓');
+}
+function editCategory(i) {
+  const cats = getExpenseCategories();
+  if (i < 0 || i >= cats.length) return;
+  const next = prompt('Rename category', cats[i]);
+  if (next == null) return;
+  const name = next.trim();
+  if (!name) return;
+  if (cats.some((c, j) => j !== i && c.toLowerCase() === name.toLowerCase())) { peopleMsg('“' + name + '” already exists', false); return; }
+  cats[i] = name;
+  saveExpenseCategories(cats);
+  renderCategories();
+}
+function deleteCategory(i) {
+  const cats = getExpenseCategories();
+  if (i < 0 || i >= cats.length) return;
+  if (!confirm('Remove category “' + cats[i] + '”? Existing entries keep their label; it just won\'t appear in the picker.')) return;
+  cats.splice(i, 1);
+  saveExpenseCategories(cats);
+  renderCategories();
+}
+
 let expenseRows = [{ id: Date.now(), category: '', desc: '', amount: '', saved: false, photo: null }];
 
 function renderExpenseRows() {
@@ -1426,7 +1572,7 @@ function renderExpenseRows() {
       <input type="file" accept="image/*" id="exp-photo-input-${row.id}" style="display:none" onchange="handleExpensePhoto(${i}, this)">
       <select id="exp-cat-${row.id}" class="field-select" style="margin-bottom:8px;" onchange="expenseRows[${i}].category=this.value">
         <option value="">Select category…</option>
-        ${EXPENSE_CATEGORIES.map(c => `<option value="${c}"${row.category === c ? ' selected' : ''}>${c}</option>`).join('')}
+        ${getExpenseCategories().map(c => `<option value="${c}"${row.category === c ? ' selected' : ''}>${c}</option>`).join('')}
       </select>
       <div style="display:grid; grid-template-columns:1fr 72px 34px 34px 34px; gap:6px; align-items:center;">
         <input id="exp-desc-${row.id}" value="${row.desc}" onchange="expenseRows[${i}].desc=this.value"
@@ -2617,10 +2763,14 @@ function renderPnlBank() {
   renderBankRich('dbank');
 }
 
-function bankCatOptions() {
+function bankCatOptions(force) {
   const sel = document.getElementById('be-category');
-  if (sel && sel.options.length <= 1) {
-    EXPENSE_CATEGORIES.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
+  if (!sel) return;
+  if (force || sel.options.length <= 1) {
+    const keep = sel.value;
+    sel.innerHTML = '<option value="">Select category…</option>';
+    getExpenseCategories().forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
+    if (keep) sel.value = keep;
   }
 }
 
@@ -3408,6 +3558,8 @@ function editPerson(id) {
   const u = getUsers().find(x => x.id === id);
   if (!u) return;
   _editingUserId = id;
+  const addCard = document.getElementById('setcard-addperson');
+  if (addCard) addCard.classList.remove('collapsed');   // reveal the form when editing
   const sel = document.getElementById('pp-role');
   roleOptions(sel);
   document.getElementById('pp-name').value = u.name || '';
@@ -3500,7 +3652,13 @@ function removePerson(id) {
   renderPeople();
 }
 
+// Collapse / expand a Settings-tab section.
+function toggleSet(key) {
+  const c = document.getElementById('setcard-' + key);
+  if (c) c.classList.toggle('collapsed');
+}
 function renderPeople() {
+  renderCategories();
   const sel = document.getElementById('pp-role');
   roleOptions(sel);
   if (sel && !sel._wired) { sel._wired = true; sel.onchange = () => { document.getElementById('pp-role-desc').textContent = roleAccessText(sel.value); }; sel.onchange(); }
