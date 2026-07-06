@@ -290,6 +290,31 @@
 .person-meta .pin { color:var(--text); font-weight:600; letter-spacing:1px; }
 .person-actions { display:flex; gap:8px; margin-top:13px; flex-wrap:wrap; }
 .person-actions .btn { flex:1; min-width:82px; text-align:center; padding:8px 10px; font-size:12.5px; }
+/* Rich log toolbar — filters, sort, search, live total */
+.log-toolbar { display:flex; flex-direction:column; gap:10px; padding:2px 0 14px; }
+.chip-row { display:flex; gap:7px; overflow-x:auto; padding-bottom:2px; scrollbar-width:none; }
+.chip-row::-webkit-scrollbar { height:0; }
+.fchip { flex-shrink:0; background:var(--surface2); border:1px solid var(--border); color:var(--text2); border-radius:20px; padding:6px 13px; font-size:12px; font-family:'Inter',sans-serif; cursor:pointer; white-space:nowrap; transition:all 0.15s; }
+.fchip:hover { border-color:var(--accent); color:var(--text); }
+.fchip.active { background:var(--accent); border-color:var(--accent); color:var(--bg); font-weight:600; }
+.log-toolrow { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.log-select { background:var(--surface2); border:1px solid var(--border); color:var(--text); border-radius:8px; padding:8px 12px; font-size:12.5px; font-family:'Inter',sans-serif; cursor:pointer; outline:none; }
+.log-select:focus { border-color:var(--accent); }
+.log-summary { margin-left:auto; font-size:12.5px; color:var(--text2); font-family:'Inter',sans-serif; white-space:nowrap; }
+.log-summary b { color:var(--text); font-weight:600; }
+/* Transaction cards (D&E-style) */
+.txn-list { display:flex; flex-direction:column; gap:9px; max-height:470px; overflow-y:auto; padding-right:2px; }
+.txn-card { border:1px solid var(--border); border-radius:11px; background:var(--surface); padding:13px 14px; }
+.txn-row1 { display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+.txn-title { font-weight:600; font-size:14px; }
+.txn-amt { font-family:'Inter',sans-serif; font-weight:500; font-size:15px; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.txn-desc { font-size:12.5px; color:var(--text2); margin-top:3px; line-height:1.45; }
+.txn-chips { display:flex; flex-wrap:wrap; gap:6px; margin-top:9px; }
+.txn-actions { display:flex; gap:7px; margin-top:11px; }
+.txn-actions .btn { flex:1; padding:7px; font-size:12px; text-align:center; }
+.card-click { cursor:pointer; transition:border-color 0.15s, transform 0.05s; }
+.card-click:hover { border-color:var(--accent); }
+.card-click:active { transform:scale(0.99); }
 .calc-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 7px; padding: 12px 14px; font-size: 12px; color: var(--text2); font-family: 'Inter', sans-serif; min-height: 36px; line-height: 1.8; }
 .exp-note { font-size: 11px; color: var(--text3); font-family: 'Inter', sans-serif; margin-bottom: 14px; line-height: 1.6; }
 .add-expense-btn { width: 100%; margin-top: 4px; padding: 10px; background: transparent; border: 1px dashed var(--border); color: var(--text3); border-radius: 7px; cursor: pointer; font-size: 13px; transition: all 0.2s; font-family: 'Inter', sans-serif; }
@@ -397,9 +422,6 @@
   <div id="pnl-summary" class="cards" style="margin-bottom:12px;"></div>
   <div id="balance-row" class="cards" style="margin-bottom:8px;"></div>
 
-  <div class="section-title" style="margin-top:26px;">Cash — this period</div>
-  <div id="dash-cards" class="cards" style="margin-bottom:16px;"></div>
-
   <div class="section-title" style="margin-top:26px;">Logs</div>
 
   <!-- Collapsible: Cash daily register -->
@@ -409,12 +431,23 @@
       <span class="logcard-chev" id="chev-cash">▾</span>
     </div>
     <div class="logcard-body">
-      <div class="logcard-tools">
+      <div class="log-toolbar">
         <input class="log-search" id="search-cash" placeholder="Search date, amount, person…" oninput="filterLog('cash')">
-        <div class="dash-export-bar" style="margin:0;">
-          <button class="btn btn-ghost" onclick="copyForSheets()">📋 Copy</button>
-          <button class="btn btn-ghost" onclick="downloadCSV()">⬇ CSV</button>
-          <button class="btn btn-ghost owner-only" onclick="clearAllEntries()" style="color:var(--red);border-color:rgba(224,82,82,0.4);">🗑 Clear</button>
+        <div class="chip-row" id="dcash-bychips"></div>
+        <div class="log-toolrow">
+          <select class="log-select" id="dcash-sort" onchange="setSort('dcash',this.value)">
+            <option value="date_desc">Newest first</option>
+            <option value="date_asc">Oldest first</option>
+            <option value="sales_desc">Sales: high → low</option>
+            <option value="sales_asc">Sales: low → high</option>
+            <option value="exp_desc">Expenses: high → low</option>
+          </select>
+          <div class="dash-export-bar" style="margin:0;">
+            <button class="btn btn-ghost" onclick="copyForSheets()">📋 Copy</button>
+            <button class="btn btn-ghost" onclick="downloadCSV()">⬇ CSV</button>
+            <button class="btn btn-ghost owner-only" onclick="clearAllEntries()" style="color:var(--red);border-color:rgba(224,82,82,0.4);">🗑 Clear</button>
+          </div>
+          <div class="log-summary" id="dcash-summary"></div>
         </div>
       </div>
       <div id="dash-table-wrap" class="log-scroll"></div>
@@ -429,10 +462,26 @@
       <span class="logcard-chev" id="chev-bank">▾</span>
     </div>
     <div class="logcard-body">
-      <div class="logcard-tools">
-        <input class="log-search" id="search-bank" placeholder="Search date, payee, category, person…" oninput="filterLog('bank')">
+      <div class="log-toolbar">
+        <input class="log-search" id="dbank-search" placeholder="Search payee, category, person…" oninput="setSearch('dbank',this.value)">
+        <div class="chip-row" id="dbank-bychips"></div>
+        <div class="chip-row" id="dbank-typechips">
+          <button class="fchip active" data-v="all" onclick="setType('dbank','all')">All</button>
+          <button class="fchip" data-v="expense" onclick="setType('dbank','expense')">Expenses</button>
+          <button class="fchip" data-v="capital" onclick="setType('dbank','capital')">Capital in</button>
+        </div>
+        <div class="log-toolrow">
+          <select class="log-select" id="dbank-cat" onchange="setCat('dbank',this.value)"><option value="all">All categories</option></select>
+          <select class="log-select" id="dbank-sort" onchange="setSort('dbank',this.value)">
+            <option value="date_desc">Newest first</option>
+            <option value="date_asc">Oldest first</option>
+            <option value="amt_desc">Amount: high → low</option>
+            <option value="amt_asc">Amount: low → high</option>
+          </select>
+          <div class="log-summary" id="dbank-summary"></div>
+        </div>
       </div>
-      <div id="bank-table-wrap" class="log-scroll"></div>
+      <div id="dbank-list" class="txn-list"></div>
     </div>
   </div>
 </div>
@@ -558,8 +607,27 @@
     </div>
   </div>
 
-  <div class="section-title">Recent Bank Entries</div>
-  <div id="bankexp-list"></div>
+  <div class="section-title">Bank Ledger</div>
+  <div class="log-toolbar">
+    <input class="log-search" id="pbank-search" placeholder="Search payee, category, person…" oninput="setSearch('pbank',this.value)">
+    <div class="chip-row" id="pbank-bychips"></div>
+    <div class="chip-row" id="pbank-typechips">
+      <button class="fchip active" data-v="all" onclick="setType('pbank','all')">All</button>
+      <button class="fchip" data-v="expense" onclick="setType('pbank','expense')">Expenses</button>
+      <button class="fchip" data-v="capital" onclick="setType('pbank','capital')">Capital in</button>
+    </div>
+    <div class="log-toolrow">
+      <select class="log-select" id="pbank-cat" onchange="setCat('pbank',this.value)"><option value="all">All categories</option></select>
+      <select class="log-select" id="pbank-sort" onchange="setSort('pbank',this.value)">
+        <option value="date_desc">Newest first</option>
+        <option value="date_asc">Oldest first</option>
+        <option value="amt_desc">Amount: high → low</option>
+        <option value="amt_asc">Amount: low → high</option>
+      </select>
+      <div class="log-summary" id="pbank-summary"></div>
+    </div>
+  </div>
+  <div id="pbank-list" class="txn-list" style="max-height:none;"></div>
 </div>
 
 <!-- ===================== PEOPLE / ACCESS (Partners) ===================== -->
@@ -1443,46 +1511,44 @@ function getDashEntries() {
 
 function renderDashboard() {
   renderPnlBank();
-  const entries = getDashEntries();
-  const r   = (key) => entries.reduce((s, e) => s + (e[key] || 0), 0);
-  const tCash  = r('cash'), tUpi = r('upi'), tCard = r('card');
-  const tSales = r('totalSales'), tExp = r('totalExpenses');
+  renderCashTable();
+}
 
-  const cardsEl = document.getElementById('dash-cards');
-  if (cardsEl) {
-    if (entries.length === 0) {
-      cardsEl.innerHTML = '<div style="color:var(--text3);font-family:\'Inter\',sans-serif;font-size:12px;padding:16px 0;grid-column:1/-1;">No entries recorded for this period yet.</div>';
-    } else {
-      cardsEl.innerHTML = `
-        <div class="card"><div class="card-label">Days Recorded</div><div class="card-value gold">${entries.length}</div></div>
-        <div class="card"><div class="card-label">Cash Sales</div><div class="card-value green">₹${tCash.toLocaleString('en-IN')}</div></div>
-        <div class="card"><div class="card-label">UPI + Card</div><div class="card-value gold">₹${(tUpi+tCard).toLocaleString('en-IN')}</div></div>
-        <div class="card"><div class="card-label">Total Sales</div><div class="card-value">₹${tSales.toLocaleString('en-IN')}</div></div>
-        <div class="card"><div class="card-label">Cash Expenses</div><div class="card-value red">₹${tExp.toLocaleString('en-IN')}</div></div>
-      `;
-    }
-  }
+function sortEntries(list, sort) {
+  const f = {
+    date_desc: (a,b) => b.date.localeCompare(a.date),
+    date_asc:  (a,b) => a.date.localeCompare(b.date),
+    sales_desc:(a,b) => (b.totalSales||0)-(a.totalSales||0),
+    sales_asc: (a,b) => (a.totalSales||0)-(b.totalSales||0),
+    exp_desc:  (a,b) => (b.totalExpenses||0)-(a.totalExpenses||0),
+  };
+  return list.slice().sort(f[sort] || f.date_desc);
+}
+
+function renderCashTable() {
+  const st = LOGF.dcash;
+  const all = getDashEntries();
+  const bc = document.getElementById('dcash-bychips');
+  if (bc) bc.innerHTML = byChipsHTML('dcash', all);
+
+  let entries = all.filter(e => st.by === 'all' || (e.addedBy || '—') === st.by);
+  entries = sortEntries(entries, st.sort);
+
+  const r = (key) => entries.reduce((s, e) => s + (e[key] || 0), 0);
+  const tCash = r('cash'), tUpi = r('upi'), tCard = r('card'), tSales = r('totalSales'), tExp = r('totalExpenses');
 
   const countCashEl = document.getElementById('count-cash');
-  if (countCashEl) countCashEl.textContent = entries.length + (entries.length === 1 ? ' day' : ' days');
+  if (countCashEl) countCashEl.textContent = all.length + (all.length === 1 ? ' day' : ' days');
+  const sm = document.getElementById('dcash-summary');
+  if (sm) sm.innerHTML = `${entries.length} ${entries.length === 1 ? 'day' : 'days'} · sales <b>₹${tSales.toLocaleString('en-IN')}</b> · exp ₹${tExp.toLocaleString('en-IN')}`;
 
   const tw = document.getElementById('dash-table-wrap');
   if (tw) {
-    if (entries.length === 0) { tw.innerHTML = '<div class="log-empty">No entries recorded for this period yet.</div>'; }
+    if (entries.length === 0) { tw.innerHTML = '<div class="log-empty">No entries match these filters.</div>'; }
     else {
       tw.innerHTML = `<table id="dash-data-table">
         <thead><tr>
-          <th>Date</th>
-          <th class="num">Opening ₹</th>
-          <th class="num">Cash Sales ₹</th>
-          <th class="num">UPI ₹</th>
-          <th class="num">Card ₹</th>
-          <th class="num">Total Sales ₹</th>
-          <th class="num">Expenses ₹</th>
-          <th class="num">Closing ₹</th>
-          <th>Added by</th>
-          <th></th>
-          <th></th>
+          <th>Date</th><th class="num">Opening ₹</th><th class="num">Cash Sales ₹</th><th class="num">UPI ₹</th><th class="num">Card ₹</th><th class="num">Total Sales ₹</th><th class="num">Expenses ₹</th><th class="num">Closing ₹</th><th>Added by</th><th></th><th></th>
         </tr></thead>
         <tbody>
           ${entries.map(e => {
@@ -1516,9 +1582,7 @@ function renderDashboard() {
             <td class="num"><strong>₹${tSales.toLocaleString('en-IN')}</strong></td>
             <td class="num red-text"><strong>₹${tExp.toLocaleString('en-IN')}</strong></td>
             <td class="num" style="color:var(--text3);">—</td>
-            <td></td>
-            <td></td>
-            <td></td>
+            <td></td><td></td><td></td>
           </tr>
         </tbody>
       </table>`;
@@ -1534,7 +1598,7 @@ function renderDashboard() {
     }));
     const cats = Object.entries(catTotals).sort((a,b) => b[1]-a[1]);
     ew.innerHTML = cats.length === 0 ? '' : `
-      <div class="section-title" style="margin-top:24px;">Expense Breakdown by Category</div>
+      <div class="section-title" style="margin-top:24px;">Expense breakdown by category</div>
       <div class="table-wrap"><table>
         <thead><tr><th>Category</th><th class="num">Total ₹</th></tr></thead>
         <tbody>
@@ -1763,48 +1827,23 @@ function renderPnlBank() {
   const bankBal = bankMeta ? (Number(bankMeta.amount) || 0) : null;
   const inr = n => '₹' + Number(n || 0).toLocaleString('en-IN');
 
+  const cashSales   = cashEntries.reduce((s, e) => s + (e.cash || 0), 0);
+  const onlineSales = cashEntries.reduce((s, e) => s + (e.upi || 0) + (e.card || 0), 0);
+
   const sEl = document.getElementById('pnl-summary');
   if (sEl) sEl.innerHTML = `
-    <div class="card"><div class="card-label">Income (sales)</div><div class="card-value green">${inr(income)}</div><div class="card-sub">${cashEntries.length} day(s) recorded</div></div>
-    <div class="card"><div class="card-label">Cash Expenses</div><div class="card-value red">${inr(cashExp)}</div><div class="card-sub">Manager · petty cash</div></div>
-    <div class="card"><div class="card-label">Bank Expenses</div><div class="card-value red">${inr(bankExp)}</div><div class="card-sub">IDFC account debits</div></div>
+    <div class="card card-click" onclick="focusLog('cash')"><div class="card-label">Income (Sales)</div><div class="card-value green">${inr(income)}</div><div class="card-sub">Cash ₹${cashSales.toLocaleString('en-IN')} · Online ₹${onlineSales.toLocaleString('en-IN')}</div></div>
+    <div class="card card-click" onclick="focusLog('cash')"><div class="card-label">Cash Expenses</div><div class="card-value red">${inr(cashExp)}</div><div class="card-sub">Manager · petty cash</div></div>
+    <div class="card card-click" onclick="focusLog('bank',{type:'expense'})"><div class="card-label">Bank Expenses</div><div class="card-value red">${inr(bankExp)}</div><div class="card-sub">IDFC account debits</div></div>
     <div class="card"><div class="card-label">Net P&amp;L</div><div class="card-value ${net >= 0 ? 'green' : 'red'}">${inr(net)}</div><div class="card-sub">Income − all expenses</div></div>`;
 
   const bEl = document.getElementById('balance-row');
   if (bEl) bEl.innerHTML = `
-    <div class="card"><div class="card-label">Cash in Hand</div><div class="card-value">${inr(cashBal)}</div><div class="card-sub">Latest closing balance</div></div>
-    <div class="card"><div class="card-label">Bank Balance</div><div class="card-value gold">${bankBal !== null ? inr(bankBal) : '—'}</div><div class="card-sub">${bankMeta && bankMeta.asOf ? ('As of ' + bankMeta.asOf) : 'Set from statement'}</div></div>
-    <div class="card"><div class="card-label">Capital Infused</div><div class="card-value">${inr(capital)}</div><div class="card-sub">This period · not income</div></div>`;
+    <div class="card card-click" onclick="focusLog('cash')"><div class="card-label">Cash in Hand</div><div class="card-value">${inr(cashBal)}</div><div class="card-sub">Latest closing balance</div></div>
+    <div class="card card-click" onclick="focusLog('bank')"><div class="card-label">Bank Balance</div><div class="card-value gold">${bankBal !== null ? inr(bankBal) : '—'}</div><div class="card-sub">${bankMeta && bankMeta.asOf ? ('As of ' + bankMeta.asOf) : 'Set from statement'}</div></div>
+    <div class="card card-click" onclick="focusLog('bank',{type:'capital'})"><div class="card-label">Capital Infused</div><div class="card-value">${inr(capital)}</div><div class="card-sub">This period · not income</div></div>`;
 
-  const countBankEl = document.getElementById('count-bank');
-  if (countBankEl) countBankEl.textContent = bank.length + (bank.length === 1 ? ' entry' : ' entries');
-
-  const btw = document.getElementById('bank-table-wrap');
-  if (btw) {
-    if (!bank.length) {
-      btw.innerHTML = '<div class="log-empty">No bank entries for this period.</div>';
-    } else {
-      btw.innerHTML = `<table><thead><tr>
-          <th>Date</th><th>Category</th><th>Payee / Description</th><th>Added by</th><th class="num">Amount ₹</th><th></th>
-        </tr></thead><tbody>
-        ${bank.map(b => {
-          const d = new Date(b.date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short' });
-          const cat = b.capital ? '<span class="cat-badge cat-vegano">Capital In</span>' : ('<span class="cat-badge cat-antojitos">' + (b.category || '—') + '</span>');
-          const acts = canEditBank(b.addedBy)
-            ? `<div style="display:flex;gap:6px;justify-content:flex-end;"><button class="btn btn-ghost" style="padding:3px 9px;font-size:11px;" onclick="editBankExpense('${b.id}')">Edit</button><button class="btn btn-ghost" style="padding:3px 9px;font-size:11px;color:var(--red);border-color:rgba(224,82,82,0.4);" onclick="deleteBankExpense('${b.id}')">Delete</button></div>` : '';
-          return `<tr>
-            <td style="white-space:nowrap;">${d}</td>
-            <td>${cat}</td>
-            <td>${(b.desc || '').replace(/</g,'&lt;')}</td>
-            <td style="font-family:'Inter',sans-serif;font-size:11px;color:var(--text2);">${(b.addedBy || '—')}${b.editedBy ? ' ✎' : ''}</td>
-            <td class="num ${b.capital ? 'green-text' : 'red-text'}">${b.capital ? '+' : '–'}${inr(b.amount)}</td>
-            <td>${acts}</td>
-          </tr>`;
-        }).join('')}
-      </tbody></table>`;
-      reapplyLogFilter('bank');
-    }
-  }
+  renderBankRich('dbank');
 }
 
 function bankCatOptions() {
@@ -1904,29 +1943,107 @@ function deleteBankExpense(id) {
 
 function renderBankList() {
   bankCatOptions();
-  const el = document.getElementById('bankexp-list');
-  if (!el) return;
-  const list = loadBankEntries().sort((a, b) => (b.date + (b.at||'')).localeCompare(a.date + (a.at||''))).slice(0, 50);
-  if (!list.length) { el.innerHTML = '<div style="color:var(--text3);font-family:\'Inter\',sans-serif;font-size:12px;padding:12px 0;">No bank entries yet.</div>'; return; }
+  renderBankRich('pbank');
+}
+
+// ─── RICH LOG ENGINE (filters · sort · search · live total · cards) ──────────
+const LOGF = {
+  dcash: { by: 'all', sort: 'date_desc' },
+  dbank: { by: 'all', type: 'all', cat: 'all', search: '', sort: 'date_desc' },
+  pbank: { by: 'all', type: 'all', cat: 'all', search: '', sort: 'date_desc' }
+};
+const _chip = {};
+
+function esc(s) { return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c])); }
+
+// Added-by chips (index-based onclick so names with quotes/dots are safe)
+function byChipsHTML(p, src) {
+  const names = Array.from(new Set(src.map(x => x.addedBy || '—'))).filter(v => v && v !== '—').sort();
+  const vals = ['all', ...names];
+  _chip[p] = _chip[p] || {}; _chip[p].by = vals;
+  const cur = LOGF[p].by;
+  return vals.map((v, i) => `<button class="fchip ${cur === v ? 'active' : ''}" onclick="pickBy('${p}',${i})">${v === 'all' ? 'Everyone' : esc(v)}</button>`).join('');
+}
+function pickBy(p, i) { LOGF[p].by = (_chip[p] && _chip[p].by[i]) || 'all'; rerenderLog(p); }
+function setType(p, v) { LOGF[p].type = v; rerenderLog(p); }
+function setCat(p, v)  { LOGF[p].cat = v; rerenderLog(p); }
+function setSort(p, v) { LOGF[p].sort = v; rerenderLog(p); }
+function setSearch(p, v) { LOGF[p].search = v; rerenderLog(p); }
+function rerenderLog(p) { if (p === 'dcash') renderCashTable(); else renderBankRich(p); }
+
+function sortBank(list, sort) {
+  const f = {
+    date_desc: (a,b) => (b.date + (b.at||'')).localeCompare(a.date + (a.at||'')),
+    date_asc:  (a,b) => (a.date + (a.at||'')).localeCompare(b.date + (b.at||'')),
+    amt_desc:  (a,b) => (Number(b.amount)||0) - (Number(a.amount)||0),
+    amt_asc:   (a,b) => (Number(a.amount)||0) - (Number(b.amount)||0),
+  };
+  return list.slice().sort(f[sort] || f.date_desc);
+}
+
+function bankCard(b) {
   const inr = n => '₹' + Number(n || 0).toLocaleString('en-IN');
-  el.innerHTML = `<div class="table-wrap"><table><thead><tr>
-      <th>Date</th><th>Category</th><th>Payee</th><th>Added by</th><th class="num">₹</th><th></th>
-    </tr></thead><tbody>
-    ${list.map(b => {
-      const d = new Date(b.date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short' });
-      const cat = b.capital ? '<span class="cat-badge cat-vegano">Capital In</span>' : ('<span class="cat-badge cat-antojitos">' + (b.category || '—') + '</span>');
-      const acts = canEditBank(b.addedBy)
-        ? `<div style="display:flex;gap:6px;justify-content:flex-end;"><button class="btn btn-ghost" style="padding:3px 9px;font-size:11px;" onclick="editBankExpense('${b.id}')">Edit</button><button class="btn btn-ghost" style="padding:3px 9px;font-size:11px;color:var(--red);border-color:rgba(224,82,82,0.4);" onclick="deleteBankExpense('${b.id}')">✕</button></div>` : '';
-      return `<tr>
-        <td style="white-space:nowrap;">${d}</td>
-        <td>${cat}</td>
-        <td>${(b.desc || '').replace(/</g,'&lt;')}</td>
-        <td style="font-family:'Inter',sans-serif;font-size:11px;color:var(--text2);">${(b.addedBy || '—')}${b.editedBy ? ' ✎' : ''}</td>
-        <td class="num ${b.capital ? 'green-text' : 'red-text'}">${b.capital ? '+' : '–'}${inr(b.amount)}</td>
-        <td>${acts}</td>
-      </tr>`;
-    }).join('')}
-  </tbody></table></div>`;
+  const d = new Date(b.date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+  const title = b.capital ? 'Capital infusion' : (b.category || 'Uncategorised');
+  const catChip = b.capital ? '<span class="cat-badge cat-vegano">Capital in</span>' : `<span class="cat-badge cat-antojitos">${esc(b.category || '—')}</span>`;
+  const acts = canEditBank(b.addedBy)
+    ? `<div class="txn-actions"><button class="btn btn-ghost" onclick="editBankExpense('${b.id}')">Edit</button><button class="btn btn-ghost" style="color:var(--red);border-color:rgba(224,82,82,0.4);" onclick="deleteBankExpense('${b.id}')">Delete</button></div>` : '';
+  return `<div class="txn-card">
+    <div class="txn-row1"><div class="txn-title">${esc(title)}</div><div class="txn-amt ${b.capital ? 'green-text' : 'red-text'}">${b.capital ? '+' : '–'}${inr(b.amount)}</div></div>
+    ${b.desc ? `<div class="txn-desc">${esc(b.desc)}</div>` : ''}
+    <div class="txn-chips">${catChip}<span class="cat-badge cat-acompana">${d}</span><span class="cat-badge cat-acompana">${esc(b.addedBy || '—')}${b.editedBy ? ' ✎' : ''}</span></div>
+    ${acts}
+  </div>`;
+}
+
+function renderBankRich(p) {
+  const st = LOGF[p];
+  const src = (p === 'dbank') ? getBankInRange() : loadBankEntries();
+
+  const bc = document.getElementById(p + '-bychips');
+  if (bc) bc.innerHTML = byChipsHTML(p, src);
+
+  const cs = document.getElementById(p + '-cat');
+  if (cs) {
+    const cats = Array.from(new Set(src.filter(b => !b.capital).map(b => b.category).filter(Boolean))).sort();
+    if (st.cat !== 'all' && !cats.includes(st.cat)) st.cat = 'all';
+    cs.innerHTML = '<option value="all">All categories</option>' + cats.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+    cs.value = st.cat;
+  }
+  document.querySelectorAll('#' + p + '-typechips .fchip').forEach(el => el.classList.toggle('active', el.getAttribute('data-v') === st.type));
+  const sortSel = document.getElementById(p + '-sort'); if (sortSel) sortSel.value = st.sort;
+
+  let list = src.filter(b => {
+    if (st.by !== 'all' && (b.addedBy || '—') !== st.by) return false;
+    if (st.type === 'expense' && b.capital) return false;
+    if (st.type === 'capital' && !b.capital) return false;
+    if (st.cat !== 'all' && (b.category || '') !== st.cat) return false;
+    if (st.search) {
+      const hay = ((b.desc||'') + ' ' + (b.category||'') + ' ' + (b.addedBy||'') + ' ' + b.date + ' ' + b.amount).toLowerCase();
+      if (!hay.includes(st.search.toLowerCase())) return false;
+    }
+    return true;
+  });
+  list = sortBank(list, st.sort);
+
+  const spent = list.filter(b => !b.capital).reduce((s, b) => s + (Number(b.amount)||0), 0);
+  const sm = document.getElementById(p + '-summary');
+  if (sm) sm.innerHTML = `${list.length} ${list.length === 1 ? 'entry' : 'entries'} · <b>₹${spent.toLocaleString('en-IN')}</b>`;
+  if (p === 'dbank') { const cb = document.getElementById('count-bank'); if (cb) cb.textContent = src.length + (src.length === 1 ? ' entry' : ' entries'); }
+
+  const el = document.getElementById(p + '-list');
+  if (el) el.innerHTML = list.length ? list.map(bankCard).join('') : '<div class="log-empty">No entries match these filters.</div>';
+}
+
+// Click a summary tile → open + filter the matching log.
+function focusLog(which, opts) {
+  opts = opts || {};
+  const card = document.getElementById('logcard-' + which);
+  if (!card) return;
+  card.classList.remove('collapsed');
+  if (which === 'bank') { LOGF.dbank.type = opts.type || 'all'; renderBankRich('dbank'); }
+  else if (which === 'cash') { renderCashTable(); }
+  setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
 }
 
 function saveBankBalance() {
