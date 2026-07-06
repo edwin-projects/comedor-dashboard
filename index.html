@@ -370,20 +370,7 @@
     <div class="pin-logo">COMEDOR</div>
     <div class="pin-sub">Finance Dashboard · Private Access</div>
 
-    <!-- FACE ID UNLOCK (shown when a biometric credential is enrolled on this device) -->
-    <div id="bio-unlock" style="display:none;">
-      <div style="font-size:40px; margin:4px 0 14px;">🔒</div>
-      <div class="pin-label" style="margin-bottom:6px;">Face ID · <span id="bio-role-label">—</span></div>
-      <button id="bio-btn" class="pin-btn" onclick="biometricUnlock(false)">Unlock with Face ID</button>
-      <div id="bio-status" style="margin-top:10px; font-size:12px; color:var(--text3); font-family:'Inter',sans-serif; min-height:16px;"></div>
-      <div class="pin-hint">
-        <a href="#" onclick="showPinEntry();return false;" style="color:var(--accent2); text-decoration:none;">Use PIN instead</a>
-        &nbsp;·&nbsp;
-        <a href="#" onclick="forgetBiometric();return false;" style="color:var(--text3); text-decoration:none;">Forget this device</a>
-      </div>
-    </div>
-
-    <!-- PIN ENTRY (enrollment anchor + fallback) -->
+    <!-- PIN ENTRY — sole login method (Face ID removed) -->
     <div id="pin-entry">
       <div class="pin-label">Enter your PIN</div>
       <input id="pin-input" type="password" maxlength="4" inputmode="numeric" placeholder="••••">
@@ -906,7 +893,6 @@ function checkPin() {
   const user = findUserByPin(input);
   if (user) {
     grantAccess(user);
-    maybeOfferEnroll(user);   // offer Face ID enrollment on this device
   } else {
     const err = document.getElementById('pin-error');
     err.style.display = 'block';
@@ -1042,24 +1028,13 @@ function forgetBiometric() {
   showPinEntry();
 }
 
-async function initAuth() {
-  try {
-    const store = getBioStore();
-    const avail = await bioPlatformAvailable();
-    const bu = document.getElementById('bio-unlock');
-    const pe = document.getElementById('pin-entry');
-    if (store && store.id && avail) {
-      if (bu) bu.style.display = 'block';
-      const rl = document.getElementById('bio-role-label');
-      if (rl) rl.textContent = _bioUser(store).name;
-      // Show the PIN entry AND focus it immediately. We do NOT auto-invoke Face ID:
-      // the native Face ID sheet is modal and blocks typing into the page, which
-      // could trap the user. Face ID now only fires when its button is tapped.
-      showPinEntry();
-    } else {
-      showPinEntry();
-    }
-  } catch (e) { console.warn('initAuth failed:', e); showPinEntry(); }
+function initAuth() {
+  // PIN is the only login method. Face ID / WebAuthn was removed because the
+  // native sheet could block typing into the page and trap the user.
+  const pe = document.getElementById('pin-entry');
+  if (pe) pe.style.display = 'block';
+  const pin = document.getElementById('pin-input');
+  if (pin) { pin.disabled = false; pin.readOnly = false; setTimeout(() => { try { pin.focus(); } catch (e) {} }, 60); }
 }
 
 function applyRoleAccess(role, user) {
