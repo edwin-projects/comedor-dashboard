@@ -584,6 +584,17 @@
     </div>
   </div>
 
+  <!-- Collapsible: Expenses by category (all sources incl. partner-direct) -->
+  <div class="logcard collapsed" id="logcard-expcat">
+    <div class="logcard-head" onclick="toggleLog('expcat')">
+      <span class="logcard-title"><svg class="hd-ic" viewBox="0 0 24 24"><path d="M4 4.5h6.5l9 9-6.5 6.5-9-9z"/><circle cx="8.5" cy="8.5" r="1.4"/></svg> Expenses by category <span class="logcard-count" id="count-expcat">—</span></span>
+      <span class="logcard-chev" id="chev-expcat">▾</span>
+    </div>
+    <div class="logcard-body">
+      <div id="expcat-wrap" class="log-scroll"></div>
+    </div>
+  </div>
+
   <!-- Collapsible: Sales by category (Pet Pooja) -->
   <div class="logcard collapsed" id="logcard-sales">
     <div class="logcard-head" onclick="toggleLog('sales')">
@@ -1768,6 +1779,7 @@ function renderDashboard() {
   try { renderPnlBank(); }   catch (e) { console.warn('P&L render failed:', e); const s = document.getElementById('pnl-summary'); if (s) s.innerHTML = '<div class="pnl-hero"><div class="card-label">Dashboard</div><div class="card-sub" style="margin-top:8px;">Some figures couldn’t be totalled from the current data. Your entries are safe — try Cash / Bank tabs, or re-check a recent entry’s date.</div></div>'; }
   try { renderCashTable(); } catch (e) { console.warn('Cash table render failed:', e); }
   try { renderSalesCats(); } catch (e) { console.warn('Sales cats render failed:', e); }
+  try { renderExpenseCats(); } catch (e) { console.warn('Expense cats render failed:', e); }
   try { renderLedger('dledger'); } catch (e) { console.warn('Ledger render failed:', e); }
 }
 
@@ -1782,6 +1794,28 @@ function renderSalesCats() {
   if (!el) return;
   if (!entries.length) { el.innerHTML = '<div class="log-empty">No sales in this period yet. Upload a Pet Pooja report from the Cash Expenses tab.</div>'; return; }
   el.innerHTML = `<table><thead><tr><th>Category</th><th class="num">Gross ₹</th><th class="num">Share</th></tr></thead><tbody>${entries.map(e => `<tr><td>${esc(e[0])}</td><td class="num">₹${Math.round(e[1]).toLocaleString('en-IN')}</td><td class="num" style="color:var(--text2);">${(e[1]/total*100).toFixed(0)}%</td></tr>`).join('')}</tbody></table>`;
+}
+
+// Expenses grouped by category, combining ALL operating sources: the daily
+// cash register line items, bank expenses, and partner-direct ledger spend
+// (bucket O). Capex/Setup live in the Capital section, so they're excluded —
+// this total matches the Expenses tile exactly.
+function renderExpenseCats() {
+  const range = getRange();
+  const cats = {};
+  const add = (c, v) => { c = (c && String(c).trim()) || 'Uncategorised'; cats[c] = (cats[c] || 0) + (Number(v) || 0); };
+  getDashEntries().forEach(e => (e.expenses || []).forEach(x => add(x.category, parseFloat(x.amount) || 0)));
+  getBankInRange().forEach(b => { if (b.capital || isGstEntry(b)) return; add(b.category, b.amount); });
+  ledgerRows().forEach(x => { if (x.bucket !== 'O' || x.date < range.from || x.date > range.to) return; add(x.category, x.amount); });
+
+  const entries = Object.entries(cats).filter(e => e[1] > 0.5).sort((a, b) => b[1] - a[1]);
+  const total = entries.reduce((s, e) => s + e[1], 0);
+  const cnt = document.getElementById('count-expcat');
+  if (cnt) cnt.textContent = total > 0 ? ('₹' + Math.round(total).toLocaleString('en-IN')) : '—';
+  const el = document.getElementById('expcat-wrap');
+  if (!el) return;
+  if (!entries.length) { el.innerHTML = '<div class="log-empty">No expenses in this period yet.</div>'; return; }
+  el.innerHTML = `<table><thead><tr><th>Category</th><th class="num">Spent ₹</th><th class="num">Share</th></tr></thead><tbody>${entries.map(e => `<tr><td>${esc(e[0])}</td><td class="num red-text">₹${Math.round(e[1]).toLocaleString('en-IN')}</td><td class="num" style="color:var(--text2);">${(e[1] / total * 100).toFixed(0)}%</td></tr>`).join('')}</tbody></table>`;
 }
 
 function sortEntries(list, sort) {
@@ -2497,7 +2531,7 @@ function renderPnlBank() {
   if (sEl) sEl.innerHTML = `
     <div class="cards2">
       <div class="card card-click" onclick="focusLog('sales')"><div class="card-label">Income (Sales)</div><div class="card-value green">${inr(income)}</div><div class="card-sub">${regTot ? splitBox([{k:'UPI/Card',v:incNon},{k:'Cash',v:incCash}], income) : ''}</div></div>
-      <div class="card card-click" onclick="focusLog('bank',{type:'expense'})"><div class="card-label">Expenses</div><div class="card-value red">${inr(totalExp)}</div><div class="card-sub">${splitBox([{k:'Bank',v:bankExp},{k:'Cash',v:cashExp},{k:'Direct',v:ledgerOpex}], totalExp)}</div></div>
+      <div class="card card-click" onclick="focusLog('expcat')"><div class="card-label">Expenses</div><div class="card-value red">${inr(totalExp)}</div><div class="card-sub">${splitBox([{k:'Bank',v:bankExp},{k:'Cash',v:cashExp},{k:'Direct',v:ledgerOpex}], totalExp)}</div></div>
     </div>
     <div class="pnl-hero">
       <div class="card-label">Net Profit / Loss</div>
@@ -3091,6 +3125,7 @@ function focusLog(which, opts) {
   if (which === 'bank') { LOGF.dbank.type = opts.type || 'all'; renderBankRich('dbank'); }
   else if (which === 'cash') { renderCashTable(); }
   else if (which === 'sales') { renderSalesCats(); }
+  else if (which === 'expcat') { renderExpenseCats(); }
   else if (which === 'ledger') { LOGF.dledger.type = opts.type || 'all'; renderLedger('dledger'); }
   setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
 }
