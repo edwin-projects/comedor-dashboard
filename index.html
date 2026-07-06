@@ -873,7 +873,14 @@ const DEFAULT_USERS = [
 ];
 function loadUsers() { try { const u = JSON.parse(localStorage.getItem('comedor_users') || 'null'); return (u && u.length) ? u : null; } catch (e) { return null; } }
 function getUsers() { return loadUsers() || DEFAULT_USERS.slice(); }
-function findUserByPin(pin) { return getUsers().find(u => u.active !== false && u.pin === pin) || null; }
+// Break-glass login: compare PINs as strings (a synced list may store them as
+// numbers) and ALWAYS accept the built-in owner PINs as a fallback, so a bad or
+// unexpected users list synced from Firebase can never lock everyone out.
+function findUserByPin(pin) {
+  const key = String(pin == null ? '' : pin).trim();
+  const hit = list => (list || []).find(u => u && u.active !== false && String(u.pin) === key);
+  return hit(getUsers()) || hit(DEFAULT_USERS) || null;
+}
 // 'owner' is a legacy role (older Face ID credentials) — treat it as a full partner.
 function normRole(r) { return r === 'owner' ? 'partner' : r; }
 function roleCaps(role) { return ROLES[normRole(role)] || ROLES.manager; }
