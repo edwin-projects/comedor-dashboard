@@ -1251,13 +1251,32 @@ async function biometricUnlock(auto) {
   } catch (e) {
     console.warn('Face ID unlock failed:', e);
     if (st) st.textContent = auto
-      ? 'Tap “Unlock with Face ID” to continue.'
+      ? 'Tap anywhere to unlock with Face ID, or use your PIN below.'
       : 'Face ID cancelled or failed — try again, or use your PIN.';
     // Never strand the user behind Face ID — surface the PIN entry as a fallback.
     const pe = document.getElementById('pin-entry');
     if (pe) pe.style.display = 'block';
-    if (!auto) { const pin = document.getElementById('pin-input'); if (pin) setTimeout(() => pin.focus(), 50); }
   }
+}
+// iOS/Safari won't open Face ID without a user gesture, so an on-load prompt is
+// silently blocked. Instead we arm the FIRST tap anywhere on the lock screen to
+// trigger it — so the user just opens the app and taps once (no hunting for the
+// button). The keypad still works normally after that first attempt.
+let _bioGestureArmed = false;
+function armBioGesture() {
+  const store = getBioStore();
+  if (!store || !store.id || _bioGestureArmed) return;
+  _bioGestureArmed = true;
+  const fire = function (e) {
+    _bioGestureArmed = false;
+    document.removeEventListener('pointerdown', fire, true);
+    const ps = document.getElementById('pin-screen');
+    if (!ps || ps.style.display === 'none') return;            // already unlocked
+    if (document.getElementById('bio-enroll-banner')) return;  // don't fight the enroll prompt
+    e.preventDefault(); e.stopPropagation();
+    biometricUnlock(false);   // real user gesture now → Face ID can open
+  };
+  document.addEventListener('pointerdown', fire, true);
 }
 
 async function maybeOfferEnroll(user) {
@@ -1323,7 +1342,8 @@ async function initAuth() {
       if (bu) bu.style.display = 'block';
       const rl = document.getElementById('bio-role-label');
       if (rl) rl.textContent = _bioUser(store).name || 'this device';
-      biometricUnlock(true);   // auto-prompt Face ID on open / refresh; name + PIN stays available underneath
+      biometricUnlock(true);   // best-effort on open/refresh (works where no gesture is required)
+      armBioGesture();          // iOS fallback: first tap anywhere triggers Face ID
     }
   } catch (e) { /* keypad remains available regardless */ }
 }
