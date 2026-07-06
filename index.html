@@ -250,6 +250,19 @@
   display: none; margin-top: 12px; color: var(--red); font-size: 12px;
   font-family: 'Inter', sans-serif;
 }
+/* On-screen PIN keypad — no OS keyboard or password autofill involved. */
+.pin-dots { display: flex; justify-content: center; gap: 18px; margin: 10px 0 22px; }
+.pin-dots span { width: 13px; height: 13px; border-radius: 50%; border: 1.5px solid var(--text3); transition: all 0.15s; }
+.pin-dots span.on { background: var(--accent); border-color: var(--accent); transform: scale(1.05); }
+.pin-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 4px; }
+.pin-key {
+  padding: 20px 0; font-size: 26px; font-weight: 500; font-family: 'Inter', sans-serif;
+  background: var(--surface2); color: var(--text); border: 1px solid var(--border);
+  border-radius: 12px; cursor: pointer; -webkit-user-select: none; user-select: none;
+  -webkit-tap-highlight-color: transparent; transition: background 0.1s, transform 0.05s;
+}
+.pin-key:active { background: var(--accent); color: #000; transform: scale(0.97); }
+.pin-key-ghost, .pin-key-go { font-size: 22px; color: var(--text2); }
 .pin-hint { margin-top: 20px; font-size: 11px; color: var(--text3); font-family: 'Inter', sans-serif; line-height: 1.8; }
 #role-badge {
   background: var(--surface2); border: 1px solid var(--border); border-radius: 5px;
@@ -370,12 +383,25 @@
     <div class="pin-logo">COMEDOR</div>
     <div class="pin-sub">Finance Dashboard · Private Access</div>
 
-    <!-- PIN ENTRY — sole login method (Face ID removed) -->
+    <!-- PIN ENTRY — on-screen keypad (no OS keyboard / password autofill) -->
     <div id="pin-entry">
       <div class="pin-label">Enter your PIN</div>
-      <input id="pin-input" type="password" maxlength="4" inputmode="numeric" placeholder="••••">
-      <button class="pin-btn" onclick="checkPin()">Unlock →</button>
+      <div id="pin-dots" class="pin-dots" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
       <div id="pin-error">Incorrect PIN. Try again.</div>
+      <div class="pin-pad">
+        <button type="button" class="pin-key" onclick="pinPad('1')">1</button>
+        <button type="button" class="pin-key" onclick="pinPad('2')">2</button>
+        <button type="button" class="pin-key" onclick="pinPad('3')">3</button>
+        <button type="button" class="pin-key" onclick="pinPad('4')">4</button>
+        <button type="button" class="pin-key" onclick="pinPad('5')">5</button>
+        <button type="button" class="pin-key" onclick="pinPad('6')">6</button>
+        <button type="button" class="pin-key" onclick="pinPad('7')">7</button>
+        <button type="button" class="pin-key" onclick="pinPad('8')">8</button>
+        <button type="button" class="pin-key" onclick="pinPad('9')">9</button>
+        <button type="button" class="pin-key pin-key-ghost" onclick="pinPad('back')" aria-label="Delete">⌫</button>
+        <button type="button" class="pin-key" onclick="pinPad('0')">0</button>
+        <button type="button" class="pin-key pin-key-go" onclick="pinPad('go')" aria-label="Unlock">→</button>
+      </div>
       <div class="pin-hint">
         Owners: use your PIN for full access<br>
         Manager: use your PIN for cash entry
@@ -887,20 +913,40 @@ function grantAccess(user) {
   if (dateField) dateField.value = today;
 }
 
-// ─── PIN SCREEN ──────────────────────────────────────────────────────────────
+// ─── PIN SCREEN (on-screen keypad) ───────────────────────────────────────────
+// The PIN is collected by tapping the on-screen keys — no <input>, so iOS never
+// pops the keyboard or hijacks the field with password autofill.
+let _pinBuffer = '';
+function renderPinDots() {
+  document.querySelectorAll('#pin-dots span').forEach((d, i) => d.classList.toggle('on', i < _pinBuffer.length));
+}
+function pinPad(k) {
+  const err = document.getElementById('pin-error'); if (err) err.style.display = 'none';
+  if (k === 'back') { _pinBuffer = _pinBuffer.slice(0, -1); renderPinDots(); return; }
+  if (k === 'go')   { checkPin(); return; }
+  if (_pinBuffer.length >= 4) return;
+  _pinBuffer += k;
+  renderPinDots();
+  if (_pinBuffer.length === 4) setTimeout(checkPin, 160);   // auto-submit on the 4th digit
+}
 function checkPin() {
-  const input = document.getElementById('pin-input').value.trim();
-  const user = findUserByPin(input);
+  const user = findUserByPin(_pinBuffer.trim());
   if (user) {
     grantAccess(user);
   } else {
     const err = document.getElementById('pin-error');
-    err.style.display = 'block';
-    document.getElementById('pin-input').value = '';
-    document.getElementById('pin-input').focus();
-    setTimeout(() => { err.style.display = 'none'; }, 2000);
+    if (err) { err.style.display = 'block'; setTimeout(() => { err.style.display = 'none'; }, 2000); }
+    _pinBuffer = ''; renderPinDots();
   }
 }
+// Physical keyboards (iPad Magic Keyboard, desktop) still work on the lock screen.
+document.addEventListener('keydown', function (e) {
+  const ps = document.getElementById('pin-screen');
+  if (!ps || ps.style.display === 'none') return;
+  if (/^[0-9]$/.test(e.key)) { pinPad(e.key); e.preventDefault(); }
+  else if (e.key === 'Backspace') { pinPad('back'); e.preventDefault(); }
+  else if (e.key === 'Enter') { pinPad('go'); e.preventDefault(); }
+});
 
 // ─── FACE ID / BIOMETRIC UNLOCK (WebAuthn platform authenticator) ─────────────
 // On iPhone/iPad this surfaces as Face ID (or Touch ID); on Android/desktop as
@@ -1029,12 +1075,12 @@ function forgetBiometric() {
 }
 
 function initAuth() {
-  // PIN is the only login method. Face ID / WebAuthn was removed because the
-  // native sheet could block typing into the page and trap the user.
+  // PIN via on-screen keypad is the only login method. No text input, so iOS
+  // can't pop a keyboard or hijack the field with password autofill.
+  _pinBuffer = '';
   const pe = document.getElementById('pin-entry');
   if (pe) pe.style.display = 'block';
-  const pin = document.getElementById('pin-input');
-  if (pin) { pin.disabled = false; pin.readOnly = false; setTimeout(() => { try { pin.focus(); } catch (e) {} }, 60); }
+  renderPinDots();
 }
 
 function applyRoleAccess(role, user) {
