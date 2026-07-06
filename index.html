@@ -48,10 +48,12 @@
     --cat-postres-c: #B43828; --cat-vegano-c: #288A58; --cat-acompana-c: #506050;
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; min-height: 100vh; }
+  html { overflow-x: hidden; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; min-height: 100vh; overflow-x: hidden; width: 100%; max-width: 100%; }
 
   /* HEADER */
-  .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 18px 28px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+  .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 18px 28px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; flex-wrap: wrap; gap: 10px 14px; }
+  .header > div { min-width: 0; }
   .logo { font-family: 'Inter', sans-serif; font-size: 21px; font-weight: 600; color: var(--accent); letter-spacing: 5px; }
   .logo span { color: var(--text2); font-weight: 400; font-size: 13px; letter-spacing: 1px; margin-left: 10px; font-family: 'Inter', sans-serif; }
   .period-badge { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 6px 14px; font-family: 'Inter', sans-serif; font-size: 11px; color: var(--text2); }
@@ -183,6 +185,13 @@
     .card-value { font-size: 19px; }
     .card-sub { font-size: 9.5px; margin-top: 3px; }
     .content { padding: 16px; }
+    .header { padding: 13px 15px; gap: 8px 10px; }
+    .logo { font-size: 18px; letter-spacing: 3px; }
+    .logo span { display: none; }
+    #role-badge { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #logout-btn { padding: 6px 10px; }
+    .sync-pill { padding: 5px 9px; }
+    .tabs { padding: 0 15px; }
     .note { padding: 11px 13px; font-size: 11.5px; }
     .note-kv { gap: 4px 12px; }
     .note-kv .kv-k { font-size: 9.5px; }
@@ -270,6 +279,17 @@
 .log-scroll table { border-collapse: separate; border-spacing: 0; }
 .log-scroll thead th { position: sticky; top: 0; z-index: 2; }
 .log-empty { padding: 22px 16px; color: var(--text3); font-family: 'Inter', sans-serif; font-size: 12.5px; text-align: center; }
+/* People — mobile-friendly card list */
+.person-list { display:flex; flex-direction:column; gap:10px; }
+.person-card { border:1px solid var(--border); border-radius:11px; background:var(--surface); padding:14px 15px; }
+.person-row1 { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.person-name { font-weight:600; font-size:15px; }
+.person-you { font-size:10px; color:var(--accent2); margin-left:5px; }
+.person-badges { display:flex; align-items:center; gap:6px; flex-shrink:0; flex-wrap:wrap; justify-content:flex-end; }
+.person-meta { font-size:11.5px; color:var(--text2); margin-top:9px; line-height:1.55; }
+.person-meta .pin { color:var(--text); font-weight:600; letter-spacing:1px; }
+.person-actions { display:flex; gap:8px; margin-top:13px; flex-wrap:wrap; }
+.person-actions .btn { flex:1; min-width:82px; text-align:center; padding:8px 10px; font-size:12.5px; }
 .calc-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 7px; padding: 12px 14px; font-size: 12px; color: var(--text2); font-family: 'Inter', sans-serif; min-height: 36px; line-height: 1.8; }
 .exp-note { font-size: 11px; color: var(--text3); font-family: 'Inter', sans-serif; margin-bottom: 14px; line-height: 1.6; }
 .add-expense-btn { width: 100%; margin-top: 4px; padding: 10px; background: transparent; border: 1px dashed var(--border); color: var(--text3); border-radius: 7px; cursor: pointer; font-size: 13px; transition: all 0.2s; font-family: 'Inter', sans-serif; }
@@ -556,7 +576,7 @@
       <div><label class="field-label">Role / Access</label><select id="pp-role" class="field-select"></select></div>
     </div>
     <div id="pp-role-desc" class="exp-note" style="margin-bottom:12px; color:var(--text2);"></div>
-    <button class="btn" style="width:100%; padding:12px;" onclick="addPerson()">Add Person ✓</button>
+    <button id="pp-submit-btn" class="btn" style="width:100%; padding:12px;" onclick="addPerson()">Add Person ✓</button>
   </div>
 
   <div class="section-title">People &amp; Access</div>
@@ -2018,6 +2038,38 @@ function saveUser(u) {
   if (_db) _db.ref('comedor/users/' + u.id).set(u).catch(syncWriteErr);
 }
 
+let _editingUserId = null;
+
+function editPerson(id) {
+  const u = getUsers().find(x => x.id === id);
+  if (!u) return;
+  _editingUserId = id;
+  const sel = document.getElementById('pp-role');
+  roleOptions(sel);
+  document.getElementById('pp-name').value = u.name || '';
+  document.getElementById('pp-pin').value = u.pin || '';
+  sel.value = normRole(u.role);
+  document.getElementById('pp-role-desc').textContent = roleAccessText(sel.value);
+  const btn = document.getElementById('pp-submit-btn');
+  if (btn) btn.textContent = 'Save changes \u2713';
+  const m = document.getElementById('people-msg');
+  if (m) {
+    m.innerHTML = '\u270E Editing <b>' + (u.name || '') + '</b> \u2014 change name, PIN or role, then Save. <a onclick="cancelEditPerson()" style="color:var(--red);text-decoration:underline;cursor:pointer;margin-left:6px;">Cancel</a>';
+    m.style.cssText = 'display:block; border-radius:7px; padding:10px 12px; font-size:12px; font-family:\'Inter\',sans-serif; margin-bottom:14px; background:var(--surface2); border:1px solid var(--border); color:var(--text2);';
+  }
+  document.getElementById('pp-name').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+
+function cancelEditPerson() {
+  _editingUserId = null;
+  document.getElementById('pp-name').value = '';
+  document.getElementById('pp-pin').value = '';
+  const btn = document.getElementById('pp-submit-btn');
+  if (btn) btn.textContent = 'Add Person \u2713';
+  const m = document.getElementById('people-msg');
+  if (m) m.style.display = 'none';
+}
+
 function addPerson() {
   const name = document.getElementById('pp-name').value.trim();
   const pin  = document.getElementById('pp-pin').value.trim();
@@ -2026,12 +2078,31 @@ function addPerson() {
   if (!/^\d{4}$/.test(pin)) return peopleMsg('PIN must be exactly 4 digits', false);
   if (!role) return peopleMsg('Pick a role', false);
   const users = getUsers();
-  const clash = users.find(u => u.pin === pin);
+  const clash = users.find(u => u.pin === pin && u.id !== _editingUserId);
   if (clash) return peopleMsg('PIN ' + pin + ' is already used by ' + clash.name, false);
+
+  if (_editingUserId) {
+    const existing = users.find(u => u.id === _editingUserId);
+    if (!existing) { cancelEditPerson(); return; }
+    if (roleCaps(existing.role).people && !roleCaps(role).people) {
+      const partners = users.filter(u => u.active !== false && roleCaps(u.role).people).length;
+      if (partners <= 1) return peopleMsg('Keep at least one Partner \u2014 promote someone else first.', false);
+    }
+    saveUser(Object.assign({}, existing, { name: name, pin: pin, role: role }));
+    peopleMsg('Saved ' + name + ' (' + roleCaps(role).label + ') \u2014 PIN ' + pin, true);
+    _editingUserId = null;
+    const btn = document.getElementById('pp-submit-btn');
+    if (btn) btn.textContent = 'Add Person \u2713';
+    document.getElementById('pp-name').value = '';
+    document.getElementById('pp-pin').value = '';
+    renderPeople();
+    return;
+  }
+
   const id = 'u_' + pin + '_' + name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8);
   ensureUsersSeeded();
   saveUser({ id: id, name: name, pin: pin, role: role, active: true });
-  peopleMsg('Added ' + name + ' (' + roleCaps(role).label + ') — PIN ' + pin, true);
+  peopleMsg('Added ' + name + ' (' + roleCaps(role).label + ') \u2014 PIN ' + pin, true);
   document.getElementById('pp-name').value = '';
   document.getElementById('pp-pin').value = '';
   renderPeople();
@@ -2072,25 +2143,26 @@ function renderPeople() {
   const el = document.getElementById('people-list');
   if (!el) return;
   const users = getUsers();
-  el.innerHTML = `<div class="table-wrap"><table><thead><tr>
-      <th>Name</th><th>Role</th><th>PIN</th><th>Access</th><th>Status</th><th></th>
-    </tr></thead><tbody>
-    ${users.map(u => {
-      const c = roleCaps(u.role);
-      const me = currentUser && currentUser.name === u.name;
-      return `<tr>
-        <td><b>${(u.name || '').replace(/</g,'&lt;')}</b>${me ? ' <span style="font-size:10px;color:var(--accent2);">(you)</span>' : ''}</td>
-        <td><span class="cat-badge cat-bebidas">${c.label}</span></td>
-        <td style="font-family:'Inter',sans-serif;">${u.pin}</td>
-        <td style="font-size:11px;color:var(--text2);">${roleAccessText(u.role)}</td>
-        <td>${u.active === false ? '<span class="tag-red">Inactive</span>' : '<span class="tag-green">Active</span>'}</td>
-        <td style="white-space:nowrap;">
-          <button class="btn btn-ghost" style="padding:3px 9px;font-size:11px;" onclick="toggleUserActive('${u.id}')">${u.active === false ? 'Enable' : 'Disable'}</button>
-          <button class="btn btn-ghost" style="padding:3px 9px;font-size:11px;color:var(--red);border-color:rgba(224,82,82,0.4);" onclick="removePerson('${u.id}')">Remove</button>
-        </td>
-      </tr>`;
-    }).join('')}
-  </tbody></table></div>`;
+  el.innerHTML = '<div class="person-list">' + users.map(u => {
+    const c = roleCaps(u.role);
+    const me = currentUser && currentUser.name === u.name;
+    const inactive = u.active === false;
+    return `<div class="person-card">
+      <div class="person-row1">
+        <div><span class="person-name">${(u.name || '').replace(/</g,'&lt;')}</span>${me ? '<span class="person-you">(you)</span>' : ''}</div>
+        <div class="person-badges">
+          <span class="cat-badge cat-bebidas">${c.label}</span>
+          ${inactive ? '<span class="tag-red">Inactive</span>' : '<span class="tag-green">Active</span>'}
+        </div>
+      </div>
+      <div class="person-meta">PIN <span class="pin">${u.pin}</span> &middot; ${roleAccessText(u.role)}</div>
+      <div class="person-actions">
+        <button class="btn btn-ghost" onclick="editPerson('${u.id}')">Edit</button>
+        <button class="btn btn-ghost" onclick="toggleUserActive('${u.id}')">${inactive ? 'Enable' : 'Disable'}</button>
+        <button class="btn btn-ghost" style="color:var(--red);border-color:rgba(224,82,82,0.4);" onclick="removePerson('${u.id}')">Remove</button>
+      </div>
+    </div>`;
+  }).join('') + '</div>';
 }
 
 // ─── LOGOUT / SWITCH USER ────────────────────────────────────────────────────
