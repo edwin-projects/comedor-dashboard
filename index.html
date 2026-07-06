@@ -88,7 +88,9 @@
   .tab-ic { width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0; }
   .hd-ic { width:15px; height:15px; stroke:currentColor; fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0; }
   .step-num .hd-ic { width:13px; height:13px; }
-  .cards2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+  .cards2 { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; align-items:stretch; }
+  .cards2 .card { display:flex; flex-direction:column; min-height:132px; }
+  .cards2 .card .card-sub { margin-top:auto; padding-top:8px; }
   .pnl-hero { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px 18px 22px; margin-bottom:12px; text-align:center; }
   .pnl-hero .card-value { font-size:40px; margin-top:4px; }
   .pnl-hero .card-label { letter-spacing:1.4px; }
@@ -96,14 +98,14 @@
   .pnl-divider::before, .pnl-divider::after { content:""; flex:1; height:1px; background:var(--border); }
   /* Consolidated capital & investment tile */
   .cap-invest { padding:18px; }
-  .cap-total { display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+  .cap-total { display:flex; justify-content:space-between; align-items:center; gap:10px; }
   .cap-total-val { font-family:'Inter',sans-serif; font-weight:400; font-size:26px; letter-spacing:-0.3px; font-variant-numeric:lining-nums tabular-nums; }
   .cap-total-split { font-size:11px; color:var(--text3); font-family:'Inter',sans-serif; margin-top:5px; }
-  .cap-rows { display:flex; flex-direction:column; gap:13px; margin-top:16px; padding-top:15px; border-top:1px solid var(--border); }
-  .cap-row { cursor:pointer; }
-  .cap-row .cap-top { display:flex; justify-content:space-between; align-items:baseline; gap:10px; }
+  .cap-rows { display:flex; flex-direction:column; margin-top:14px; }
+  .cap-row { cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:14px; padding:13px 0; border-top:1px solid var(--border); }
+  .cap-left { display:flex; flex-direction:column; gap:2px; min-width:0; }
   .cap-k { font-family:'Inter',sans-serif; font-size:12px; color:var(--text2); letter-spacing:0.3px; }
-  .cap-v { font-family:'Inter',sans-serif; font-weight:300; font-size:21px; letter-spacing:-0.2px; font-variant-numeric:lining-nums tabular-nums; }
+  .cap-v { flex-shrink:0; font-family:'Inter',sans-serif; font-weight:300; font-size:21px; letter-spacing:-0.2px; font-variant-numeric:lining-nums tabular-nums; }
   .cap-s { display:block; font-size:10px; color:var(--text3); font-family:'Inter',sans-serif; margin-top:2px; }
   .pnl-divider span { font-size:10.5px; letter-spacing:2px; text-transform:uppercase; color:var(--text3); font-weight:600; }
   .tab:hover { color: var(--text2); }
@@ -337,6 +339,12 @@
 .person-actions .btn { flex:1; min-width:82px; text-align:center; padding:8px 10px; font-size:12.5px; }
 /* Rich log toolbar — filters, sort, search, live total */
 .log-toolbar { display:flex; flex-direction:column; gap:10px; padding:2px 0 14px; }
+.log-toprow { display:flex; gap:9px; align-items:center; }
+.log-more { flex-shrink:0; background:var(--surface2); border:1px solid var(--border); color:var(--text2); border-radius:8px; padding:10px 14px; font-size:12.5px; font-family:'Inter',sans-serif; cursor:pointer; white-space:nowrap; display:flex; align-items:center; gap:6px; transition:all 0.15s; }
+.log-more:hover { border-color:var(--accent); color:var(--text); }
+.log-more.on { background:var(--accent); border-color:var(--accent); color:var(--bg); }
+.log-adv { display:flex; flex-direction:column; gap:10px; padding-top:2px; }
+.log-adv[hidden] { display:none; }
 .chip-row { display:flex; gap:7px; overflow-x:auto; padding-bottom:2px; scrollbar-width:none; }
 .chip-row::-webkit-scrollbar { height:0; }
 .fchip { flex-shrink:0; background:var(--surface2); border:1px solid var(--border); color:var(--text2); border-radius:20px; padding:6px 13px; font-size:12px; font-family:'Inter',sans-serif; cursor:pointer; white-space:nowrap; transition:all 0.15s; }
@@ -497,24 +505,29 @@
     </div>
     <div class="logcard-body">
       <div class="log-toolbar">
-        <input class="log-search" id="search-cash" placeholder="Search date, amount, person…" oninput="filterLog('cash')">
-        <div class="chip-row" id="dcash-bychips"></div>
-        <div class="chip-row"><button class="fchip fchip-clear" onclick="clearLog('dcash')">✕ Clear filters</button></div>
-        <div class="log-toolrow">
-          <select class="log-select" id="dcash-sort" onchange="setSort('dcash',this.value)">
-            <option value="date_desc">Newest first</option>
-            <option value="date_asc">Oldest first</option>
-            <option value="sales_desc">Sales: high → low</option>
-            <option value="sales_asc">Sales: low → high</option>
-            <option value="exp_desc">Expenses: high → low</option>
-          </select>
-          <div class="dash-export-bar" style="margin:0;">
-            <button class="btn btn-ghost" onclick="copyForSheets()">📋 Copy</button>
-            <button class="btn btn-ghost" onclick="downloadCSV()">⬇ CSV</button>
-            <button class="btn btn-ghost owner-only" onclick="clearAllEntries()" style="color:var(--red);border-color:rgba(224,82,82,0.4);">🗑 Clear</button>
-          </div>
-          <div class="log-summary" id="dcash-summary"></div>
+        <div class="log-toprow">
+          <input class="log-search" id="search-cash" placeholder="Search date, amount, person…" oninput="filterLog('cash')">
+          <button class="fchip fchip-clear" id="dcash-clear" style="display:none;" onclick="clearLog('dcash')">✕ Clear</button>
+          <button class="log-more" id="dcash-morebtn" onclick="toggleAdv('dcash')">Filters ▾</button>
         </div>
+        <div class="log-adv" id="dcash-adv" hidden>
+          <div class="chip-row" id="dcash-bychips"></div>
+          <div class="log-toolrow">
+            <select class="log-select" id="dcash-sort" onchange="setSort('dcash',this.value)">
+              <option value="date_desc">Newest first</option>
+              <option value="date_asc">Oldest first</option>
+              <option value="sales_desc">Sales: high → low</option>
+              <option value="sales_asc">Sales: low → high</option>
+              <option value="exp_desc">Expenses: high → low</option>
+            </select>
+            <div class="dash-export-bar" style="margin:0;">
+              <button class="btn btn-ghost" onclick="copyForSheets()">📋 Copy</button>
+              <button class="btn btn-ghost" onclick="downloadCSV()">⬇ CSV</button>
+              <button class="btn btn-ghost owner-only" onclick="clearAllEntries()" style="color:var(--red);border-color:rgba(224,82,82,0.4);">🗑 Clear</button>
+            </div>
+          </div>
+        </div>
+        <div class="log-summary" id="dcash-summary" style="margin-left:0;"></div>
       </div>
       <div id="dash-table-wrap" class="log-scroll"></div>
       <div id="dash-expense-wrap"></div>
@@ -529,25 +542,30 @@
     </div>
     <div class="logcard-body">
       <div class="log-toolbar">
-        <input class="log-search" id="dbank-search" placeholder="Search payee, category, person…" oninput="setSearch('dbank',this.value)">
-        <div class="chip-row" id="dbank-bychips"></div>
+        <div class="log-toprow">
+          <input class="log-search" id="dbank-search" placeholder="Search payee, category, person…" oninput="setSearch('dbank',this.value)">
+          <button class="log-more" id="dbank-morebtn" onclick="toggleAdv('dbank')">Filters ▾</button>
+        </div>
         <div class="chip-row" id="dbank-typechips">
           <button class="fchip active" data-v="all" onclick="setType('dbank','all')">All</button>
           <button class="fchip" data-v="expense" onclick="setType('dbank','expense')">Expenses</button>
           <button class="fchip" data-v="gst" onclick="setType('dbank','gst')">GST</button>
           <button class="fchip" data-v="capital" onclick="setType('dbank','capital')">Capital in</button>
-          <button class="fchip fchip-clear" onclick="clearLog('dbank')">✕ Clear filters</button>
+          <button class="fchip fchip-clear" id="dbank-clear" style="display:none;" onclick="clearLog('dbank')">✕ Clear</button>
         </div>
-        <div class="log-toolrow">
-          <select class="log-select" id="dbank-cat" onchange="setCat('dbank',this.value)"><option value="all">All categories</option></select>
-          <select class="log-select" id="dbank-sort" onchange="setSort('dbank',this.value)">
-            <option value="date_desc">Newest first</option>
-            <option value="date_asc">Oldest first</option>
-            <option value="amt_desc">Amount: high → low</option>
-            <option value="amt_asc">Amount: low → high</option>
-          </select>
-          <div class="log-summary" id="dbank-summary"></div>
+        <div class="log-adv" id="dbank-adv" hidden>
+          <div class="chip-row" id="dbank-bychips"></div>
+          <div class="log-toolrow">
+            <select class="log-select" id="dbank-cat" onchange="setCat('dbank',this.value)"><option value="all">All categories</option></select>
+            <select class="log-select" id="dbank-sort" onchange="setSort('dbank',this.value)">
+              <option value="date_desc">Newest first</option>
+              <option value="date_asc">Oldest first</option>
+              <option value="amt_desc">Amount: high → low</option>
+              <option value="amt_asc">Amount: low → high</option>
+            </select>
+          </div>
         </div>
+        <div class="log-summary" id="dbank-summary" style="margin-left:0;"></div>
       </div>
       <div id="dbank-list" class="txn-list"></div>
     </div>
@@ -572,24 +590,29 @@
     </div>
     <div class="logcard-body">
       <div class="log-toolbar">
-        <input class="log-search" id="dledger-search" placeholder="Search category, person, date…" oninput="setSearch('dledger',this.value)">
-        <div class="chip-row" id="dledger-bychips"></div>
+        <div class="log-toprow">
+          <input class="log-search" id="dledger-search" placeholder="Search category, person, date…" oninput="setSearch('dledger',this.value)">
+          <button class="log-more" id="dledger-morebtn" onclick="toggleAdv('dledger')">Filters ▾</button>
+        </div>
         <div class="chip-row" id="dledger-typechips">
           <button class="fchip active" data-v="all" onclick="setType('dledger','all')">All</button>
           <button class="fchip" data-v="capex" onclick="setType('dledger','capex')">Setup / Capex</button>
           <button class="fchip" data-v="opex" onclick="setType('dledger','opex')">Operating</button>
-          <button class="fchip fchip-clear" onclick="clearLog('dledger')">✕ Clear filters</button>
+          <button class="fchip fchip-clear" id="dledger-clear" style="display:none;" onclick="clearLog('dledger')">✕ Clear</button>
         </div>
-        <div class="log-toolrow">
-          <select class="log-select" id="dledger-cat" onchange="setCat('dledger',this.value)"><option value="all">All categories</option></select>
-          <select class="log-select" id="dledger-sort" onchange="setSort('dledger',this.value)">
-            <option value="date_desc">Newest first</option>
-            <option value="date_asc">Oldest first</option>
-            <option value="amt_desc">Amount: high → low</option>
-            <option value="amt_asc">Amount: low → high</option>
-          </select>
-          <div class="log-summary" id="dledger-summary"></div>
+        <div class="log-adv" id="dledger-adv" hidden>
+          <div class="chip-row" id="dledger-bychips"></div>
+          <div class="log-toolrow">
+            <select class="log-select" id="dledger-cat" onchange="setCat('dledger',this.value)"><option value="all">All categories</option></select>
+            <select class="log-select" id="dledger-sort" onchange="setSort('dledger',this.value)">
+              <option value="date_desc">Newest first</option>
+              <option value="date_asc">Oldest first</option>
+              <option value="amt_desc">Amount: high → low</option>
+              <option value="amt_asc">Amount: low → high</option>
+            </select>
+          </div>
         </div>
+        <div class="log-summary" id="dledger-summary" style="margin-left:0;"></div>
       </div>
       <div id="dledger-list" class="txn-list"></div>
     </div>
@@ -1203,6 +1226,7 @@ function filterLog(key) {
     if (tr.classList.contains('log-total')) return;      // always keep the totals row
     tr.style.display = (!q || tr.textContent.toLowerCase().includes(q)) ? '' : 'none';
   });
+  if (key === 'cash') updateClearBtn('dcash');
 }
 function reapplyLogFilter(key) {
   const input = document.getElementById('search-' + key);
@@ -1814,6 +1838,7 @@ function renderCashTable() {
         </tbody>
       </table></div>`;
   }
+  updateClearBtn('dcash');
 }
 
 // ─── EXPORT ──────────────────────────────────────────────────────────────────
@@ -2380,11 +2405,26 @@ function renderPnlBank() {
   }
   const inr = n => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN');
   const available = (bankBal || 0) + cashBal;
-  // Render a split as separate lines: "Label ₹amount (xx.x%)".
+  // Cash vs non-cash split of sales. Pet Pooja gross carries no pay-mode, so we
+  // borrow the mix observed in the daily register (cash vs UPI+card) and apply it
+  // to the authoritative gross so the two lines still sum to income.
+  const regCash = cashEntries.reduce((s, e) => s + (Number(e.cash) || 0), 0);
+  const regNon  = cashEntries.reduce((s, e) => s + (Number(e.upi) || 0) + (Number(e.card) || 0), 0);
+  const regTot  = regCash + regNon;
+  const incCash = regTot ? income * (regCash / regTot) : 0;
+  const incNon  = regTot ? income * (regNon  / regTot) : 0;
+  // Render a split as separate lines, biggest first: "Label ₹amount (xx.x%)".
   const pctOf = (v, t) => t ? ` <span class="tpct">(${(v / t * 100).toFixed(1)}%)</span>` : '';
   const splitBox = (parts, total) => parts.filter(p => (Number(p.v) || 0) > 0)
+    .sort((a, b) => (Number(b.v) || 0) - (Number(a.v) || 0))
     .map(p => `<div class="tsplit-l"${p.c ? ` style="color:${p.c}"` : ''}>${esc(p.k)} <b>${inr(p.v)}</b>${pctOf(p.v, total)}</div>`).join('') || '<div class="tsplit-l">—</div>';
   const EDC = '#7ec8e3', PRC = '#b892ff';   // Edwin teal, Prathvi violet
+  // Investment rows, largest first (descending by total).
+  const capRows = [
+    { k: 'Capex · assets & build-out', v: tC, c: '#7ec8e3', parts: [{ k: 'Edwin', v: capexC.Edwin }, { k: 'Prathvi', v: capexC.Prathvi }], type: 'capex' },
+    { k: 'Setup · pre-opening costs',  v: tS, c: '#b892ff', parts: [{ k: 'Edwin', v: setupS.Edwin }, { k: 'Prathvi', v: setupS.Prathvi }], type: 'capex' },
+    { k: 'Operating · in P&L',         v: tO, c: 'var(--red)', parts: [{ k: 'Edwin', v: opexO.Edwin }, { k: 'Prathvi', v: opexO.Prathvi }], type: 'opex' }
+  ].sort((a, b) => b.v - a.v);
 
   const sEl = document.getElementById('pnl-summary');
   if (sEl) sEl.innerHTML = `
@@ -2394,7 +2434,7 @@ function renderPnlBank() {
       <div class="card-sub">Income ${inr(income)} − expenses ${inr(totalExp)}</div>
     </div>
     <div class="cards2">
-      <div class="card card-click" onclick="focusLog('sales')"><div class="card-label">Income (Sales)</div><div class="card-value green">${inr(income)}</div><div class="card-sub">Pet Pooja · all channels</div></div>
+      <div class="card card-click" onclick="focusLog('sales')"><div class="card-label">Income (Sales)</div><div class="card-value green">${inr(income)}</div><div class="card-sub">${regTot ? splitBox([{k:'Non-cash · UPI/Card',v:incNon},{k:'Cash',v:incCash}], income) : 'Pet Pooja · all channels'}</div></div>
       <div class="card card-click" onclick="focusLog('bank',{type:'expense'})"><div class="card-label">Expenses</div><div class="card-value red">${inr(totalExp)}</div><div class="card-sub">${splitBox([{k:'Cash',v:cashExp},{k:'Bank',v:bankExp},{k:'Direct (partner-paid)',v:ledgerOpex}], totalExp)}</div></div>
     </div>
     <div class="cards2">
@@ -2402,10 +2442,10 @@ function renderPnlBank() {
       <div class="card card-click" onclick="focusLog('sales')"><div class="card-label">Discounts &amp; Comps</div><div class="card-value">${inr(discount)}</div><div class="card-sub">From Pet Pooja</div></div>
     </div>
     <div class="pnl-divider"><span>Balances</span></div>
-    <div class="cards2">
-      <div class="card card-click" onclick="focusLog('bank')"><div class="card-label">Available Balance</div><div class="card-value gold">${inr(available)}</div><div class="card-sub">${splitBox([{k:'Bank',v:bankBal||0},{k:'Cash',v:cashBal}], available)}</div></div>
+    <div class="cards2" style="grid-template-columns:1fr;">
+      <div class="card card-click" onclick="focusLog('bank')"><div class="card-label">Available Balance</div><div class="card-value green">${inr(available)}</div><div class="card-sub">${splitBox([{k:'Bank',v:bankBal||0},{k:'Cash',v:cashBal}], available)}</div></div>
     </div>
-    <div class="pnl-divider"><span>Capital &amp; investment (out of P&amp;L)</span></div>
+    <div class="pnl-divider"><span>Capital &amp; investment</span></div>
     <div class="card cap-invest card-click" onclick="focusLog('ledger')">
       <div class="cap-total">
         <span class="card-label">Total Capital Infused</span>
@@ -2413,18 +2453,11 @@ function renderPnlBank() {
       </div>
       <div class="cap-total-split">${splitBox([{k:'Edwin',v:capBy['Edwin']||0,c:EDC},{k:'Prathvi',v:capBy['Prathvi']||0,c:PRC}], capital)}</div>
       <div class="cap-rows">
-        <div class="cap-row" onclick="event.stopPropagation();focusLog('ledger',{type:'capex'})">
-          <div class="cap-top"><span class="cap-k">Capex · assets &amp; build-out</span><span class="cap-v" style="color:#7ec8e3;">${inr(tC)}</span></div>
-          <div class="cap-s">${splitBox([{k:'Edwin',v:capexC.Edwin},{k:'Prathvi',v:capexC.Prathvi}], tC)}</div>
-        </div>
-        <div class="cap-row" onclick="event.stopPropagation();focusLog('ledger',{type:'capex'})">
-          <div class="cap-top"><span class="cap-k">Setup · pre-opening costs</span><span class="cap-v" style="color:#b892ff;">${inr(tS)}</span></div>
-          <div class="cap-s">${splitBox([{k:'Edwin',v:setupS.Edwin},{k:'Prathvi',v:setupS.Prathvi}], tS)}</div>
-        </div>
-        <div class="cap-row" onclick="event.stopPropagation();focusLog('ledger',{type:'opex'})">
-          <div class="cap-top"><span class="cap-k">Operating · in P&amp;L</span><span class="cap-v" style="color:var(--red);">${inr(tO)}</span></div>
-          <div class="cap-s">${splitBox([{k:'Edwin',v:opexO.Edwin},{k:'Prathvi',v:opexO.Prathvi}], tO)}</div>
-        </div>
+        ${capRows.map(row => `
+        <div class="cap-row" onclick="event.stopPropagation();focusLog('ledger',{type:'${row.type}'})">
+          <div class="cap-left"><span class="cap-k">${esc(row.k)}</span><span class="cap-s">${splitBox(row.parts, row.v)}</span></div>
+          <span class="cap-v" style="color:${row.c};">${inr(row.v)}</span>
+        </div>`).join('')}
       </div>
     </div>`;
 
@@ -2620,6 +2653,27 @@ function clearLog(p) {
   if (p === 'dcash') { filterLog('cash'); renderCashTable(); }
   else if (p === 'dledger') renderLedger('dledger');
   else renderBankRich(p);
+}
+// Is any real filter (not just sort order) active on this log?
+function isFiltered(p) {
+  const st = LOGF[p] || {}, d = LOGF_DEFAULTS[p] || {};
+  if (['by', 'type', 'cat', 'search'].some(k => (st[k] || 'all') !== (d[k] || 'all'))) return true;
+  if (p === 'dcash') { const s = document.getElementById('search-cash'); if (s && s.value.trim()) return true; }
+  return false;
+}
+// Show the "Clear filters" chip only when a filter is actually in use.
+function updateClearBtn(p) {
+  const b = document.getElementById(p + '-clear');
+  if (b) b.style.display = isFiltered(p) ? '' : 'none';
+}
+// Reveal / hide a log's advanced filters (person, category, sort, export).
+function toggleAdv(p) {
+  const a = document.getElementById(p + '-adv');
+  const b = document.getElementById(p + '-morebtn');
+  if (!a) return;
+  const show = a.hasAttribute('hidden');
+  if (show) a.removeAttribute('hidden'); else a.setAttribute('hidden', '');
+  if (b) b.classList.toggle('on', show);
 }
 const _chip = {};
 
@@ -2845,6 +2899,7 @@ function renderLedger(p) {
   const cnt = document.getElementById('count-ledger'); if (cnt) cnt.textContent = src.length + ' items';
   const el = document.getElementById(p + '-list');
   if (el) el.innerHTML = list.length ? list.map(ledgerCard).join('') : '<div class="log-empty">No items match these filters.</div>';
+  updateClearBtn(p);
 }
 
 function sortBank(list, sort) {
@@ -2917,6 +2972,7 @@ function renderBankRich(p) {
 
   const el = document.getElementById(p + '-list');
   if (el) el.innerHTML = list.length ? list.map(bankCard).join('') : '<div class="log-empty">No entries match these filters.</div>';
+  updateClearBtn(p);
 }
 
 // Click a summary tile → open + filter the matching log.
