@@ -263,6 +263,8 @@
 }
 .pin-key:active { background: var(--accent); color: #000; transform: scale(0.97); }
 .pin-key-ghost, .pin-key-go { font-size: 22px; color: var(--text2); }
+.pin-or { display: flex; align-items: center; gap: 10px; margin: 16px 0 10px; color: var(--text3); font-size: 11px; font-family: 'Inter', sans-serif; letter-spacing: 2px; text-transform: uppercase; }
+.pin-or::before, .pin-or::after { content: ""; flex: 1; height: 1px; background: var(--border); }
 .pin-hint { margin-top: 20px; font-size: 11px; color: var(--text3); font-family: 'Inter', sans-serif; line-height: 1.8; }
 #role-badge {
   background: var(--surface2); border: 1px solid var(--border); border-radius: 5px;
@@ -385,6 +387,14 @@
 
     <!-- PIN ENTRY — on-screen keypad (no OS keyboard / password autofill) -->
     <div id="pin-entry">
+      <!-- Face ID: opt-in button only (never auto-invoked, so it can't block the keypad) -->
+      <div id="bio-unlock" style="display:none;">
+        <div class="pin-label" style="margin-bottom:8px;">Face ID · <span id="bio-role-label">—</span></div>
+        <button id="bio-btn" type="button" class="pin-btn" style="margin-top:0;" onclick="biometricUnlock(false)">Unlock with Face ID</button>
+        <div id="bio-status" style="margin-top:8px; font-size:12px; color:var(--text3); font-family:'Inter',sans-serif; min-height:14px;"></div>
+        <div style="font-size:11px; margin-top:2px;"><a href="#" onclick="forgetBiometric();return false;" style="color:var(--text3); text-decoration:none;">Forget Face ID on this device</a></div>
+        <div class="pin-or">or</div>
+      </div>
       <div class="pin-label">Enter your PIN</div>
       <div id="pin-dots" class="pin-dots" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
       <div id="pin-error">Incorrect PIN. Try again.</div>
@@ -934,6 +944,7 @@ function checkPin() {
   const user = findUserByPin(_pinBuffer.trim());
   if (user) {
     grantAccess(user);
+    maybeOfferEnroll(user);   // offer to enable Face ID on this device
   } else {
     const err = document.getElementById('pin-error');
     if (err) { err.style.display = 'block'; setTimeout(() => { err.style.display = 'none'; }, 2000); }
@@ -1075,13 +1086,23 @@ function forgetBiometric() {
   showPinEntry();
 }
 
-function initAuth() {
-  // PIN via on-screen keypad is the only login method. No text input, so iOS
-  // can't pop a keyboard or hijack the field with password autofill.
+async function initAuth() {
+  // The on-screen keypad is always available (no text input, so iOS can't pop a
+  // keyboard or hijack it with autofill). Face ID is offered as an OPT-IN button
+  // when enrolled — never auto-invoked, so its modal sheet can't block the keypad.
   _pinBuffer = '';
   const pe = document.getElementById('pin-entry');
   if (pe) pe.style.display = 'block';
   renderPinDots();
+  try {
+    const store = getBioStore();
+    if (store && store.id && await bioPlatformAvailable()) {
+      const bu = document.getElementById('bio-unlock');
+      if (bu) bu.style.display = 'block';
+      const rl = document.getElementById('bio-role-label');
+      if (rl) rl.textContent = _bioUser(store).name || 'this device';
+    }
+  } catch (e) { /* keypad remains available regardless */ }
 }
 
 function applyRoleAccess(role, user) {
