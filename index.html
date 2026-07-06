@@ -97,10 +97,11 @@
   .pnl-divider::before, .pnl-divider::after { content:""; flex:1; height:1px; background:var(--border); }
   /* Consolidated capital & investment tile */
   .cap-invest { padding:16px 18px; }
-  .cap-total { display:flex; justify-content:space-between; align-items:center; gap:10px; cursor:pointer; }
-  .cap-total-right { display:flex; align-items:center; gap:12px; }
-  .cap-chev { color:var(--text3); font-size:13px; transition:transform 0.2s; flex-shrink:0; }
-  .cap-invest.cap-collapsed .cap-chev { transform:rotate(-90deg); }
+  .cap-total { position:relative; display:flex; justify-content:center; align-items:center; gap:10px; cursor:pointer; }
+  .cap-total-mid { display:flex; align-items:baseline; justify-content:center; flex-wrap:wrap; gap:4px 10px; text-align:center; }
+  .cap-total-mid .card-label { margin-bottom:0; }
+  .cap-chev { position:absolute; right:0; top:50%; transform:translateY(-50%); color:var(--text3); font-size:13px; transition:transform 0.2s; }
+  .cap-invest.cap-collapsed .cap-chev { transform:translateY(-50%) rotate(-90deg); }
   .cap-invest.cap-collapsed .cap-body { display:none; }
   .cap-body { padding-top:2px; }
   .cap-total-val { font-family:'Inter',sans-serif; font-weight:400; font-size:26px; letter-spacing:-0.3px; font-variant-numeric:lining-nums tabular-nums; }
@@ -336,6 +337,23 @@
 .log-scroll thead th { position: sticky; top: 0; z-index: 2; padding: 9px 11px; }
 .log-scroll tbody td { padding: 9px 11px; }
 .log-empty { padding: 22px 16px; color: var(--text3); font-family: 'Inter', sans-serif; font-size: 12.5px; text-align: center; }
+/* Sales-by-category accordion */
+.sc-list { display: flex; flex-direction: column; }
+.sc-cat { border-bottom: 1px solid var(--border); }
+.sc-cat:last-child { border-bottom: none; }
+.sc-cat-head { display: flex; align-items: center; gap: 10px; padding: 11px 12px; cursor: pointer; }
+.sc-cat-head:hover { background: var(--surface2); }
+.sc-chev { color: var(--text3); font-size: 11px; transition: transform 0.18s; display: inline-block; width: 10px; flex-shrink: 0; }
+.sc-cat-name { font-size: 13px; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sc-cat-amt { font-family: 'Inter', sans-serif; font-size: 13px; color: var(--text); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.sc-share { color: var(--text3); font-size: 11px; }
+.sc-items { padding: 2px 12px 10px 32px; }
+.sc-items[hidden] { display: none; }
+.sc-itable { width: 100%; border-collapse: collapse; }
+.sc-itable td { padding: 5px 0; font-size: 12px; color: var(--text2); border-bottom: 1px dashed var(--border); }
+.sc-itable tr:last-child td { border-bottom: none; }
+.sc-itable td.num { color: var(--text); }
+.sc-nodetail { font-size: 11.5px; color: var(--text3); font-style: italic; padding: 4px 0; }
 /* People — mobile-friendly card list */
 .person-list { display:flex; flex-direction:column; gap:10px; }
 .person-card { border:1px solid var(--border); border-radius:11px; background:var(--surface); padding:14px 15px; }
@@ -1236,9 +1254,16 @@ function applyRoleAccess(role, user) {
 }
 
 // ─── COLLAPSIBLE / SEARCHABLE LOGS ───────────────────────────────────────────
+// Only one log card open at a time — collapse every other one.
+function collapseOtherLogs(exceptKey) {
+  document.querySelectorAll('.logcard').forEach(c => { if (c.id !== 'logcard-' + exceptKey) c.classList.add('collapsed'); });
+}
 function toggleLog(key) {
   const card = document.getElementById('logcard-' + key);
-  if (card) card.classList.toggle('collapsed');
+  if (!card) return;
+  const willOpen = card.classList.contains('collapsed');
+  if (willOpen) collapseOtherLogs(key);
+  card.classList.toggle('collapsed');
 }
 function filterLog(key) {
   const input = document.getElementById('search-' + key);
@@ -1793,7 +1818,32 @@ function renderSalesCats() {
   const el = document.getElementById('sales-cat-wrap');
   if (!el) return;
   if (!entries.length) { el.innerHTML = '<div class="log-empty">No sales in this period yet. Upload a Pet Pooja report from the Cash Expenses tab.</div>'; return; }
-  el.innerHTML = `<table><thead><tr><th>Category</th><th class="num">Gross ₹</th><th class="num">Share</th></tr></thead><tbody>${entries.map(e => `<tr><td>${esc(e[0])}</td><td class="num">₹${Math.round(e[1]).toLocaleString('en-IN')}</td><td class="num" style="color:var(--text2);">${(e[1]/total*100).toFixed(0)}%</td></tr>`).join('')}</tbody></table>`;
+  const inr = n => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN');
+  const detail = incomeItemsInRange(range.from, range.to);
+  el.innerHTML = `<div class="sc-list">${entries.map((e, i) => {
+    const cat = e[0], amt = e[1], pct = (amt / total * 100).toFixed(0);
+    const items = detail.byCat[cat] ? Object.entries(detail.byCat[cat]).filter(x => x[1] > 0.5).sort((a, b) => b[1] - a[1]) : [];
+    const itemsHTML = items.length
+      ? `<table class="sc-itable"><tbody>${items.map(it => `<tr><td>${esc(it[0])}</td><td class="num">${inr(it[1])}</td></tr>`).join('')}</tbody></table>`
+      : `<div class="sc-nodetail">${detail.anyDetail ? 'No item detail in this report.' : 'Item detail appears here for Pet Pooja reports uploaded after this update.'}</div>`;
+    return `<div class="sc-cat">
+      <div class="sc-cat-head" onclick="toggleSalesCat(${i})">
+        <span class="sc-chev" id="sc-chev-${i}">▸</span>
+        <span class="sc-cat-name">${esc(cat)}</span>
+        <span class="sc-cat-amt">${inr(amt)} <span class="sc-share">${pct}%</span></span>
+      </div>
+      <div class="sc-items" id="sc-items-${i}" hidden>${itemsHTML}</div>
+    </div>`;
+  }).join('')}</div>`;
+}
+// Expand / collapse a sales category to reveal its individual items.
+function toggleSalesCat(i) {
+  const box = document.getElementById('sc-items-' + i);
+  const chev = document.getElementById('sc-chev-' + i);
+  if (!box) return;
+  const show = box.hasAttribute('hidden');
+  if (show) box.removeAttribute('hidden'); else box.setAttribute('hidden', '');
+  if (chev) chev.style.transform = show ? 'rotate(90deg)' : '';
 }
 
 // Expenses grouped by category, combining ALL operating sources: the daily
@@ -2545,11 +2595,11 @@ function renderPnlBank() {
     <div class="pnl-divider"><span>Capital &amp; investment</span></div>
     <div class="card cap-invest ${_capCollapsed ? 'cap-collapsed' : ''}" id="cap-card">
       <div class="cap-total" onclick="toggleCapCard()">
-        <span class="card-label">Total Capital Infused</span>
-        <span class="cap-total-right">
-          <span class="cap-total-val" style="color:var(--accent);">${inr(capital)}</span>
-          <span class="cap-chev">▾</span>
+        <span class="cap-total-mid">
+          <span class="card-label">Total Capital Infused</span>
+          <span class="cap-total-val" style="color:#4d9de0;">${inr(capital)}</span>
         </span>
+        <span class="cap-chev">▾</span>
       </div>
       <div class="cap-body">
         <div class="cap-total-split">${splitBox([{k:'Edwin',v:capBy['Edwin']||0},{k:'Prathvi',v:capBy['Prathvi']||0}], capital)}</div>
@@ -2868,6 +2918,27 @@ function incomeCatsInRange(from, to) {
   });
   return cats;
 }
+// Individual items per category for a period (from reports that carry item
+// detail). Scaled by owned days exactly like the category totals, so item
+// sums reconcile to the category figure. Returns { byCat, anyDetail }.
+function incomeItemsInRange(from, to) {
+  const recs = loadIncome(); const owner = incomeDayOwner();
+  const ownedDays = {};
+  for (const d in owner) { if (d >= from && d <= to) ownedDays[owner[d]] = (ownedDays[owner[d]] || 0) + 1; }
+  const byCat = {}; let anyDetail = false;
+  recs.forEach(r => {
+    const nd = daysInclusive(r.from, r.to); const od = ownedDays[r.id] || 0; if (nd <= 0 || !od) return;
+    if (!Array.isArray(r.itemList) || !r.itemList.length) return;
+    anyDetail = true;
+    const scale = od / nd;
+    r.itemList.forEach(it => {
+      const c = (it.c && String(it.c).trim()) || '—', n = (it.n && String(it.n).trim()) || '—';
+      byCat[c] = byCat[c] || {};
+      byCat[c][n] = (byCat[c][n] || 0) + (Number(it.g) || 0) * scale;
+    });
+  });
+  return { byCat: byCat, anyDetail: anyDetail };
+}
 
 let _ppPending = null;
 function handlePetpoojaUpload(input) {
@@ -2893,16 +2964,20 @@ function parsePetpooja(rows) {
   if (hi < 0) throw new Error('This does not look like a Pet Pooja item-wise report.');
   if (!from || !to) throw new Error('Could not find the report date range (the "Date:" row).');
   const hdr = rows[hi].map(x => String(x));
+  const ii = hdr.indexOf('Item');
   const ci = hdr.indexOf('Category'), gi = hdr.indexOf('Gross Sales'), mi = hdr.indexOf('My Amount'), qi = hdr.indexOf('Qty'), ti = hdr.indexOf('Tax'), di = hdr.indexOf('Discount');
-  let gross = 0, my = 0, tax = 0, disc = 0, items = 0; const cats = {};
+  let gross = 0, my = 0, tax = 0, disc = 0, items = 0; const cats = {}; const itemList = [];
   for (let i = hi + 1; i < rows.length; i++) {
     const r = rows[i] || []; const c0 = String(r[0] || '');
     if (['Total', 'Min.', 'Max.', 'Avg.'].indexOf(c0) >= 0) continue;
     const cat = String(r[ci] || ''); if (!cat || cat === 'undefined') continue;
-    const g = Number(r[gi]) || 0; gross += g; my += Number(r[mi]) || 0; tax += Number(r[ti]) || 0; disc += Number(r[di]) || 0; items += Number(r[qi]) || 0;
+    const g = Number(r[gi]) || 0; gross += g; my += Number(r[mi]) || 0; tax += Number(r[ti]) || 0; disc += Number(r[di]) || 0;
+    const q = Number(r[qi]) || 0; items += q;
     cats[cat] = (cats[cat] || 0) + g;
+    const name = String((ii >= 0 ? r[ii] : r[0]) || '').trim();
+    if (name && g) itemList.push({ n: name, c: cat, g: Math.round(g * 100) / 100, q: q });
   }
-  return { id: 'pp_' + from + '_' + to, from, to, gross: Math.round(gross * 100) / 100, myAmount: Math.round(my * 100) / 100, tax: Math.round(tax * 100) / 100, discount: Math.round(disc * 100) / 100, items: Math.round(items), categories: cats, source: 'Pet Pooja', uploadedBy: (currentUser ? currentUser.name : ''), at: new Date().toLocaleString('en-IN') };
+  return { id: 'pp_' + from + '_' + to, from, to, gross: Math.round(gross * 100) / 100, myAmount: Math.round(my * 100) / 100, tax: Math.round(tax * 100) / 100, discount: Math.round(disc * 100) / 100, items: Math.round(items), categories: cats, itemList: itemList, source: 'Pet Pooja', uploadedBy: (currentUser ? currentUser.name : ''), at: new Date().toLocaleString('en-IN') };
 }
 function showPetpoojaPreview(rec) {
   _ppPending = rec;
@@ -3116,17 +3191,31 @@ function bankTable(list) {
   return `<table><thead><tr><th>Date</th><th>Description</th><th>Category</th><th>By</th><th class="num">Amount ₹</th><th></th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
-// Click a summary tile → open + filter the matching log.
+// Click a summary tile → open + filter the matching log. Tapping the SAME
+// tile again collapses that log and clears its filter. Only one log stays
+// open at a time.
+let _lastFocus = null;
 function focusLog(which, opts) {
   opts = opts || {};
   const card = document.getElementById('logcard-' + which);
   if (!card) return;
+  const sig = which + ':' + (opts.type || 'all');
+  const isOpen = !card.classList.contains('collapsed');
+  if (isOpen && _lastFocus === sig) {          // second tap on the same tile → collapse + unfilter
+    card.classList.add('collapsed');
+    if (which === 'bank') { LOGF.dbank.type = 'all'; renderBankRich('dbank'); }
+    else if (which === 'ledger') { LOGF.dledger.type = 'all'; renderLedger('dledger'); }
+    _lastFocus = null;
+    return;
+  }
+  collapseOtherLogs(which);
   card.classList.remove('collapsed');
   if (which === 'bank') { LOGF.dbank.type = opts.type || 'all'; renderBankRich('dbank'); }
   else if (which === 'cash') { renderCashTable(); }
   else if (which === 'sales') { renderSalesCats(); }
   else if (which === 'expcat') { renderExpenseCats(); }
   else if (which === 'ledger') { LOGF.dledger.type = opts.type || 'all'; renderLedger('dledger'); }
+  _lastFocus = sig;
   setTimeout(() => card.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
 }
 
