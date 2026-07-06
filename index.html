@@ -245,12 +245,23 @@
 /* PIN SCREEN */
 #pin-screen {
   position: fixed; inset: 0; background: var(--bg); z-index: 9999;
-  display: flex; align-items: center; justify-content: center; flex-direction: column;
+  display: flex; align-items: center; justify-content: center;
+  overflow-y: auto; padding: 24px 16px; box-sizing: border-box;
 }
 .pin-card {
   background: var(--surface); border: 1px solid var(--border); border-radius: 16px;
-  padding: 40px 48px; text-align: center; width: 100%; max-width: 380px;
+  padding: 28px 28px 26px; text-align: center; width: 100%; max-width: 380px; margin: auto;
 }
+.pin-field { margin-bottom: 14px; text-align: left; }
+.pin-field .pin-label { display: block; margin-bottom: 7px; }
+.pin-text {
+  width: 100%; box-sizing: border-box; background: var(--surface2); border: 1px solid var(--border);
+  color: var(--text); border-radius: 8px; padding: 14px; font-size: 17px;
+  font-family: 'Inter', sans-serif; outline: none; transition: border-color 0.2s;
+}
+.pin-text:focus { border-color: var(--accent); }
+.pin-text::placeholder { color: var(--text3); letter-spacing: normal; -webkit-text-security: none; text-security: none; }
+.pin-pin { text-align: center; letter-spacing: 10px; font-size: 22px; -webkit-text-security: disc; text-security: disc; }
 .pin-logo { font-family: 'Inter', sans-serif; font-size: 30px; font-weight: 600; color: var(--accent); letter-spacing: 7px; margin-bottom: 6px; }
 .pin-sub { font-size: 12px; color: var(--text3); font-family: 'Inter', sans-serif; letter-spacing: 1px; margin-bottom: 32px; }
 .pin-label { font-size: 11px; color: var(--text2); letter-spacing: 1px; text-transform: uppercase; font-family: 'Inter', sans-serif; margin-bottom: 10px; }
@@ -471,29 +482,18 @@
         <div style="font-size:11px; margin-top:2px;"><a href="#" onclick="forgetBiometric();return false;" style="color:var(--text3); text-decoration:none;">Forget Face ID on this device</a></div>
         <div class="pin-or">or</div>
       </div>
-      <div class="pin-namewrap">
-        <label class="pin-label" for="pin-name">Who's signing in?</label>
-        <select id="pin-name" class="field-select pin-name-sel" onchange="rememberName()"></select>
+      <div class="pin-field">
+        <label class="pin-label" for="pin-name">Name</label>
+        <input id="pin-name" class="pin-text" type="text" autocomplete="off" autocorrect="off" autocapitalize="words" spellcheck="false" placeholder="Your name" onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('pin-input').focus();}">
       </div>
-      <div class="pin-label">Enter your PIN</div>
-      <div id="pin-dots" class="pin-dots" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
-      <div id="pin-error">Incorrect PIN. Try again.</div>
-      <div class="pin-pad">
-        <button type="button" class="pin-key" onclick="pinPad('1')">1</button>
-        <button type="button" class="pin-key" onclick="pinPad('2')">2</button>
-        <button type="button" class="pin-key" onclick="pinPad('3')">3</button>
-        <button type="button" class="pin-key" onclick="pinPad('4')">4</button>
-        <button type="button" class="pin-key" onclick="pinPad('5')">5</button>
-        <button type="button" class="pin-key" onclick="pinPad('6')">6</button>
-        <button type="button" class="pin-key" onclick="pinPad('7')">7</button>
-        <button type="button" class="pin-key" onclick="pinPad('8')">8</button>
-        <button type="button" class="pin-key" onclick="pinPad('9')">9</button>
-        <button type="button" class="pin-key pin-key-ghost" onclick="pinPad('back')" aria-label="Delete">⌫</button>
-        <button type="button" class="pin-key" onclick="pinPad('0')">0</button>
-        <button type="button" class="pin-key pin-key-go" onclick="pinPad('go')" aria-label="Unlock">→</button>
+      <div class="pin-field">
+        <label class="pin-label" for="pin-input">PIN</label>
+        <input id="pin-input" class="pin-text pin-pin" type="tel" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="4-digit PIN" oninput="onPinInput(this)" onkeydown="if(event.key==='Enter'){event.preventDefault();checkPin();}">
       </div>
+      <button type="button" class="pin-btn" onclick="checkPin()">Unlock →</button>
+      <div id="pin-error">Incorrect name or PIN. Try again.</div>
       <div class="pin-hint">
-        Pick your name, then enter your 4-digit PIN
+        Enter your name and 4-digit PIN
       </div>
     </div>
   </div>
@@ -1128,23 +1128,18 @@ function grantAccess(user) {
 // ─── PIN SCREEN (on-screen keypad) ───────────────────────────────────────────
 // The PIN is collected by tapping the on-screen keys — no <input>, so iOS never
 // pops the keyboard or hijacks the field with password autofill.
-let _pinBuffer = '';
-function renderPinDots() {
-  document.querySelectorAll('#pin-dots span').forEach((d, i) => d.classList.toggle('on', i < _pinBuffer.length));
-}
-function pinPad(k) {
+// PIN is typed into a native numeric input, so iOS pops its own keypad.
+function onPinInput(el) {
+  el.value = (el.value || '').replace(/\D/g, '').slice(0, 4);
   const err = document.getElementById('pin-error'); if (err) err.style.display = 'none';
-  if (k === 'back') { _pinBuffer = _pinBuffer.slice(0, -1); renderPinDots(); return; }
-  if (k === 'go')   { checkPin(); return; }
-  if (_pinBuffer.length >= 4) return;
-  _pinBuffer += k;
-  renderPinDots();
-  if (_pinBuffer.length === 4) setTimeout(checkPin, 160);   // auto-submit on the 4th digit
+  if (el.value.length === 4) setTimeout(checkPin, 120);   // auto-submit on the 4th digit
 }
 function checkPin() {
-  const nameSel = document.getElementById('pin-name');
-  const name = nameSel ? nameSel.value : '';
-  const user = findUser(name, _pinBuffer.trim());
+  const nameEl = document.getElementById('pin-name');
+  const pinEl = document.getElementById('pin-input');
+  const name = nameEl ? nameEl.value : '';
+  const pin = ((pinEl && pinEl.value) || '').replace(/\D/g, '');
+  const user = findUser(name, pin);
   if (user) {
     rememberName();
     grantAccess(user);
@@ -1152,34 +1147,15 @@ function checkPin() {
   } else {
     const err = document.getElementById('pin-error');
     if (err) { err.style.display = 'block'; setTimeout(() => { err.style.display = 'none'; }, 2000); }
-    _pinBuffer = ''; renderPinDots();
+    if (pinEl) { pinEl.value = ''; pinEl.focus(); }
   }
 }
-// Fill the lock-screen name picker from the active users (owner always listed).
-function populatePinNames() {
-  const sel = document.getElementById('pin-name');
-  if (!sel) return;
-  const names = [];
-  getUsers().forEach(u => { if (u && u.active !== false && u.name && !names.some(n => n.toLowerCase() === u.name.toLowerCase())) names.push(u.name); });
-  if (!names.some(n => n.toLowerCase() === 'edwin')) names.unshift('Edwin');
-  const last = localStorage.getItem('comedor_lastname');
-  const keep = sel.value;
-  sel.innerHTML = names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
-  if (keep && names.includes(keep)) sel.value = keep;
-  else if (last && names.includes(last)) sel.value = last;
-}
+// Name is a free-text field kept blank (no dropdown of who's registered).
+function populatePinNames() {}
 function rememberName() {
-  const sel = document.getElementById('pin-name');
-  if (sel && sel.value) localStorage.setItem('comedor_lastname', sel.value);
+  const el = document.getElementById('pin-name');
+  if (el && el.value) localStorage.setItem('comedor_lastname', el.value);
 }
-// Physical keyboards (iPad Magic Keyboard, desktop) still work on the lock screen.
-document.addEventListener('keydown', function (e) {
-  const ps = document.getElementById('pin-screen');
-  if (!ps || ps.style.display === 'none') return;
-  if (/^[0-9]$/.test(e.key)) { pinPad(e.key); e.preventDefault(); }
-  else if (e.key === 'Backspace') { pinPad('back'); e.preventDefault(); }
-  else if (e.key === 'Enter') { pinPad('go'); e.preventDefault(); }
-});
 
 // ─── FACE ID / BIOMETRIC UNLOCK (WebAuthn platform authenticator) ─────────────
 // On iPhone/iPad this surfaces as Face ID (or Touch ID); on Android/desktop as
@@ -1268,11 +1244,13 @@ function armBioGesture() {
   if (!store || !store.id || _bioGestureArmed) return;
   _bioGestureArmed = true;
   const fire = function (e) {
+    // Let taps on the actual controls work (focus the name/PIN field, tap a button).
+    if (e.target.closest && e.target.closest('input, button, a, select, textarea')) return;
+    const ps = document.getElementById('pin-screen');
+    if (!ps || ps.style.display === 'none') { _bioGestureArmed = false; document.removeEventListener('pointerdown', fire, true); return; }
+    if (document.getElementById('bio-enroll-banner')) return;   // don't fight the enroll prompt
     _bioGestureArmed = false;
     document.removeEventListener('pointerdown', fire, true);
-    const ps = document.getElementById('pin-screen');
-    if (!ps || ps.style.display === 'none') return;            // already unlocked
-    if (document.getElementById('bio-enroll-banner')) return;  // don't fight the enroll prompt
     e.preventDefault(); e.stopPropagation();
     biometricUnlock(false);   // real user gesture now → Face ID can open
   };
@@ -1327,14 +1305,12 @@ function forgetBiometric() {
 }
 
 async function initAuth() {
-  // The on-screen keypad is always available (no text input, so iOS can't pop a
-  // keyboard or hijack it with autofill). Face ID is offered as an OPT-IN button
-  // when enrolled — never auto-invoked, so its modal sheet can't block the keypad.
-  _pinBuffer = '';
+  // Login is a blank name field + a native numeric PIN input (so iOS shows its
+  // own keypad). Face ID auto-attempts on open and on the first tap when enrolled.
   const pe = document.getElementById('pin-entry');
   if (pe) pe.style.display = 'block';
-  populatePinNames();
-  renderPinDots();
+  const nm = document.getElementById('pin-name'); if (nm) nm.value = '';
+  const pw = document.getElementById('pin-input'); if (pw) pw.value = '';
   try {
     const store = getBioStore();
     if (store && store.id && await bioPlatformAvailable()) {
