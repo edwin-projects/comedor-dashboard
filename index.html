@@ -454,9 +454,10 @@
     <button class="dfbtn active" onclick="setDashFilter('month',this)">This Month</button>
     <button class="dfbtn" onclick="setDashFilter('quarter',this)">This Quarter</button>
     <button class="dfbtn" onclick="setDashFilter('half',this)">Half Year</button>
-    <button class="dfbtn" onclick="setDashFilter('ytd',this)">YTD</button>
+    <button class="dfbtn" onclick="setDashFilter('ytd',this)">FY&nbsp;YTD</button>
     <button class="dfbtn" onclick="setDashFilter('custom',this)">Custom</button>
   </div>
+  <div id="dash-period" style="font-size:11px; color:var(--text3); font-family:'Inter',sans-serif; letter-spacing:0.5px; margin:2px 0 16px;"></div>
 
   <div id="custom-range" style="display:none; gap:10px; align-items:flex-end; margin-bottom:20px; flex-wrap:wrap;">
     <div><label class="field-label">From</label><input type="date" id="dash-from" class="field-input" style="width:160px;"></div>
@@ -1548,55 +1549,75 @@ function applyCustomRange() {
   if (dashCustomFrom && dashCustomTo) renderDashboard();
 }
 
-function getDashEntries() {
-  const all   = loadEntries();
+// Indian financial year: 1 April – 31 March. Quarter / Half / YTD are computed
+// against the FY, not the Jan–Dec calendar year:
+//   Q1 Apr–Jun · Q2 Jul–Sep · Q3 Oct–Dec · Q4 Jan–Mar
+//   H1 Apr–Sep · H2 Oct–Mar        YTD = 1 Apr of the current FY → today
+function fyStartDate(today) {
+  // Jan–Mar belong to the FY that began the previous April.
+  const y = today.getMonth() >= 3 ? today.getFullYear() : today.getFullYear() - 1;
+  return new Date(y, 3, 1);   // 1 April
+}
+// FY label like "2026–27" for the FY containing `today`.
+function fyLabel(today) {
+  const s = fyStartDate(today).getFullYear();
+  return s + '–' + String((s + 1) % 100).padStart(2, '0');
+}
+function computeDashRange() {
   const today = new Date();
-  const pad   = n => String(n).padStart(2, '0');
-  const fmt   = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const pad = n => String(n).padStart(2, '0');
+  const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
   const todayStr = fmt(today);
   let from, to;
-
   switch (currentDashFilter) {
-    case 'today':
-      from = to = todayStr; break;
+    case 'today': from = to = todayStr; break;
     case 'week': {
-      const mon = new Date(today);
-      const day = mon.getDay();
+      const mon = new Date(today); const day = mon.getDay();
       mon.setDate(mon.getDate() - (day === 0 ? 6 : day - 1));
       const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
       from = fmt(mon); to = fmt(sun); break;
     }
-    case 'month': {
-      const last = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+    case 'month':
       from = `${today.getFullYear()}-${pad(today.getMonth()+1)}-01`;
-      to = fmt(last); break;
-    }
+      to = fmt(new Date(today.getFullYear(), today.getMonth() + 1, 0)); break;
     case 'quarter': {
-      const q = Math.floor(today.getMonth() / 3);
-      const last = new Date(today.getFullYear(), (q + 1) * 3, 0);
-      from = `${today.getFullYear()}-${pad(q * 3 + 1)}-01`;
-      to = fmt(last); break;
+      const fs = fyStartDate(today);
+      const fq = Math.floor(((today.getMonth() - 3 + 12) % 12) / 3);   // 0..3 within the FY
+      const qs = new Date(fs.getFullYear(), fs.getMonth() + fq * 3, 1);
+      from = fmt(qs); to = fmt(new Date(qs.getFullYear(), qs.getMonth() + 3, 0)); break;
     }
     case 'half': {
-      const h = today.getMonth() < 6 ? 0 : 1;
-      const last = new Date(today.getFullYear(), h === 0 ? 6 : 12, 0);
-      from = `${today.getFullYear()}-${h === 0 ? '01' : '07'}-01`;
-      to = fmt(last); break;
+      const fs = fyStartDate(today);
+      const fh = Math.floor(((today.getMonth() - 3 + 12) % 12) / 6);   // 0 = H1, 1 = H2
+      const hs = new Date(fs.getFullYear(), fs.getMonth() + fh * 6, 1);
+      from = fmt(hs); to = fmt(new Date(hs.getFullYear(), hs.getMonth() + 6, 0)); break;
     }
     case 'ytd':
-      from = `${today.getFullYear()}-01-01`;
-      to   = `${today.getFullYear()}-12-31`; break;
+      from = fmt(fyStartDate(today)); to = todayStr; break;
     case 'custom':
       from = dashCustomFrom; to = dashCustomTo; break;
     default:
       from = `${today.getFullYear()}-${pad(today.getMonth()+1)}-01`;
-      to   = fmt(new Date(today.getFullYear(), today.getMonth() + 1, 0));
+      to = fmt(new Date(today.getFullYear(), today.getMonth() + 1, 0));
   }
+  return { from, to };
+}
+function getDashEntries() {
+  const { from, to } = computeDashRange();
   if (!from || !to) return [];
-  return all.filter(e => e.date >= from && e.date <= to).sort((a, b) => (b.date||'').localeCompare(a.date||''));
+  return loadEntries().filter(e => e.date >= from && e.date <= to).sort((a, b) => (b.date||'').localeCompare(a.date||''));
 }
 
+function renderPeriodLabel() {
+  const el = document.getElementById('dash-period'); if (!el) return;
+  const { from, to } = computeDashRange();
+  if (!from || !to) { el.textContent = ''; return; }
+  const d = iso => { const [y, m, day] = iso.split('-'); const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m - 1]; return `${+day} ${mon} ${y}`; };
+  const label = from === to ? d(from) : `${d(from)} – ${d(to)}`;
+  el.textContent = `${label}  ·  FY ${fyLabel(new Date())} (Apr–Mar)`;
+}
 function renderDashboard() {
+  renderPeriodLabel();
   // Each section is isolated: one bad record (e.g. a legacy entry missing a
   // date) can never blank or freeze the whole dashboard — worst case a single
   // tile shows a soft error and the rest still renders.
@@ -1892,24 +1913,7 @@ let _stmtDebits = [];
 function loadBankEntries() { try { return JSON.parse(localStorage.getItem('comedor_bank') || '[]'); } catch (e) { return []; } }
 
 // Same period window the cash dashboard uses, so P&L / bank / cash all line up.
-function getRange() {
-  const today = new Date();
-  const pad = n => String(n).padStart(2, '0');
-  const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
-  const todayStr = fmt(today);
-  let from, to;
-  switch (currentDashFilter) {
-    case 'today': from = to = todayStr; break;
-    case 'week': { const mon = new Date(today); const day = mon.getDay(); mon.setDate(mon.getDate() - (day === 0 ? 6 : day - 1)); const sun = new Date(mon); sun.setDate(mon.getDate() + 6); from = fmt(mon); to = fmt(sun); break; }
-    case 'month': { const last = new Date(today.getFullYear(), today.getMonth()+1, 0); from = `${today.getFullYear()}-${pad(today.getMonth()+1)}-01`; to = fmt(last); break; }
-    case 'quarter': { const q = Math.floor(today.getMonth()/3); const last = new Date(today.getFullYear(), (q+1)*3, 0); from = `${today.getFullYear()}-${pad(q*3+1)}-01`; to = fmt(last); break; }
-    case 'half': { const h = today.getMonth() < 6 ? 0 : 1; const last = new Date(today.getFullYear(), h === 0 ? 6 : 12, 0); from = `${today.getFullYear()}-${h === 0 ? '01' : '07'}-01`; to = fmt(last); break; }
-    case 'ytd': from = `${today.getFullYear()}-01-01`; to = `${today.getFullYear()}-12-31`; break;
-    case 'custom': from = dashCustomFrom; to = dashCustomTo; break;
-    default: from = `${today.getFullYear()}-${pad(today.getMonth()+1)}-01`; to = fmt(new Date(today.getFullYear(), today.getMonth()+1, 0));
-  }
-  return { from, to };
-}
+function getRange() { return computeDashRange(); }   // shared Indian-FY range logic
 function getBankInRange() {
   const { from, to } = getRange();
   if (!from || !to) return [];
