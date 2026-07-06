@@ -8,6 +8,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
 (function() {
   var saved = localStorage.getItem('comedor_theme');
@@ -315,6 +316,13 @@
 .card-click { cursor:pointer; transition:border-color 0.15s, transform 0.05s; }
 .card-click:hover { border-color:var(--accent); }
 .card-click:active { transform:scale(0.99); }
+/* Capital infusion — visually separated from expenses */
+.cap-section { border-color:rgba(111,214,154,0.42); background:linear-gradient(180deg, rgba(111,214,154,0.05), transparent); }
+.cap-section h3 { color:var(--green); }
+.cap-section .step-num { background:var(--green); }
+.cap-btn { background:var(--green); color:var(--bg); }
+.cap-btn:hover { background:var(--green); filter:brightness(1.08); }
+.txn-card.txn-capital { border-color:rgba(111,214,154,0.4); box-shadow:inset 3px 0 0 var(--green); }
 .calc-box { background: var(--surface2); border: 1px solid var(--border); border-radius: 7px; padding: 12px 14px; font-size: 12px; color: var(--text2); font-family: 'Inter', sans-serif; min-height: 36px; line-height: 1.8; }
 .exp-note { font-size: 11px; color: var(--text3); font-family: 'Inter', sans-serif; margin-bottom: 14px; line-height: 1.6; }
 .add-expense-btn { width: 100%; margin-top: 4px; padding: 10px; background: transparent; border: 1px dashed var(--border); color: var(--text3); border-radius: 7px; cursor: pointer; font-size: 13px; transition: all 0.2s; font-family: 'Inter', sans-serif; }
@@ -587,19 +595,30 @@
     <div style="margin-bottom:12px;"><label class="field-label">Category</label>
       <select id="be-category" class="field-select"><option value="">Select category…</option></select>
     </div>
-    <div style="margin-bottom:12px;"><label class="field-label">Payee / Description *</label><input id="be-desc" class="field-input" placeholder="e.g. Greenleaf Company — vegetables"></div>
-    <div style="display:flex; align-items:center; gap:10px; margin-bottom:4px;">
-      <input type="checkbox" id="be-capital" style="width:18px;height:18px;flex-shrink:0;">
-      <label for="be-capital" style="font-size:13px; color:var(--text2);">This is a <b>capital infusion</b> (money put in), not an expense</label>
-    </div>
+    <div style="margin-bottom:4px;"><label class="field-label">Payee / Description *</label><input id="be-desc" class="field-input" placeholder="e.g. Greenleaf Company — vegetables"></div>
     <button id="be-submit-btn" class="btn" style="width:100%; margin-top:14px; padding:13px; font-size:15px;" onclick="submitBankExpense()">Add to Bank Ledger ✓</button>
+  </div>
+
+  <div class="form-section cap-section">
+    <h3><span class="step-num">＋</span> Add Capital Infusion</h3>
+    <p class="exp-note">Money the partners put <b>into</b> the business — e.g. moving a matured capital bond into the IDFC account. This is <b>not an expense</b>: it never touches the P&amp;L and is tracked on its own.</p>
+    <div id="cap-form-msg" style="display:none; border-radius:7px; padding:10px 12px; font-size:12.5px; margin-bottom:12px;"></div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+      <div><label class="field-label">Date</label><input id="cap-date" type="date" class="field-input" style="width:100%;"></div>
+      <div><label class="field-label">Amount ₹</label><input id="cap-amount" type="number" class="field-input field-input-mono" placeholder="0" style="width:100%;"></div>
+    </div>
+    <div style="margin-bottom:12px;"><label class="field-label">Contributed by (partner)</label>
+      <select id="cap-by" class="field-select"></select>
+    </div>
+    <div style="margin-bottom:4px;"><label class="field-label">Note (optional)</label><input id="cap-desc" class="field-input" placeholder="e.g. Matured capital bond"></div>
+    <button id="cap-submit-btn" class="btn cap-btn" style="width:100%; margin-top:14px; padding:13px; font-size:15px;" onclick="submitCapital()">Add Capital ✓</button>
   </div>
 
   <div class="form-section">
     <h3><span class="step-num">↥</span> Weekly Statement Upload</h3>
-    <p class="exp-note">Upload the IDFC statement to auto-import transactions and set the true balance. Export as <b>CSV</b> from net-banking (not PDF) for a clean read.</p>
-    <input type="file" id="stmt-file" accept=".csv,text/csv" onchange="handleStatementUpload(this)" style="display:none;">
-    <button class="add-expense-btn" onclick="document.getElementById('stmt-file').click()">⬆ Choose IDFC statement (.csv)</button>
+    <p class="exp-note">Upload the IDFC statement <b>PDF</b> (as you get it from net-banking) to auto-read every debit and set the true balance. CSV works too. Review the parsed rows before importing.</p>
+    <input type="file" id="stmt-file" accept=".pdf,application/pdf,.csv,text/csv" onchange="handleStatementUpload(this)" style="display:none;">
+    <button class="add-expense-btn" onclick="document.getElementById('stmt-file').click()">⬆ Choose IDFC statement (PDF or CSV)</button>
     <div id="stmt-preview" style="margin-top:14px;"></div>
     <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--border); display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
       <div><label class="field-label">Bank balance (from statement) ₹</label><input id="bank-bal-input" type="number" class="field-input field-input-mono" placeholder="e.g. 197254" style="width:200px;"></div>
@@ -1855,23 +1874,53 @@ function bankCatOptions() {
 
 let _editingBankId = null;
 
+// Fill the capital-infusion "Contributed by" dropdown with the active partners.
+function capPartnerOptions() {
+  const sel = document.getElementById('cap-by');
+  if (!sel) return;
+  const partners = getUsers().filter(u => u.active !== false && roleCaps(u.role).people).map(u => u.name);
+  const keep = sel.value;
+  sel.innerHTML = partners.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  const me = currentUser && currentUser.name;
+  if (me && partners.includes(me)) sel.value = me;
+  else if (keep && partners.includes(keep)) sel.value = keep;
+}
+
 function editBankExpense(id) {
   const b = loadBankEntries().find(x => x.id === id);
   if (!b) return;
   if (!canEditBank(b.addedBy)) { alert('Only ' + (b.addedBy || 'the person who added this') + ' or a partner can edit this entry.'); return; }
-  // Make sure we're on the Bank Expenses panel with the form.
   showPanel('bankexp');
-  bankCatOptions();
   _editingBankId = id;
+  const when = new Date((b.date||'') + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+
+  if (b.capital) {
+    // Route capital entries to the Capital Infusion form.
+    capPartnerOptions();
+    document.getElementById('cap-date').value   = b.date || '';
+    document.getElementById('cap-amount').value = b.amount || '';
+    const sel = document.getElementById('cap-by');
+    const who = b.partner || b.addedBy || '';
+    if (who && !Array.from(sel.options).some(o => o.value === who)) { const o = document.createElement('option'); o.value = who; o.textContent = who; sel.appendChild(o); }
+    if (who) sel.value = who;
+    document.getElementById('cap-desc').value = (b.desc && b.desc !== 'Capital infusion') ? b.desc : '';
+    const cb = document.getElementById('cap-submit-btn'); if (cb) cb.textContent = 'Save changes ✓';
+    const m = document.getElementById('cap-form-msg');
+    m.innerHTML = `Editing capital from ${when}. <a onclick="cancelCapEdit()" style="color:var(--red);text-decoration:underline;cursor:pointer;margin-left:6px;">Cancel</a>`;
+    m.style.cssText = 'display:block;border-radius:7px;padding:10px 12px;font-size:12.5px;margin-bottom:12px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);';
+    document.getElementById('cap-date').scrollIntoView({ behavior:'smooth', block:'center' });
+    return;
+  }
+
+  bankCatOptions();
   document.getElementById('be-date').value     = b.date || '';
   document.getElementById('be-amount').value   = b.amount || '';
   document.getElementById('be-category').value = b.category || '';
   document.getElementById('be-desc').value     = b.desc || '';
-  document.getElementById('be-capital').checked = !!b.capital;
   const btn = document.getElementById('be-submit-btn');
   if (btn) btn.textContent = 'Save changes ✓';
   const sb = document.getElementById('bank-form-success');
-  sb.innerHTML = `<strong>Editing</strong> — bank entry from ${new Date((b.date||'') + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}, added by ${b.addedBy || '—'}. Change the values and save. <button class="btn btn-ghost" style="padding:2px 9px;font-size:11px;margin-left:8px;" onclick="cancelBankEdit()">Cancel</button>`;
+  sb.innerHTML = `<strong>Editing</strong> — bank entry from ${when}, added by ${b.addedBy || '—'}. Change the values and save. <button class="btn btn-ghost" style="padding:2px 9px;font-size:11px;margin-left:8px;" onclick="cancelBankEdit()">Cancel</button>`;
   sb.style.display = 'block';
   window.scrollTo(0, 0);
 }
@@ -1880,10 +1929,17 @@ function cancelBankEdit() {
   _editingBankId = null;
   ['be-amount','be-desc'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('be-category').value = '';
-  document.getElementById('be-capital').checked = false;
   const btn = document.getElementById('be-submit-btn');
   if (btn) btn.textContent = 'Add to Bank Ledger ✓';
   document.getElementById('bank-form-success').style.display = 'none';
+}
+
+function cancelCapEdit() {
+  _editingBankId = null;
+  document.getElementById('cap-amount').value = '';
+  document.getElementById('cap-desc').value = '';
+  const cb = document.getElementById('cap-submit-btn'); if (cb) cb.textContent = 'Add Capital ✓';
+  const m = document.getElementById('cap-form-msg'); if (m) m.style.display = 'none';
 }
 
 function submitBankExpense() {
@@ -1891,36 +1947,67 @@ function submitBankExpense() {
   const amount   = parseFloat(document.getElementById('be-amount').value) || 0;
   const category = document.getElementById('be-category').value;
   const desc     = document.getElementById('be-desc').value.trim();
-  const capital  = document.getElementById('be-capital').checked;
 
   const errs = [];
-  if (!date)            errs.push('Date is required');
-  if (amount <= 0)      errs.push('Amount is required');
-  if (!capital && !category) errs.push('Category is required');
-  if (!desc)            errs.push('Payee / description is required');
+  if (!date)       errs.push('Date is required');
+  if (amount <= 0) errs.push('Amount is required');
+  if (!category)   errs.push('Category is required');
+  if (!desc)       errs.push('Payee / description is required');
   const eb = document.getElementById('bank-form-errors');
   if (errs.length) { eb.innerHTML = errs.map(e => '⚠ ' + e).join('<br>'); eb.style.display = 'block'; return; }
   eb.style.display = 'none';
 
-  const editing = _editingBankId ? loadBankEntries().find(x => x.id === _editingBankId) : null;
+  const editing = (_editingBankId ? loadBankEntries().find(x => x.id === _editingBankId) : null);
+  const useEdit = editing && !editing.capital;
   const me = currentUser ? currentUser.name : '';
   let entry;
-  if (editing) {
-    entry = Object.assign({}, editing, { date, amount, category: capital ? '' : category, desc, capital, editedBy: me, editedAt: new Date().toLocaleString('en-IN') });
+  if (useEdit) {
+    entry = Object.assign({}, editing, { date, amount, category, desc, capital: false, editedBy: me, editedAt: new Date().toLocaleString('en-IN') });
   } else {
-    entry = { id: 'b' + Date.now() + Math.floor(Math.random()*1000), date, amount, category: capital ? '' : category, desc, capital, addedBy: me, at: new Date().toLocaleString('en-IN') };
+    entry = { id: 'b' + Date.now() + Math.floor(Math.random()*1000), date, amount, category, desc, capital: false, addedBy: me, at: new Date().toLocaleString('en-IN') };
   }
   saveBankExpense(entry);
 
   const sb = document.getElementById('bank-form-success');
-  sb.innerHTML = `✓ ${editing ? 'Updated' : 'Added'} — ${capital ? 'Capital infusion' : category} · ₹${amount.toLocaleString('en-IN')} · ${desc.replace(/</g,'&lt;')}<br><span style="color:var(--text3);font-family:'Inter',sans-serif;font-size:11px;">${editing ? 'edited' : 'by'} ${me} · ${new Date().toLocaleString('en-IN')}${editing ? ' · originally added by ' + (editing.addedBy || '—') : ''}</span>`;
+  sb.innerHTML = `✓ ${useEdit ? 'Updated' : 'Added'} — ${esc(category)} · ₹${amount.toLocaleString('en-IN')} · ${esc(desc)}<br><span style="color:var(--text3);font-family:'Inter',sans-serif;font-size:11px;">${useEdit ? 'edited' : 'by'} ${esc(me)} · ${new Date().toLocaleString('en-IN')}</span>`;
   sb.style.display = 'block';
   _editingBankId = null;
   const btn = document.getElementById('be-submit-btn');
   if (btn) btn.textContent = 'Add to Bank Ledger ✓';
   document.getElementById('be-amount').value = '';
   document.getElementById('be-desc').value = '';
-  document.getElementById('be-capital').checked = false;
+  renderBankList();
+  if (document.getElementById('panel-dashboard').classList.contains('active')) renderDashboard();
+}
+
+function submitCapital() {
+  const date   = document.getElementById('cap-date').value;
+  const amount = parseFloat(document.getElementById('cap-amount').value) || 0;
+  const by     = document.getElementById('cap-by').value;
+  const note   = document.getElementById('cap-desc').value.trim();
+  const msg    = document.getElementById('cap-form-msg');
+  const showErr = t => { msg.textContent = '⚠ ' + t; msg.style.cssText = 'display:block;border-radius:7px;padding:10px 12px;font-size:12.5px;margin-bottom:12px;background:rgba(224,82,82,0.1);border:1px solid rgba(224,82,82,0.3);color:var(--red);'; };
+  if (!date)     return showErr('Date is required');
+  if (amount <= 0) return showErr('Amount is required');
+  if (!by)       return showErr('Pick the partner who contributed');
+
+  const me = currentUser ? currentUser.name : '';
+  const editing = (_editingBankId ? loadBankEntries().find(x => x.id === _editingBankId) : null);
+  const useEdit = editing && editing.capital;
+  let entry;
+  if (useEdit) {
+    entry = Object.assign({}, editing, { date, amount, partner: by, desc: note || 'Capital infusion', capital: true, category: '', editedBy: me, editedAt: new Date().toLocaleString('en-IN') });
+  } else {
+    entry = { id: 'c' + Date.now() + Math.floor(Math.random()*1000), date, amount, partner: by, desc: note || 'Capital infusion', capital: true, category: '', addedBy: me, at: new Date().toLocaleString('en-IN') };
+  }
+  saveBankExpense(entry);
+
+  msg.innerHTML = `✓ ${useEdit ? 'Updated' : 'Recorded'} — capital of ₹${amount.toLocaleString('en-IN')} contributed by ${esc(by)}. This is tracked separately and does not affect the P&amp;L.`;
+  msg.style.cssText = 'display:block;border-radius:7px;padding:10px 12px;font-size:12.5px;margin-bottom:12px;background:rgba(111,214,154,0.1);border:1px solid rgba(111,214,154,0.3);color:var(--green);';
+  _editingBankId = null;
+  const cb = document.getElementById('cap-submit-btn'); if (cb) cb.textContent = 'Add Capital ✓';
+  document.getElementById('cap-amount').value = '';
+  document.getElementById('cap-desc').value = '';
   renderBankList();
   if (document.getElementById('panel-dashboard').classList.contains('active')) renderDashboard();
 }
@@ -1943,6 +2030,10 @@ function deleteBankExpense(id) {
 
 function renderBankList() {
   bankCatOptions();
+  capPartnerOptions();
+  const today = new Date().toISOString().split('T')[0];
+  const bd = document.getElementById('be-date'); if (bd && !bd.value) bd.value = today;
+  const cd = document.getElementById('cap-date'); if (cd && !cd.value) cd.value = today;
   renderBankRich('pbank');
 }
 
@@ -1984,14 +2075,18 @@ function sortBank(list, sort) {
 function bankCard(b) {
   const inr = n => '₹' + Number(n || 0).toLocaleString('en-IN');
   const d = new Date(b.date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
-  const title = b.capital ? 'Capital infusion' : (b.category || 'Uncategorised');
-  const catChip = b.capital ? '<span class="cat-badge cat-vegano">Capital in</span>' : `<span class="cat-badge cat-antojitos">${esc(b.category || '—')}</span>`;
+  const cap = !!b.capital;
+  const title = cap ? 'Capital infusion' : (b.category || 'Uncategorised');
+  const catChip = cap ? '<span class="cat-badge cat-vegano">Capital in</span>' : `<span class="cat-badge cat-antojitos">${esc(b.category || '—')}</span>`;
+  const whoChip = cap
+    ? `<span class="cat-badge cat-vegano">by ${esc(b.partner || b.addedBy || '—')}</span>`
+    : `<span class="cat-badge cat-acompana">${esc(b.addedBy || '—')}${b.editedBy ? ' ✎' : ''}</span>`;
   const acts = canEditBank(b.addedBy)
     ? `<div class="txn-actions"><button class="btn btn-ghost" onclick="editBankExpense('${b.id}')">Edit</button><button class="btn btn-ghost" style="color:var(--red);border-color:rgba(224,82,82,0.4);" onclick="deleteBankExpense('${b.id}')">Delete</button></div>` : '';
-  return `<div class="txn-card">
-    <div class="txn-row1"><div class="txn-title">${esc(title)}</div><div class="txn-amt ${b.capital ? 'green-text' : 'red-text'}">${b.capital ? '+' : '–'}${inr(b.amount)}</div></div>
-    ${b.desc ? `<div class="txn-desc">${esc(b.desc)}</div>` : ''}
-    <div class="txn-chips">${catChip}<span class="cat-badge cat-acompana">${d}</span><span class="cat-badge cat-acompana">${esc(b.addedBy || '—')}${b.editedBy ? ' ✎' : ''}</span></div>
+  return `<div class="txn-card${cap ? ' txn-capital' : ''}">
+    <div class="txn-row1"><div class="txn-title">${esc(title)}</div><div class="txn-amt ${cap ? 'green-text' : 'red-text'}">${cap ? '+' : '–'}${inr(b.amount)}</div></div>
+    ${(b.desc && b.desc !== 'Capital infusion') ? `<div class="txn-desc">${esc(b.desc)}</div>` : ''}
+    <div class="txn-chips">${catChip}<span class="cat-badge cat-acompana">${d}</span>${whoChip}</div>
     ${acts}
   </div>`;
 }
@@ -2055,41 +2150,110 @@ function saveBankBalance() {
   alert('Bank balance updated to ₹' + amt.toLocaleString('en-IN') + '.');
 }
 
-// ─── STATEMENT UPLOAD (generic CSV reader — tuned to IDFC once we have a sample) ─
+// ─── STATEMENT UPLOAD (IDFC PDF or CSV → reviewed import) ─────────────────────
+(function () { try { if (window.pdfjsLib) window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; } catch (e) {} })();
+
 function handleStatementUpload(input) {
   const file = input.files[0];
   if (!file) return;
-  const reader = new FileReader();
-  reader.onload = e => { try { parseStatementCSV(e.target.result); } catch (err) { document.getElementById('stmt-preview').innerHTML = '<div style="color:var(--red);font-size:12px;">Could not read file: ' + err.message + '</div>'; } };
-  reader.readAsText(file);
-}
-function parseStatementCSV(text) {
-  const rows = text.split(/\r?\n/).filter(r => r.trim()).map(r => r.split(',').map(c => c.replace(/^"|"$/g, '').trim()));
   const preview = document.getElementById('stmt-preview');
-  if (rows.length < 2) { preview.innerHTML = '<div style="color:var(--red);font-size:12px;">No rows found in file.</div>'; return; }
+  preview.innerHTML = '<div style="color:var(--text2);font-size:12px;font-family:\'Inter\',sans-serif;">Reading ' + esc(file.name) + '…</div>';
+  const name = (file.name || '').toLowerCase();
+  if (name.endsWith('.pdf') || file.type === 'application/pdf') {
+    parseStatementPDF(file).catch(err => { preview.innerHTML = '<div style="color:var(--red);font-size:12px;">Could not read PDF: ' + esc(err.message) + '</div>'; });
+  } else {
+    const reader = new FileReader();
+    reader.onload = e => { try { showStmtPreview(parseCSVrows(e.target.result), 'CSV'); } catch (err) { preview.innerHTML = '<div style="color:var(--red);font-size:12px;">Could not read file: ' + esc(err.message) + '</div>'; } };
+    reader.readAsText(file);
+  }
+}
+
+function parseCSVrows(text) {
+  const rows = text.split(/\r?\n/).filter(r => r.trim()).map(r => r.split(',').map(c => c.replace(/^"|"$/g, '').trim()));
+  if (rows.length < 2) return [];
   const header = rows[0].map(h => h.toLowerCase());
   const find = (...keys) => header.findIndex(h => keys.some(k => h.includes(k)));
   const iDate = find('date','txn date','value date'), iDesc = find('narration','description','particular','remarks'),
         iDebit = find('debit','withdrawal','dr'), iCredit = find('credit','deposit','cr'), iBal = find('balance','closing');
-  const parsed = rows.slice(1).map(r => ({
+  return rows.slice(1).map(r => ({
     date: iDate >= 0 ? (r[iDate] || '') : '',
     desc: iDesc >= 0 ? (r[iDesc] || '') : (r[1] || ''),
     debit: parseFloat(((r[iDebit] || '') + '').replace(/[^0-9.]/g, '')) || 0,
     credit: parseFloat(((r[iCredit] || '') + '').replace(/[^0-9.]/g, '')) || 0,
     balance: iBal >= 0 ? (r[iBal] || '') : ''
   }));
+}
+
+// Read a text-based IDFC PDF: group text items into lines by y, then use the
+// running balance (or explicit DR/CR) to classify each amount as debit/credit.
+async function parseStatementPDF(file) {
+  if (!window.pdfjsLib) throw new Error('PDF reader not loaded — check your connection and retry.');
+  const buf = await file.arrayBuffer();
+  const pdf = await window.pdfjsLib.getDocument({ data: buf }).promise;
+  const lines = [];
+  for (let pg = 1; pg <= pdf.numPages; pg++) {
+    const page = await pdf.getPage(pg);
+    const tc = await page.getTextContent();
+    const buckets = [];
+    tc.items.forEach(it => {
+      if (!it.str || !it.str.trim()) return;
+      const x = it.transform[4], y = it.transform[5];
+      let bk = buckets.find(b => Math.abs(b.y - y) < 3.2);
+      if (!bk) { bk = { y, items: [] }; buckets.push(bk); }
+      bk.items.push({ x, s: it.str });
+    });
+    buckets.sort((a, b) => b.y - a.y);
+    buckets.forEach(b => { b.items.sort((p, q) => p.x - q.x); lines.push(b.items); });
+  }
+  showStmtPreview(parseIDFCLines(lines), 'PDF · ' + pdf.numPages + ' page' + (pdf.numPages === 1 ? '' : 's'));
+}
+
+function parseIDFCLines(lines) {
+  const dateRe = /\b(\d{1,2})[-\/ ]([A-Za-z]{3}|\d{1,2})[-\/ ](\d{2,4})\b/;
+  const amtRe = /^-?[\d,]+\.\d{2}$/;
+  const raw = [];
+  lines.forEach(items => {
+    const text = items.map(i => i.s).join(' ').replace(/\s+/g, ' ').trim();
+    if (!text) return;
+    const dm = text.match(dateRe);
+    const amts = [];
+    items.forEach(i => { const t = i.s.replace(/\s/g, ''); if (amtRe.test(t)) amts.push(parseFloat(t.replace(/,/g, ''))); });
+    if (!dm && !amts.length) return;
+    raw.push({ dm, text, amts });
+  });
+  const txns = [];
+  let prevBal = null;
+  raw.forEach(r => {
+    if (!r.amts.length) return;
+    const balance = r.amts[r.amts.length - 1];
+    const amount  = r.amts.length >= 2 ? r.amts[r.amts.length - 2] : null;
+    if (!r.dm || amount == null) { prevBal = balance; return; }  // opening/carried balance row
+    let debit = 0, credit = 0;
+    if (/\bCR\b/i.test(r.text)) credit = amount;
+    else if (/\bDR\b/i.test(r.text)) debit = amount;
+    else if (prevBal != null) { if (balance < prevBal - 0.001) debit = amount; else if (balance > prevBal + 0.001) credit = amount; else debit = amount; }
+    else debit = amount;
+    prevBal = balance;
+    let desc = r.text.replace(r.dm[0], '').replace(/-?[\d,]+\.\d{2}/g, '').replace(/\b(DR|CR)\b/gi, '').replace(/\s+/g, ' ').trim();
+    txns.push({ date: r.dm[0], desc, debit, credit, balance: String(balance) });
+  });
+  return txns;
+}
+
+function showStmtPreview(parsed, source) {
+  const preview = document.getElementById('stmt-preview');
+  if (!parsed || !parsed.length) { preview.innerHTML = '<div style="color:var(--red);font-size:12.5px;line-height:1.5;">Couldn\'t find transactions in this ' + source + '. If it\'s a scanned/image PDF, download the <b>text</b> PDF (or CSV) from net-banking and try again — or send it to me and I\'ll tune the reader to it.</div>'; return; }
   const debits = parsed.filter(p => p.debit > 0);
   _stmtDebits = debits;
-  const ok = i => i >= 0 ? '✓' : '✗';
-  preview.innerHTML = `<div class="note" style="margin-bottom:10px;">Detected columns — Date ${ok(iDate)} · Description ${ok(iDesc)} · Debit ${ok(iDebit)} · Credit ${ok(iCredit)} · Balance ${ok(iBal)}. Found <b>${debits.length}</b> debit rows.</div>
-    <div class="table-wrap" style="max-height:260px;overflow:auto;"><table><thead><tr><th>Date</th><th>Description</th><th class="num">Debit ₹</th><th class="num">Credit ₹</th></tr></thead><tbody>
-    ${parsed.slice(0, 25).map(p => `<tr><td style="white-space:nowrap;">${(p.date||'').replace(/</g,'&lt;')}</td><td style="font-size:12px;">${(p.desc || '').replace(/</g,'&lt;').slice(0,60)}</td><td class="num red-text">${p.debit ? ('₹' + p.debit.toLocaleString('en-IN')) : ''}</td><td class="num green-text">${p.credit ? ('₹' + p.credit.toLocaleString('en-IN')) : ''}</td></tr>`).join('')}
+  const credits = parsed.filter(p => p.credit > 0).length;
+  preview.innerHTML = `<div class="note" style="margin-bottom:10px;">Read from ${source}: <b>${parsed.length}</b> transactions — <b>${debits.length}</b> debits, ${credits} credits. Review below, then import the debits as bank expenses.</div>
+    <div class="table-wrap" style="max-height:300px;overflow:auto;"><table><thead><tr><th>Date</th><th>Description</th><th class="num">Debit ₹</th><th class="num">Credit ₹</th></tr></thead><tbody>
+    ${parsed.slice(0, 60).map(p => `<tr><td style="white-space:nowrap;">${esc(p.date||'')}</td><td style="font-size:12px;">${esc((p.desc || '').slice(0,70))}</td><td class="num red-text">${p.debit ? ('₹' + p.debit.toLocaleString('en-IN')) : ''}</td><td class="num green-text">${p.credit ? ('₹' + p.credit.toLocaleString('en-IN')) : ''}</td></tr>`).join('')}
     </tbody></table></div>
     <div style="margin-top:12px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
       <button class="btn" onclick="importStatementDebits()">Import ${debits.length} debits as bank expenses</button>
-      <span style="font-size:11px;color:var(--text3);font-family:'Inter',sans-serif;">Review first — you can delete or re-categorise any after import.</span>
-    </div>
-    <div class="note" style="margin-top:10px;">Generic reader for now. Send Edwin a real IDFC CSV and it'll be tuned to your exact columns + auto-categorised.</div>`;
+      <span style="font-size:11px;color:var(--text3);font-family:'Inter',sans-serif;">Review first — you can edit, re-categorise or delete any after import.</span>
+    </div>`;
   const withBal = parsed.filter(p => p.balance);
   if (withBal.length) { const b = parseFloat((withBal[withBal.length-1].balance + '').replace(/[^0-9.]/g,'')) || 0; if (b) document.getElementById('bank-bal-input').value = b; }
 }
@@ -2107,7 +2271,10 @@ function importStatementDebits() {
 }
 function normalizeDate(s) {
   s = (s || '').trim();
-  let m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  const mon = { jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12' };
+  let m = s.match(/^(\d{1,2})[-\/ ]([A-Za-z]{3})[A-Za-z]*[-\/ ](\d{2,4})$/);
+  if (m) { let d = m[1], mo = mon[m[2].toLowerCase()] || '01', y = m[3]; if (y.length === 2) y = '20' + y; return `${y}-${mo}-${String(d).padStart(2,'0')}`; }
+  m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
   if (m) { let d = m[1], mo = m[2], y = m[3]; if (y.length === 2) y = '20' + y; return `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
   m = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
   if (m) return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
