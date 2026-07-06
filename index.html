@@ -56,6 +56,25 @@
   .logo span { color: var(--text2); font-weight: 400; font-size: 13px; letter-spacing: 1px; margin-left: 10px; font-family: 'Inter', sans-serif; }
   .period-badge { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 6px 14px; font-family: 'Inter', sans-serif; font-size: 11px; color: var(--text2); }
 
+  /* Live sync status */
+  .sync-pill { display:flex; align-items:center; gap:7px; background:var(--surface2); border:1px solid var(--border); border-radius:20px; padding:5px 11px 5px 10px; font-size:11px; font-weight:500; letter-spacing:.3px; color:var(--text2); cursor:pointer; user-select:none; line-height:1; white-space:nowrap; }
+  .sync-dot { width:8px; height:8px; border-radius:50%; background:var(--text3); flex-shrink:0; }
+  .sync-live .sync-dot { background:var(--green); box-shadow:0 0 0 0 rgba(111,214,154,0.6); animation:syncpulse 2.2s infinite; }
+  .sync-live { color:var(--green); border-color:rgba(111,214,154,0.35); }
+  .sync-connecting .sync-dot { background:var(--accent2); animation:syncblink 1s infinite; }
+  .sync-offline .sync-dot { background:#E8A54A; }
+  .sync-offline { color:#E8A54A; border-color:rgba(232,165,74,0.35); }
+  .sync-blocked .sync-dot { background:var(--red); }
+  .sync-blocked { color:var(--red); border-color:rgba(224,82,82,0.4); }
+  @keyframes syncpulse { 0%{box-shadow:0 0 0 0 rgba(111,214,154,0.5);} 70%{box-shadow:0 0 0 6px rgba(111,214,154,0);} 100%{box-shadow:0 0 0 0 rgba(111,214,154,0);} }
+  @keyframes syncblink { 0%,100%{opacity:1;} 50%{opacity:.35;} }
+  @media (prefers-reduced-motion: reduce) { .sync-live .sync-dot, .sync-connecting .sync-dot { animation:none; } }
+  #sync-banner { padding:11px 20px; font-size:12.5px; font-family:'Inter',sans-serif; text-align:center; line-height:1.5; border-bottom:1px solid var(--border); }
+  #sync-banner b { font-weight:600; }
+  #sync-banner a { color:inherit; text-decoration:underline; cursor:pointer; }
+  #sync-banner.warn { background:rgba(232,165,74,0.12); color:#E8A54A; }
+  #sync-banner.bad  { background:rgba(224,82,82,0.12);  color:var(--red); }
+
   /* TABS */
   .tabs { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 28px; gap: 0; overflow-x: auto; }
   .tab { padding: 14px 20px; font-size: 13px; font-weight: 500; color: var(--text3); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.2s; letter-spacing: 0.5px; }
@@ -320,11 +339,14 @@
     <div class="logo">COMEDOR <span>Finance Dashboard</span></div>
   </div>
   <div style="display:flex; gap:10px; align-items:center;">
+    <div id="sync-status" class="sync-pill sync-connecting" title="Live sync status" onclick="showSyncHelp()"><span class="sync-dot"></span><span id="sync-label">Syncing…</span></div>
     <button id="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:6px;width:32px;height:32px;font-size:16px;cursor:pointer;line-height:1;flex-shrink:0;">◑</button>
     <div id="role-badge">—</div>
     <button id="logout-btn" onclick="logout()" title="Log out / switch user" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:6px;padding:6px 12px;font-size:12px;font-family:'Inter',sans-serif;cursor:pointer;line-height:1;flex-shrink:0;">Log out</button>
   </div>
 </div>
+
+<div id="sync-banner" style="display:none;"></div>
 
 <div class="tabs">
   <div class="tab" data-panel="dashboard" data-cap="dashboard" onclick="showPanel('dashboard')">📊 Dashboard</div>
@@ -600,43 +622,102 @@ const FIREBASE_CONFIG = {
 };
 
 let _db = null;
+let _syncState = 'connecting';   // connecting | live | offline | blocked
+let _syncEverConnected = false;
+
+// Re-render whichever tab is open, so any device shows changes the instant they arrive.
+function renderActivePanel() {
+  const active = document.querySelector('.panel.active');
+  if (!active) return;
+  const id = active.id.replace('panel-', '');
+  if (id === 'dashboard') renderDashboard();
+  else if (id === 'bankexp') renderBankList();
+  else if (id === 'entry') { renderEntryRecent(); checkOpening(); }
+  else if (id === 'people') renderPeople();
+}
+
+function setSyncStatus(state) {
+  _syncState = state;
+  const pill = document.getElementById('sync-status');
+  const label = document.getElementById('sync-label');
+  const banner = document.getElementById('sync-banner');
+  if (pill) pill.className = 'sync-pill sync-' + state;
+  if (label) label.textContent = ({ connecting:'Syncing…', live:'Live', offline:'Offline', blocked:'Sync blocked' }[state] || state);
+  if (!banner) return;
+  if (state === 'blocked') {
+    banner.className = 'bad';
+    banner.innerHTML = '⚠ <b>Changes are not syncing to your partners.</b> The shared database is refusing connections. <a onclick="showSyncHelp()">How to fix →</a>';
+    banner.style.display = 'block';
+  } else if (state === 'offline' && _syncEverConnected) {
+    banner.className = 'warn';
+    banner.innerHTML = '● <b>You are offline.</b> Changes are saved on this device and will sync automatically when the connection is back.';
+    banner.style.display = 'block';
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+// Any write rejection means the server isn't accepting our changes → flag it loudly.
+function syncWriteErr(e) {
+  console.warn('Sync write failed:', e && e.message);
+  setSyncStatus('blocked');
+}
+
+function showSyncHelp() {
+  const st = ({ connecting:'connecting…', live:'LIVE — synced across every device', offline:'offline (will resync when back online)', blocked:'BLOCKED by the database rules' }[_syncState] || _syncState);
+  alert(
+    'LIVE SYNC ACROSS DEVICES\n\n' +
+    'This device: ' + st + '\n\n' +
+    'If it says "Sync blocked", the Firebase Realtime Database rules are closed, so no device can read or write the shared data. A partner with access to the Firebase project fixes it once:\n\n' +
+    '1. console.firebase.google.com  →  project "comedor-finance-dashboard"\n' +
+    '2. Build → Realtime Database → Rules tab\n' +
+    '3. Replace the rules with:\n\n' +
+    '{\n  "rules": {\n    "comedor": { ".read": true, ".write": true }\n  }\n}\n\n' +
+    '4. Press Publish.\n\n' +
+    'Every phone, iPad and browser then syncs within a second. (Make sure a Realtime Database has actually been created in that project — not only Firestore.)'
+  );
+}
+
 (function initFirebase() {
-  if (!FIREBASE_CONFIG) return;
+  if (!FIREBASE_CONFIG) { setSyncStatus('offline'); return; }
   try {
     firebase.initializeApp(FIREBASE_CONFIG);
     _db = firebase.database();
-    // Real-time listener: any device's save is immediately reflected everywhere
+
+    // Connection heartbeat → drives the Live / Offline pill.
+    _db.ref('.info/connected').on('value', s => {
+      const connected = s.val() === true;
+      if (connected) { _syncEverConnected = true; if (_syncState !== 'blocked') setSyncStatus('live'); }
+      else if (_syncState !== 'blocked') setSyncStatus(_syncEverConnected ? 'offline' : 'connecting');
+    });
+
+    // A read error on any path = permission denied / rules closed. Surface it.
+    const onErr = label => err => { console.warn('Sync read failed (' + label + '):', err && err.message); setSyncStatus('blocked'); };
+
+    // Real-time listeners: any device's save is reflected everywhere within a second.
     _db.ref('comedor/entries').on('value', snap => {
-      if (!snap.exists()) {
-        localStorage.removeItem('comedor_entries');
-        if (document.getElementById('panel-dashboard')?.classList.contains('active')) renderDashboard();
-        return;
-      }
-      const entries = Object.values(snap.val()).sort((a, b) => a.date.localeCompare(b.date));
-      localStorage.setItem('comedor_entries', JSON.stringify(entries));
-      if (document.getElementById('panel-dashboard')?.classList.contains('active')) renderDashboard();
-      checkOpening();
-    });
-    // Bank expenses (partner-entered IDFC account debits / capital infusions)
+      if (snap.exists()) localStorage.setItem('comedor_entries', JSON.stringify(Object.values(snap.val()).sort((a, b) => a.date.localeCompare(b.date))));
+      else localStorage.removeItem('comedor_entries');
+      renderActivePanel();
+    }, onErr('entries'));
+
     _db.ref('comedor/bank_expenses').on('value', snap => {
-      const list = snap.exists() ? Object.values(snap.val()) : [];
-      localStorage.setItem('comedor_bank', JSON.stringify(list));
-      if (document.getElementById('panel-dashboard')?.classList.contains('active')) renderDashboard();
-      if (document.getElementById('panel-bankexp')?.classList.contains('active')) renderBankList();
-    });
-    // Bank balance (set from the weekly statement)
+      localStorage.setItem('comedor_bank', JSON.stringify(snap.exists() ? Object.values(snap.val()) : []));
+      renderActivePanel();
+    }, onErr('bank_expenses'));
+
     _db.ref('comedor/meta/bankBalance').on('value', snap => {
       if (snap.exists()) localStorage.setItem('comedor_bankbal', JSON.stringify(snap.val()));
       else localStorage.removeItem('comedor_bankbal');
-      if (document.getElementById('panel-dashboard')?.classList.contains('active')) renderDashboard();
-    });
-    // People / logins (managed from the People tab)
+      renderActivePanel();
+    }, onErr('bankBalance'));
+
     _db.ref('comedor/users').on('value', snap => {
       if (snap.exists()) localStorage.setItem('comedor_users', JSON.stringify(Object.values(snap.val())));
       else localStorage.removeItem('comedor_users');
       if (document.getElementById('panel-people')?.classList.contains('active')) renderPeople();
-    });
-  } catch (e) { console.warn('Firebase init failed:', e); }
+    }, onErr('users'));
+  } catch (e) { console.warn('Firebase init failed:', e); setSyncStatus('offline'); }
 })();
 
 // ─── ROLES, USERS & LOGINS ───────────────────────────────────────────────────
@@ -1220,8 +1301,7 @@ function saveEntry(entry) {
   rest.sort((a, b) => a.date.localeCompare(b.date));
   localStorage.setItem('comedor_entries', JSON.stringify(rest));
   if (_db) {
-    _db.ref('comedor/entries/' + entry.date.replace(/-/g, '_')).set(entry)
-      .catch(e => console.warn('Firebase write failed:', e));
+    _db.ref('comedor/entries/' + entry.date.replace(/-/g, '_')).set(entry).catch(syncWriteErr);
   }
 }
 
@@ -1790,14 +1870,14 @@ function saveBankExpense(entry) {
   const list = loadBankEntries().filter(b => b.id !== entry.id);
   list.push(entry);
   localStorage.setItem('comedor_bank', JSON.stringify(list));
-  if (_db) _db.ref('comedor/bank_expenses/' + entry.id).set(entry).catch(e => console.warn('Bank write failed:', e));
+  if (_db) _db.ref('comedor/bank_expenses/' + entry.id).set(entry).catch(syncWriteErr);
 }
 
 function deleteBankExpense(id) {
   if (!confirm('Delete this bank entry?')) return;
   const list = loadBankEntries().filter(b => b.id !== id);
   localStorage.setItem('comedor_bank', JSON.stringify(list));
-  if (_db) _db.ref('comedor/bank_expenses/' + id).remove().catch(() => {});
+  if (_db) _db.ref('comedor/bank_expenses/' + id).remove().catch(syncWriteErr);
   renderBankList();
   if (document.getElementById('panel-dashboard').classList.contains('active')) renderDashboard();
 }
@@ -1834,7 +1914,7 @@ function saveBankBalance() {
   const today = new Date().toISOString().split('T')[0];
   const meta = { amount: amt, asOf: new Date(today + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }), by: (currentUser ? currentUser.name : '') };
   localStorage.setItem('comedor_bankbal', JSON.stringify(meta));
-  if (_db) _db.ref('comedor/meta/bankBalance').set(meta).catch(() => {});
+  if (_db) _db.ref('comedor/meta/bankBalance').set(meta).catch(syncWriteErr);
   alert('Bank balance updated to ₹' + amt.toLocaleString('en-IN') + '.');
 }
 
@@ -1935,7 +2015,7 @@ function saveUser(u) {
   users = users.filter(x => x.id !== u.id);
   users.push(u);
   localStorage.setItem('comedor_users', JSON.stringify(users));
-  if (_db) _db.ref('comedor/users/' + u.id).set(u).catch(e => console.warn('User write failed:', e));
+  if (_db) _db.ref('comedor/users/' + u.id).set(u).catch(syncWriteErr);
 }
 
 function addPerson() {
@@ -1981,7 +2061,7 @@ function removePerson(id) {
   if (!confirm('Remove ' + u.name + '? Their login PIN will stop working.')) return;
   const list = (loadUsers() || DEFAULT_USERS.slice()).filter(x => x.id !== id);
   localStorage.setItem('comedor_users', JSON.stringify(list));
-  if (_db) _db.ref('comedor/users/' + id).remove().catch(() => {});
+  if (_db) _db.ref('comedor/users/' + id).remove().catch(syncWriteErr);
   renderPeople();
 }
 
