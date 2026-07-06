@@ -1050,19 +1050,12 @@ async function initAuth() {
     const pe = document.getElementById('pin-entry');
     if (store && store.id && avail) {
       if (bu) bu.style.display = 'block';
-      // Always keep the PIN reachable too — never trap the user behind a Face ID
-      // prompt that can hang (dismissed sheet, in-app browser, iOS quirk).
-      if (pe) pe.style.display = 'block';
       const rl = document.getElementById('bio-role-label');
       if (rl) rl.textContent = _bioUser(store).name;
-      biometricUnlock(true);        // best-effort auto-prompt (iOS may need one tap)
-      // Watchdog: if Face ID hasn't let us in within a few seconds (sheet dismissed,
-      // in-app browser without WebAuthn, iOS quirk), reveal the PIN so nobody is stuck.
-      setTimeout(function () {
-        const appShown = document.getElementById('app').style.display === 'block';
-        const pe2 = document.getElementById('pin-entry');
-        if (!appShown && pe2 && pe2.style.display === 'none') pe2.style.display = 'block';
-      }, 4000);
+      // Show the PIN entry AND focus it immediately. We do NOT auto-invoke Face ID:
+      // the native Face ID sheet is modal and blocks typing into the page, which
+      // could trap the user. Face ID now only fires when its button is tapped.
+      showPinEntry();
     } else {
       showPinEntry();
     }
