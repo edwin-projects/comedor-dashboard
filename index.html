@@ -854,7 +854,21 @@
     </div>
   </div>
 
-  <p class="exp-note" style="text-align:center; margin-top:6px;">Every bank entry appears in the <b>Bank account expenses</b> log on the Dashboard, with full search &amp; filters.</p>
+  <!-- Collapsible: your recent bank entries (editable / deletable) -->
+  <div class="logcard collapsed" id="logcard-bankrecent" style="margin-top:8px;">
+    <div class="logcard-head" onclick="toggleLog('bankrecent')">
+      <span class="logcard-title"><svg class="hd-ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg> Recent bank entries you can edit <span class="logcard-count" id="count-bankrecent">0</span></span>
+      <span class="logcard-chev" id="chev-bankrecent">▾</span>
+    </div>
+    <div class="logcard-body">
+      <div class="logcard-tools">
+        <input class="log-search" id="search-bankrecent" placeholder="Search date, type or amount…" oninput="filterLog('bankrecent')">
+      </div>
+      <div id="bank-recent-wrap" class="log-scroll"></div>
+    </div>
+  </div>
+
+  <p class="exp-note" style="text-align:center; margin-top:6px;">Every bank entry also appears in the <b>Bank account expenses</b> log on the Dashboard, with full search &amp; filters.</p>
 </div>
 
 <!-- ===================== PEOPLE / ACCESS (Partners) ===================== -->
@@ -1390,7 +1404,7 @@ function toggleLog(key) {
 }
 function filterLog(key) {
   const input = document.getElementById('search-' + key);
-  const wrapId = key === 'cash' ? 'dash-table-wrap' : key === 'bank' ? 'bank-table-wrap' : 'entry-recent-wrap';
+  const wrapId = key === 'cash' ? 'dash-table-wrap' : key === 'bank' ? 'bank-table-wrap' : key === 'bankrecent' ? 'bank-recent-wrap' : 'entry-recent-wrap';
   const wrap = document.getElementById(wrapId);
   if (!input || !wrap) return;
   const q = (input.value || '').trim().toLowerCase();
@@ -2304,6 +2318,20 @@ function editEntry(date) {
   window.scrollTo(0, 0);
 }
 
+function deleteEntry(date) {
+  const entry = loadEntries().find(e => e.date === date);
+  if (!entry) return;
+  if (!canEditCash(entry.addedBy)) { alert('Only ' + (entry.addedBy || 'the person who added this') + ' or a partner can delete this entry.'); return; }
+  const when = new Date(date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+  if (!confirm('Delete the cash register entry for ' + when + '? This removes that day\'s record.')) return;
+  const list = loadEntries().filter(e => e.date !== date);
+  localStorage.setItem('comedor_entries', JSON.stringify(list));
+  if (_db) _db.ref('comedor/entries/' + date.replace(/-/g, '_')).remove().catch(syncWriteErr);
+  if (_editingEntry && _editingEntry.date === date) { _editingEntry = null; const sb = document.getElementById('form-success'); if (sb) sb.style.display = 'none'; }
+  renderEntryRecent();
+  if (document.getElementById('panel-dashboard').classList.contains('active')) renderDashboard();
+}
+
 // Recent cash entries the current user is allowed to edit (shown in the Cash Expenses tab).
 function renderEntryRecent() {
   const wrap = document.getElementById('entry-recent-wrap');
@@ -2324,7 +2352,7 @@ function renderEntryRecent() {
         <td class="num red-text">${inr(e.totalExpenses)}</td>
         <td class="num">${inr(e.closing)}</td>
         <td style="font-size:11px;color:var(--text2);white-space:nowrap;">${(e.addedBy || '—')}${e.editedBy ? ' ✎' : ''}</td>
-        <td><button class="btn btn-ghost" style="padding:4px 10px;font-size:11px;" onclick="editEntry('${e.date}')">Edit</button></td>
+        <td style="white-space:nowrap;"><div style="display:flex;gap:5px;"><button class="cat-act cat-edit" style="padding:3px 7px;font-size:11px;" onclick="editEntry('${e.date}')">Edit</button><button class="cat-act cat-del" style="padding:3px 7px;font-size:11px;" onclick="deleteEntry('${e.date}')">Del</button></div></td>
       </tr>`;
     }).join('')}
   </tbody></table>`;
@@ -3026,7 +3054,36 @@ function renderBankList() {
   const today = new Date().toISOString().split('T')[0];
   const bd = document.getElementById('be-date'); if (bd && !bd.value) bd.value = today;
   const cd = document.getElementById('cap-date'); if (cd && !cd.value) cd.value = today;
+  renderBankRecent();
   if (document.getElementById('panel-dashboard').classList.contains('active')) renderDashboard();
+}
+
+// Recent bank entries (expense · capital · partner-direct) the current user can
+// edit or delete, shown right on the Bank tab — parity with the Cash tab's list.
+function renderBankRecent() {
+  const wrap = document.getElementById('bank-recent-wrap');
+  if (!wrap) return;
+  const inr = n => '₹' + Number(n || 0).toLocaleString('en-IN');
+  const mine = loadBankEntries().filter(b => canEditBank(b.addedBy))
+    .sort((a, b) => (b.date + (b.at || '')).localeCompare(a.date + (a.at || ''))).slice(0, 60);
+  const cnt = document.getElementById('count-bankrecent');
+  if (cnt) cnt.textContent = mine.length + (mine.length === 1 ? ' entry' : ' entries');
+  if (!mine.length) { wrap.innerHTML = '<div class="log-empty">No bank entries yet. Ones you add appear here to edit or delete.</div>'; return; }
+  const typeLabel = b => b.capital ? 'Capital in' : b.direct ? ((b.category || '—') + ' · partner-paid') : isGstEntry(b) ? 'GST' : (b.category || '—');
+  wrap.innerHTML = `<table style="width:100%;table-layout:fixed;"><thead><tr><th style="width:52px;">Date</th><th>Type</th><th class="num" style="width:74px;">₹</th><th style="width:96px;"></th></tr></thead><tbody>
+    ${mine.map(b => {
+      const d = new Date(b.date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short' });
+      const pos = !!b.capital;
+      const sub = (b.desc && b.desc !== 'Capital infusion') ? b.desc : '';
+      return `<tr>
+        <td style="white-space:nowrap;">${d}</td>
+        <td style="font-size:12px;word-break:break-word;">${esc(typeLabel(b))}${sub ? `<div style="color:var(--text3);font-size:11px;">${esc(sub)}</div>` : ''}</td>
+        <td class="num ${pos ? 'green-text' : 'red-text'}" style="white-space:nowrap;">${pos ? '+' : '–'}${inr(b.amount)}</td>
+        <td style="padding-left:4px;padding-right:6px;"><div style="display:flex;gap:5px;justify-content:flex-end;"><button class="cat-act cat-edit" style="padding:3px 7px;font-size:11px;" onclick="editBankExpense('${b.id}')">Edit</button><button class="cat-act cat-del" style="padding:3px 7px;font-size:11px;" onclick="deleteBankExpense('${b.id}')">Del</button></div></td>
+      </tr>`;
+    }).join('')}
+  </tbody></table>`;
+  reapplyLogFilter('bankrecent');
 }
 
 // ─── RICH LOG ENGINE (filters · sort · search · live total · cards) ──────────
@@ -3466,7 +3523,7 @@ function bankAccordion(list) {
     const cap = !!b.capital, gst = isGstEntry(b);
     const title = (b.desc && b.desc !== 'Capital infusion') ? b.desc : (cap ? 'Capital infusion' : gst ? 'GST paid' : (b.category || '—'));
     const tag = b.direct ? ' <span style="color:#caa63a;font-size:10px;">partner-paid</span>' : '';
-    const acts = canEditBank(b.addedBy) ? ` <button class="cat-act cat-edit" style="padding:1px 6px;" onclick="editBankExpense('${b.id}')">Edit</button>` : '';
+    const acts = canEditBank(b.addedBy) ? ` <button class="cat-act cat-edit" style="padding:1px 6px;" onclick="editBankExpense('${b.id}')">Edit</button> <button class="cat-act cat-del" style="padding:1px 6px;" onclick="deleteBankExpense('${b.id}')">Delete</button>` : '';
     return `<tr><td>${d(b.date)} · ${esc(title)}${tag} <span style="color:var(--text3);">${esc(b.partner || b.addedBy || '—')}</span></td><td class="num ${cap ? 'green-text' : 'red-text'}">${cap ? '+' : '–'}${inr(b.amount)}${acts}</td></tr>`;
   };
   return catAccordion('bankcat', mapped, row);
