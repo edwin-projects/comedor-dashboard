@@ -1633,7 +1633,7 @@ function tickExpenseRow(i) {
   const amtEl  = document.getElementById('exp-amt-'  + row.id);
   const cat  = catEl  ? catEl.value  : row.category;
   const desc = descEl ? descEl.value : row.desc;
-  const amt  = amtEl  ? amtEl.value  : row.amount;
+  const amt  = amtEl  ? amtEl.value.replace(/,/g, '') : row.amount;
   if (!cat) {
     if (catEl) catEl.style.borderColor = 'var(--red)';
     setTimeout(() => { if (catEl) catEl.style.borderColor = ''; }, 2000);
