@@ -816,16 +816,25 @@
   </div>
 
   <div class="setcard collapsed cap-section" id="setcard-capital">
-    <div class="setcard-head" onclick="toggleSet('capital')"><span class="setcard-title">Add Capital Infusion</span><span class="setcard-chev">▾</span></div>
+    <div class="setcard-head" onclick="toggleSet('capital')"><span class="setcard-title">Partner Money In</span><span class="setcard-chev">▾</span></div>
     <div class="setcard-body">
-      <p class="exp-note">Money the partners put <b>into</b> the business — e.g. moving a matured capital bond into the IDFC account. This is <b>not an expense</b>: it never touches the P&amp;L and is tracked on its own.</p>
+      <div style="margin-bottom:12px;"><label class="field-label">Where did the money go?</label>
+        <select id="cap-dest" class="field-select" onchange="onCapDestChange()">
+          <option value="bank">Into the IDFC account — capital infusion</option>
+          <option value="direct">Paid a vendor directly — counts as an expense</option>
+        </select>
+      </div>
+      <p class="exp-note" id="cap-note">Money the partners put <b>into</b> the IDFC account — e.g. moving a matured capital bond in. This is <b>not an expense</b>: it lifts the bank balance &amp; the partner's capital, and never touches the P&amp;L.</p>
       <div id="cap-form-msg" style="display:none; border-radius:7px; padding:10px 12px; font-size:12.5px; margin-bottom:12px;"></div>
       <div style="margin-bottom:12px;"><label class="field-label">Date</label><input id="cap-date" type="date" class="field-input" style="width:100%; box-sizing:border-box; -webkit-appearance:none; appearance:none; text-align:center;"></div>
       <div style="margin-bottom:12px;"><label class="field-label">Amount ₹</label><input id="cap-amount" type="text" inputmode="decimal" class="field-input field-input-mono" placeholder="0" style="width:100%; box-sizing:border-box; text-align:center;" oninput="onMoneyInput(this)"></div>
       <div style="margin-bottom:12px;"><label class="field-label">Contributed by (partner)</label>
         <select id="cap-by" class="field-select"></select>
       </div>
-      <div style="margin-bottom:4px;"><label class="field-label">Note (optional)</label><input id="cap-desc" class="field-input" placeholder="e.g. Matured capital bond"></div>
+      <div id="cap-cat-wrap" style="margin-bottom:12px; display:none;"><label class="field-label">Category</label>
+        <select id="cap-category" class="field-select"><option value="">Select category…</option></select>
+      </div>
+      <div style="margin-bottom:4px;"><label class="field-label" id="cap-desc-label">Note (optional)</label><input id="cap-desc" class="field-input" placeholder="e.g. Matured capital bond"></div>
       <button id="cap-submit-btn" class="btn cap-btn" style="width:100%; margin-top:14px; padding:13px; font-size:15px;" onclick="submitCapital()">Add Capital ✓</button>
     </div>
   </div>
@@ -840,6 +849,7 @@
       <div style="margin-top:16px; padding-top:14px; border-top:1px solid var(--border); display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
         <div><label class="field-label">Bank balance (from statement) ₹</label><input id="bank-bal-input" type="text" inputmode="decimal" class="field-input field-input-mono" placeholder="e.g. 197254" style="width:200px;" oninput="onMoneyInput(this)"></div>
         <button id="bal-btn" class="btn btn-ghost" onclick="saveBankBalance()">Update balance</button>
+        <div id="bal-recon-note" style="display:none; width:100%; margin-top:4px;"></div>
       </div>
     </div>
   </div>
@@ -2349,7 +2359,7 @@ function getBankInRange() {
   return loadBankEntries().filter(b => b.date >= from && b.date <= to).sort((a, b) => (b.date + (b.at||'')).localeCompare(a.date + (a.at||'')));
 }
 
-function isGstEntry(b) { return !b.capital && b.category === 'GST'; }
+function isGstEntry(b) { return !b.capital && !b.direct && b.category === 'GST'; }
 
 
 // ─── DAY-1 SETUP & CAPITAL LEDGER (partner-funded; equity + capex, kept out of P&L) ───
@@ -2712,8 +2722,8 @@ function renderPnlBank() {
 
   // Capital Infused (equity) and Setup/Capex are CUMULATIVE (balance-sheet items),
   // not period flows, and never touch the P&L or the available bank balance.
-  const capBy = {};   // capital contributed per partner, all time
-  loadBankEntries().filter(b => b.capital).forEach(b => { const k = b.partner || b.addedBy || '—'; capBy[k] = (capBy[k] || 0) + (Number(b.amount) || 0); });
+  const capBy = {};   // capital contributed per partner, all time (incl. partner-direct spend)
+  loadBankEntries().filter(b => b.capital || b.direct).forEach(b => { const k = b.partner || b.addedBy || '—'; capBy[k] = (capBy[k] || 0) + (Number(b.amount) || 0); });
   const capL = ledgerCapitalBy();
   if (capL.Edwin)   capBy['Edwin']   = (capBy['Edwin']   || 0) + capL.Edwin;
   if (capL.Prathvi) capBy['Prathvi'] = (capBy['Prathvi'] || 0) + capL.Prathvi;
@@ -2734,6 +2744,7 @@ function renderPnlBank() {
     var baseISO = bankMeta.asOfISO || null;
     bankBal = Number(bankMeta.amount) || 0;
     loadBankEntries().forEach(function (bb) {
+      if (bb.direct) return;                        // partner paid a vendor directly — never moved through IDFC
       if (baseISO && bb.date <= baseISO) return;   // already reflected in the statement balance
       bankBal += (bb.capital ? 1 : -1) * (Number(bb.amount) || 0);
     });
@@ -2817,6 +2828,33 @@ function bankCatOptions(force) {
   }
 }
 
+// Fill the direct-expense category picker on the "Partner Money In" form.
+function capCatOptions() {
+  const sel = document.getElementById('cap-category');
+  if (!sel) return;
+  const keep = sel.value;
+  sel.innerHTML = '<option value="">Select category…</option>';
+  getExpenseCategories().forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
+  if (keep) sel.value = keep;
+}
+
+// Toggle the "Partner Money In" form between a plain capital infusion (into IDFC)
+// and a partner-direct expense (paid a vendor from their own pocket — counts as
+// BOTH capital and an operating expense, without touching the IDFC balance).
+function onCapDestChange() {
+  const isDirect = ((document.getElementById('cap-dest') || {}).value || 'bank') === 'direct';
+  const wrap = document.getElementById('cap-cat-wrap'); if (wrap) wrap.style.display = isDirect ? '' : 'none';
+  if (isDirect) capCatOptions();
+  const note = document.getElementById('cap-note');
+  if (note) note.innerHTML = isDirect
+    ? 'A partner paid a vendor <b>directly from their own pocket</b>, so it counts <b>both</b> ways — it\'s an <b>operating expense</b> (hits the P&amp;L) <b>and</b> adds to that partner\'s capital. It does <b>not</b> change the IDFC balance: that money never went through the account.'
+    : 'Money the partners put <b>into</b> the IDFC account — e.g. moving a matured capital bond in. This is <b>not an expense</b>: it lifts the bank balance &amp; the partner\'s capital, and never touches the P&amp;L.';
+  const dl = document.getElementById('cap-desc-label'); if (dl) dl.textContent = isDirect ? 'Payee / description *' : 'Note (optional)';
+  const desc = document.getElementById('cap-desc'); if (desc) desc.placeholder = isDirect ? 'e.g. Greenleaf Company — vegetables' : 'e.g. Matured capital bond';
+  const btn = document.getElementById('cap-submit-btn');
+  if (btn && !_editingBankId) btn.textContent = isDirect ? 'Add Direct Expense ✓' : 'Add Capital ✓';
+}
+
 let _editingBankId = null;
 
 // Fill the capital-infusion "Contributed by" dropdown with the active partners.
@@ -2839,19 +2877,24 @@ function editBankExpense(id) {
   _editingBankId = id;
   const when = new Date((b.date||'') + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
 
-  if (b.capital) {
-    // Route capital entries to the Capital Infusion form.
+  if (b.capital || b.direct) {
+    // Route capital + partner-direct entries to the "Partner Money In" form.
     capPartnerOptions();
+    const isDirect = !!b.direct;
+    const destSel = document.getElementById('cap-dest'); if (destSel) destSel.value = isDirect ? 'direct' : 'bank';
+    onCapDestChange();
+    const cc = document.getElementById('setcard-capital'); if (cc) cc.classList.remove('collapsed');
     document.getElementById('cap-date').value   = b.date || '';
     setMoney('cap-amount', b.amount || '');
     const sel = document.getElementById('cap-by');
     const who = b.partner || b.addedBy || '';
     if (who && !Array.from(sel.options).some(o => o.value === who)) { const o = document.createElement('option'); o.value = who; o.textContent = who; sel.appendChild(o); }
     if (who) sel.value = who;
+    if (isDirect) { capCatOptions(); const cat = document.getElementById('cap-category'); if (cat) cat.value = b.category || ''; }
     document.getElementById('cap-desc').value = (b.desc && b.desc !== 'Capital infusion') ? b.desc : '';
     const cb = document.getElementById('cap-submit-btn'); if (cb) cb.textContent = 'Save changes ✓';
     const m = document.getElementById('cap-form-msg');
-    m.innerHTML = `Editing capital from ${when}. <a onclick="cancelCapEdit()" style="color:var(--red);text-decoration:underline;cursor:pointer;margin-left:6px;">Cancel</a>`;
+    m.innerHTML = `Editing ${isDirect ? 'direct expense' : 'capital'} from ${when}. <a onclick="cancelCapEdit()" style="color:var(--red);text-decoration:underline;cursor:pointer;margin-left:6px;">Cancel</a>`;
     m.style.cssText = 'display:block;border-radius:7px;padding:10px 12px;font-size:12.5px;margin-bottom:12px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);';
     document.getElementById('cap-date').scrollIntoView({ behavior:'smooth', block:'center' });
     return;
@@ -2883,7 +2926,8 @@ function cancelCapEdit() {
   _editingBankId = null;
   document.getElementById('cap-amount').value = '';
   document.getElementById('cap-desc').value = '';
-  const cb = document.getElementById('cap-submit-btn'); if (cb) cb.textContent = 'Add Capital ✓';
+  const ds = document.getElementById('cap-dest'); if (ds) ds.value = 'bank';
+  onCapDestChange();
   const m = document.getElementById('cap-form-msg'); if (m) m.style.display = 'none';
 }
 
@@ -2903,13 +2947,13 @@ function submitBankExpense() {
   eb.style.display = 'none';
 
   const editing = (_editingBankId ? loadBankEntries().find(x => x.id === _editingBankId) : null);
-  const useEdit = editing && !editing.capital;
+  const useEdit = editing && !editing.capital && !editing.direct;
   const me = currentUser ? currentUser.name : '';
   let entry;
   if (useEdit) {
-    entry = Object.assign({}, editing, { date, amount, category, desc, capital: false, editedBy: me, editedAt: new Date().toLocaleString('en-IN') });
+    entry = Object.assign({}, editing, { date, amount, category, desc, capital: false, direct: false, editedBy: me, editedAt: new Date().toLocaleString('en-IN') });
   } else {
-    entry = { id: 'b' + Date.now() + Math.floor(Math.random()*1000), date, amount, category, desc, capital: false, addedBy: me, at: new Date().toLocaleString('en-IN') };
+    entry = { id: 'b' + Date.now() + Math.floor(Math.random()*1000), date, amount, category, desc, capital: false, direct: false, addedBy: me, at: new Date().toLocaleString('en-IN') };
   }
   saveBankExpense(entry);
 
@@ -2923,29 +2967,36 @@ function submitBankExpense() {
 }
 
 function submitCapital() {
+  const isDirect = ((document.getElementById('cap-dest') || {}).value || 'bank') === 'direct';
   const date   = document.getElementById('cap-date').value;
   const amount = money('cap-amount');
   const by     = document.getElementById('cap-by').value;
+  const cat    = isDirect ? document.getElementById('cap-category').value : '';
   const note   = document.getElementById('cap-desc').value.trim();
   const msg    = document.getElementById('cap-form-msg');
   const showErr = t => { msg.textContent = '⚠ ' + t; msg.style.cssText = 'display:block;border-radius:7px;padding:10px 12px;font-size:12.5px;margin-bottom:12px;background:rgba(224,82,82,0.1);border:1px solid rgba(224,82,82,0.3);color:var(--red);'; };
   if (!date)     return showErr('Date is required');
   if (amount <= 0) return showErr('Amount is required');
-  if (!by)       return showErr('Pick the partner who contributed');
+  if (!by)       return showErr('Pick the partner who ' + (isDirect ? 'paid' : 'contributed'));
+  if (isDirect && !cat)  return showErr('Category is required for a direct expense');
+  if (isDirect && !note) return showErr('Payee / description is required for a direct expense');
 
   const me = currentUser ? currentUser.name : '';
   const editing = (_editingBankId ? loadBankEntries().find(x => x.id === _editingBankId) : null);
-  const useEdit = editing && editing.capital;
+  const useEdit = editing && (editing.capital || editing.direct);
+  const fields = isDirect
+    ? { date, amount, partner: by, category: cat, desc: note, capital: false, direct: true }
+    : { date, amount, partner: by, category: '', desc: note || 'Capital infusion', capital: true, direct: false };
   let entry;
   if (useEdit) {
-    entry = Object.assign({}, editing, { date, amount, partner: by, desc: note || 'Capital infusion', capital: true, category: '', editedBy: me, editedAt: new Date().toLocaleString('en-IN') });
+    entry = Object.assign({}, editing, fields, { editedBy: me, editedAt: new Date().toLocaleString('en-IN') });
   } else {
-    entry = { id: 'c' + Date.now() + Math.floor(Math.random()*1000), date, amount, partner: by, desc: note || 'Capital infusion', capital: true, category: '', addedBy: me, at: new Date().toLocaleString('en-IN') };
+    entry = Object.assign({ id: 'c' + Date.now() + Math.floor(Math.random()*1000), addedBy: me, at: new Date().toLocaleString('en-IN') }, fields);
   }
   saveBankExpense(entry);
 
   document.getElementById('cap-form-msg').style.display = 'none';
-  btnFlash('cap-submit-btn', 'Saving…', useEdit ? 'Saved ✓' : 'Added ✓', 'Add Capital ✓');
+  btnFlash('cap-submit-btn', 'Saving…', useEdit ? 'Saved ✓' : 'Added ✓', isDirect ? 'Add Direct Expense ✓' : 'Add Capital ✓');
   _editingBankId = null;
   document.getElementById('cap-amount').value = '';
   document.getElementById('cap-desc').value = '';
@@ -3346,12 +3397,14 @@ function bankCard(b) {
   const inr = n => '₹' + Number(n || 0).toLocaleString('en-IN');
   const d = new Date(b.date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
   const cap = !!b.capital;
+  const dir = !!b.direct;
   const gst = isGstEntry(b);
   const title = cap ? 'Capital infusion' : gst ? 'GST paid' : (b.category || 'Uncategorised');
+  const dirChip = '<span class="cat-badge" style="background:rgba(212,175,55,0.18);color:#caa63a;">Partner-paid</span>';
   const catChip = cap ? '<span class="cat-badge cat-vegano">Capital in</span>'
     : gst ? '<span class="cat-badge" style="background:rgba(126,200,227,0.16);color:#7ec8e3;">GST</span>'
-    : `<span class="cat-badge cat-antojitos">${esc(b.category || '—')}</span>`;
-  const whoChip = cap
+    : `<span class="cat-badge cat-antojitos">${esc(b.category || '—')}</span>${dir ? dirChip : ''}`;
+  const whoChip = (cap || dir)
     ? `<span class="cat-badge cat-vegano">by ${esc(b.partner || b.addedBy || '—')}</span>`
     : `<span class="cat-badge cat-acompana">${esc(b.addedBy || '—')}${b.editedBy ? ' ✎' : ''}</span>`;
   const acts = canEditBank(b.addedBy)
@@ -3383,8 +3436,8 @@ function renderBankRich(p) {
 
   let list = src.filter(b => {
     if (st.by !== 'all' && (b.addedBy || '—') !== st.by) return false;
-    if (st.type === 'expense' && (b.capital || isGstEntry(b))) return false;
-    if (st.type === 'capital' && !b.capital) return false;
+    if (st.type === 'expense' && (b.capital || b.direct || isGstEntry(b))) return false;
+    if (st.type === 'capital' && !b.capital && !b.direct) return false;
     if (st.type === 'gst' && !isGstEntry(b)) return false;
     if (st.cat !== 'all' && (b.category || '') !== st.cat) return false;
     if (st.search) {
@@ -3395,10 +3448,10 @@ function renderBankRich(p) {
   });
   list = sortBank(list, st.sort);
 
-  const spent = list.filter(b => !b.capital).reduce((s, b) => s + (Number(b.amount)||0), 0);
+  const spent = list.filter(b => !b.capital && !b.direct).reduce((s, b) => s + (Number(b.amount)||0), 0);
   const sm = document.getElementById(p + '-summary');
   if (sm) sm.innerHTML = `${list.length} ${list.length === 1 ? 'entry' : 'entries'} · <b>₹${spent.toLocaleString('en-IN')}</b>`;
-  if (p === 'dbank') { const srcSpent = src.filter(b => !b.capital).reduce((s, b) => s + (Number(b.amount)||0), 0); const cb = document.getElementById('count-bank'); if (cb) cb.textContent = '₹' + srcSpent.toLocaleString('en-IN'); }
+  if (p === 'dbank') { const srcSpent = src.filter(b => !b.capital && !b.direct).reduce((s, b) => s + (Number(b.amount)||0), 0); const cb = document.getElementById('count-bank'); if (cb) cb.textContent = '₹' + srcSpent.toLocaleString('en-IN'); }
 
   const el = document.getElementById(p + '-list');
   if (el) el.innerHTML = list.length ? bankAccordion(list) : '<div class="log-empty">No entries match these filters.</div>';
@@ -3412,8 +3465,9 @@ function bankAccordion(list) {
   const row = b => {
     const cap = !!b.capital, gst = isGstEntry(b);
     const title = (b.desc && b.desc !== 'Capital infusion') ? b.desc : (cap ? 'Capital infusion' : gst ? 'GST paid' : (b.category || '—'));
+    const tag = b.direct ? ' <span style="color:#caa63a;font-size:10px;">partner-paid</span>' : '';
     const acts = canEditBank(b.addedBy) ? ` <button class="cat-act cat-edit" style="padding:1px 6px;" onclick="editBankExpense('${b.id}')">Edit</button>` : '';
-    return `<tr><td>${d(b.date)} · ${esc(title)} <span style="color:var(--text3);">${esc(b.partner || b.addedBy || '—')}</span></td><td class="num ${cap ? 'green-text' : 'red-text'}">${cap ? '+' : '–'}${inr(b.amount)}${acts}</td></tr>`;
+    return `<tr><td>${d(b.date)} · ${esc(title)}${tag} <span style="color:var(--text3);">${esc(b.partner || b.addedBy || '—')}</span></td><td class="num ${cap ? 'green-text' : 'red-text'}">${cap ? '+' : '–'}${inr(b.amount)}${acts}</td></tr>`;
   };
   return catAccordion('bankcat', mapped, row);
 }
@@ -3424,7 +3478,7 @@ function bankTable(list) {
   const d = iso => new Date(iso + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
   const rows = list.map(b => {
     const cap = !!b.capital, gst = isGstEntry(b);
-    const type = cap ? 'Capital in' : gst ? 'GST' : (b.category || '—');
+    const type = cap ? 'Capital in' : gst ? 'GST' : b.direct ? ((b.category || '—') + ' · partner-paid') : (b.category || '—');
     const title = (b.desc && b.desc !== 'Capital infusion') ? b.desc : (cap ? 'Capital infusion' : gst ? 'GST paid' : (b.category || '—'));
     const acts = canEditBank(b.addedBy)
       ? `<button class="btn btn-ghost" style="padding:3px 9px;font-size:11px;" onclick="editBankExpense('${b.id}')">Edit</button>`
@@ -3472,11 +3526,50 @@ function focusLog(which, opts) {
 function saveBankBalance() {
   const amt = money('bank-bal-input');
   const today = new Date().toISOString().split('T')[0];
+  let prev = null; try { prev = JSON.parse(localStorage.getItem('comedor_bankbal') || 'null'); } catch (e) {}
   const meta = { amount: amt, asOf: new Date(today + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }), asOfISO: today, by: (currentUser ? currentUser.name : '') };
   localStorage.setItem('comedor_bankbal', JSON.stringify(meta));
   if (_db) _db.ref('comedor/meta/bankBalance').set(meta).catch(syncWriteErr);
   btnFlash('bal-btn', 'Updating…', 'Updated ✓', 'Update balance');
+  showBalReconNote(prev, amt, today);
   if (document.getElementById('panel-dashboard').classList.contains('active')) renderDashboard();
+}
+
+// Soft reconciliation: compare the new statement balance against what the app
+// projected forward from the LAST statement (opening + capital − IDFC debits).
+// The gap is mostly bank-routed sales landing in IDFC (expected, positive); a
+// shortfall usually means IDFC debits not logged here yet. Never blocks — just flags.
+function showBalReconNote(prev, actual, todayISO) {
+  const el = document.getElementById('bal-recon-note');
+  if (!el) return;
+  const inr = n => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN');
+  if (!prev || !prev.asOfISO || !(actual > 0) || prev.asOfISO >= todayISO) { el.style.display = 'none'; return; }
+  const baseISO = prev.asOfISO;
+  let expected = Number(prev.amount) || 0, cap = 0, deb = 0;
+  loadBankEntries().forEach(function (bb) {
+    if (bb.direct) return;                                   // never touched IDFC
+    if (bb.date <= baseISO || bb.date > todayISO) return;    // outside the window
+    const v = Number(bb.amount) || 0;
+    if (bb.capital) { cap += v; expected += v; } else { deb += v; expected -= v; }
+  });
+  const gap = actual - expected;
+  const sales = Math.round(incomeInRange(isoAdd(baseISO, 1), todayISO));
+  const from = new Date(baseISO + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short' });
+  const proj = `Projected from ${from}: ${inr(expected)} (opening ${inr(prev.amount)} + capital ${inr(cap)} − IDFC debits ${inr(deb)}).`;
+  const tol = Math.max(500, Math.abs(expected) * 0.005);
+  let head, body, bg, bd, col;
+  if (Math.abs(gap) <= tol) {
+    head = '✓ Reconciles'; col = '#4caf7d'; bg = 'rgba(76,175,125,0.10)'; bd = 'rgba(76,175,125,0.30)';
+    body = `Statement ${inr(actual)} matches the projected balance ${inr(expected)} from ${from} — within give-or-take.`;
+  } else if (gap > 0) {
+    head = 'Higher than projected — likely sales deposits'; col = '#4caf7d'; bg = 'rgba(76,175,125,0.10)'; bd = 'rgba(76,175,125,0.30)';
+    body = `${proj} Statement is ${inr(actual)} — <b>${inr(gap)} higher</b>. That gap is bank-routed income landing in IDFC${sales > 0 ? ` (sales this window ≈ ${inr(sales)}, part cash / part account)` : ''}. Looks in order.`;
+  } else {
+    head = 'Lower than projected — worth a quick look'; col = '#e05252'; bg = 'rgba(224,82,82,0.10)'; bd = 'rgba(224,82,82,0.30)';
+    body = `${proj} Statement is ${inr(actual)} — <b>${inr(Math.abs(gap))} lower</b>. Some IDFC debits may not be logged here yet (import the statement debits), or a capital-in didn't actually clear. Worth a check.`;
+  }
+  el.innerHTML = `<div style="border-radius:8px; padding:11px 13px; font-size:12.5px; line-height:1.55; font-family:'Inter',sans-serif; background:${bg}; border:1px solid ${bd}; color:var(--text);"><b style="color:${col};">${head}</b><br>${body}</div>`;
+  el.style.display = 'block';
 }
 
 // ─── STATEMENT UPLOAD (IDFC PDF or CSV → reviewed import) ─────────────────────
