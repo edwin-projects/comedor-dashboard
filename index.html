@@ -1633,7 +1633,7 @@ function tickExpenseRow(i) {
   const amtEl  = document.getElementById('exp-amt-'  + row.id);
   const cat  = catEl  ? catEl.value  : row.category;
   const desc = descEl ? descEl.value : row.desc;
-  const amt  = amtEl  ? amtEl.value  : row.amount;
+  const amt  = amtEl  ? amtEl.value.replace(/,/g, '') : row.amount;   // store the number comma-free so the total sums correctly
   if (!cat) {
     if (catEl) catEl.style.borderColor = 'var(--red)';
     setTimeout(() => { if (catEl) catEl.style.borderColor = ''; }, 2000);
@@ -3018,8 +3018,10 @@ function esc(s) { return (s == null ? '' : String(s)).replace(/[&<>"]/g, c => ({
 // ─── MONEY INPUTS (live Indian-lakh grouping) ────────────────────────────────
 function groupIndian(s) {
   if (s === '' || s == null) return '';
-  let neg = String(s).charAt(0) === '-';
-  s = String(s).replace(/^-/, '');
+  s = String(s).replace(/[^0-9.\-]/g, '');   // drop any existing commas/spaces so re-grouping is idempotent (never "2,,000")
+  let neg = s.charAt(0) === '-';
+  s = s.replace(/-/g, '');
+  if (s === '') return '';
   let parts = s.split('.');
   let i = (parts[0] || '').replace(/^0+(?=\d)/, '') || '0';
   const last3 = i.length > 3 ? i.slice(-3) : i;
