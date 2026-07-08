@@ -3253,11 +3253,92 @@ function handlePetpoojaUpload(input) {
     try {
       if (!window.XLSX) throw new Error('Spreadsheet reader not loaded — check your connection and retry.');
       const wb = XLSX.read(e.target.result, { type: 'array' });
-      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true });
+      let rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, raw: true });
+      // Pet Pooja's Outlet Item-Wise exporter writes inline-string cells with a stray
+      // space in the tags (`<is >`, `<t >`), which SheetJS 0.18.5 fails to read — every
+      // text cell (including the header) comes back empty and the report is rejected.
+      // If the header is missing, re-read the sheet XML straight from the zip via
+      // DOMParser, which parses the spaced tags without complaint.
+      if (!hasPetpoojaHeader(rows)) {
+        const repaired = petpoojaRepairRows(e.target.result);
+        if (repaired && hasPetpoojaHeader(repaired)) rows = repaired;
+      }
       showPetpoojaPreview(parsePetpooja(rows));
     } catch (err) { prev.innerHTML = '<div style="color:var(--red);font-size:12px;">Could not read report: ' + esc(err.message) + '</div>'; }
   };
   reader.readAsArrayBuffer(file);
+}
+function hasPetpoojaHeader(rows) {
+  for (let i = 0; i < rows.length; i++) {
+    const hh = (rows[i] || []).map(x => String(x));
+    if (hh.indexOf('Item') >= 0 && hh.indexOf('Gross Sales') >= 0) return true;
+  }
+  return false;
+}
+// Fallback reader for Pet Pooja item-wise reports whose inline-string cells SheetJS
+// can't parse. The exporter always writes STORED (uncompressed) zips, so we can pull
+// the worksheet XML out of the ArrayBuffer directly and parse it with DOMParser.
+function petpoojaRepairRows(buf) {
+  try {
+    let xml = unzipStoredEntry(buf, 'xl/worksheets/sheet1.xml');
+    if (!xml) xml = unzipStoredEntry(buf, /^xl\/worksheets\/sheet\d+\.xml$/);
+    if (!xml) return null;
+    return petpoojaRowsFromXml(xml);
+  } catch (e) { return null; }
+}
+// Minimal STORED-only zip entry reader. `name` is an exact string or a RegExp.
+function unzipStoredEntry(buf, name) {
+  const bytes = new Uint8Array(buf), dv = new DataView(buf), dec = new TextDecoder('utf-8');
+  let eocd = -1;
+  for (let i = bytes.length - 22; i >= 0; i--) { if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; } }
+  if (eocd < 0) return null;
+  const cdCount = dv.getUint16(eocd + 10, true);
+  let p = dv.getUint32(eocd + 16, true);
+  for (let n = 0; n < cdCount; n++) {
+    if (dv.getUint32(p, true) !== 0x02014b50) break;
+    const method = dv.getUint16(p + 10, true);
+    const compSize = dv.getUint32(p + 20, true);
+    const fnLen = dv.getUint16(p + 28, true), extraLen = dv.getUint16(p + 30, true), cmtLen = dv.getUint16(p + 32, true);
+    const localOff = dv.getUint32(p + 42, true);
+    const fname = dec.decode(bytes.subarray(p + 46, p + 46 + fnLen));
+    const match = (typeof name === 'string') ? (fname === name) : name.test(fname);
+    if (match) {
+      if (method !== 0 || dv.getUint32(localOff, true) !== 0x04034b50) return null;
+      const dataStart = localOff + 30 + dv.getUint16(localOff + 26, true) + dv.getUint16(localOff + 28, true);
+      return dec.decode(bytes.subarray(dataStart, dataStart + compSize));
+    }
+    p += 46 + fnLen + extraLen + cmtLen;
+  }
+  return null;
+}
+// Parse worksheet XML into a 2D array (rows[r][col]), placing cells by their A1 ref
+// so column positions match SheetJS's `header:1` output. Numbers stay numbers.
+function petpoojaRowsFromXml(xml) {
+  const doc = new DOMParser().parseFromString(xml, 'application/xml');
+  const rowEls = doc.getElementsByTagName('row');
+  const out = [];
+  const colOf = ref => { const m = /^([A-Z]+)/.exec(ref || ''); if (!m) return -1; let k = 0; for (let i = 0; i < m[1].length; i++) k = k * 26 + (m[1].charCodeAt(i) - 64); return k - 1; };
+  for (let i = 0; i < rowEls.length; i++) {
+    const rowEl = rowEls[i];
+    const rIdx = (parseInt(rowEl.getAttribute('r'), 10) || (i + 1)) - 1;
+    const arr = [];
+    const cells = rowEl.getElementsByTagName('c');
+    for (let j = 0; j < cells.length; j++) {
+      const c = cells[j], col = colOf(c.getAttribute('r'));
+      if (col < 0) continue;
+      const t = c.getAttribute('t');
+      let val = '';
+      if (t === 'inlineStr') {
+        const tEl = c.getElementsByTagName('t')[0]; val = tEl ? tEl.textContent : '';
+      } else {
+        const vEl = c.getElementsByTagName('v')[0];
+        if (vEl) { const n = Number(vEl.textContent); val = (t === 'str' || isNaN(n)) ? vEl.textContent : n; }
+      }
+      arr[col] = val;
+    }
+    out[rIdx] = arr;
+  }
+  return out;
 }
 function parsePetpooja(rows) {
   let from = '', to = '';
