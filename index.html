@@ -98,10 +98,11 @@
   .cards2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; align-items:stretch; }
   .cards2 .card { display:flex; flex-direction:column; min-width:0; }
   /* Manager's daily cash-action status (dashboard) */
-  .daily-status { display:flex; flex-direction:column; gap:8px; margin-bottom:18px; }
+  .daily-status { display:flex; flex-direction:column; gap:5px; margin-bottom:14px; }
   .daily-status:empty { display:none; }
-  .ds-row { display:flex; align-items:center; gap:10px; padding:11px 14px; border-radius:9px; border:1px solid; font-family:'Inter',sans-serif; font-size:11.5px; font-weight:600; letter-spacing:0.7px; text-transform:uppercase; line-height:1.35; }
-  .ds-ic { font-size:14px; line-height:1; flex-shrink:0; width:16px; text-align:center; }
+  .ds-row { display:flex; align-items:center; gap:7px; padding:6px 10px; border-radius:7px; border:1px solid; font-family:'Inter',sans-serif; font-size:9.5px; font-weight:600; letter-spacing:0.4px; text-transform:uppercase; line-height:1.2; white-space:nowrap; overflow:hidden; }
+  .ds-row .ds-tx { min-width:0; overflow:hidden; text-overflow:ellipsis; }
+  .ds-ic { font-size:11px; line-height:1; flex-shrink:0; width:13px; text-align:center; }
   .ds-done { color:var(--green); background:rgba(111,214,154,0.08); border-color:rgba(111,214,154,0.30); }
   .ds-pend { color:#C9A040; background:rgba(201,160,64,0.09); border-color:rgba(201,160,64,0.32); }
   .ds-over { color:var(--red); background:rgba(224,82,82,0.11); border-color:rgba(224,82,82,0.38); }
@@ -123,7 +124,10 @@
   .cap-invest.cap-collapsed .cap-body { display:none; }
   .cap-body { padding-top:2px; }
   .cap-total-val { font-family:'Inter',sans-serif; font-weight:400; font-size:26px; letter-spacing:-0.3px; font-variant-numeric:lining-nums tabular-nums; }
-  .cap-total-split { font-size:11px; color:var(--text3); font-family:'Inter',sans-serif; margin-top:5px; }
+  .cap-total-split { font-size:11px; color:var(--text3); font-family:'Inter',sans-serif; margin-top:8px; }
+  .cap-total-split .tsplit-l { font-size:14px; line-height:1.5; }
+  .cap-total-split .tsplit-l b { font-weight:600; }
+  .cap-row .cap-s .tsplit-l { font-size:10.5px; }
   .cap-rows { display:flex; flex-direction:column; margin-top:14px; }
   .cap-row { cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:14px; padding:13px 0; border-top:1px solid var(--border); }
   .cap-left { display:flex; flex-direction:column; gap:2px; min-width:0; }
@@ -147,6 +151,14 @@
   .card-value.green { color: var(--green); }
   .card-value.red { color: var(--red); }
   .card-value.gold { color: var(--accent2); }
+  /* Dashboard headline tiles — classy gradient backgrounds */
+  .tile-income { background:linear-gradient(140deg, rgba(27,122,74,0.30) 0%, rgba(111,214,154,0.05) 100%); border-color:rgba(111,214,154,0.36); }
+  .tile-exp    { background:linear-gradient(140deg, rgba(192,58,43,0.28) 0%, rgba(232,114,106,0.05) 100%); border-color:rgba(232,114,106,0.36); }
+  .tile-avail  { background:linear-gradient(140deg, rgba(37,99,178,0.28) 0%, rgba(77,157,224,0.05) 100%); border-color:rgba(77,157,224,0.36); }
+  .tile-disc   { background:linear-gradient(140deg, rgba(178,138,38,0.30) 0%, rgba(201,160,64,0.05) 100%); border-color:rgba(201,160,64,0.38); }
+  .tile-income .card-value, .tile-exp .card-value { font-size:30px; }
+  .tile-avail .card-value { color:#4d9de0; }
+  .tile-disc .card-value { color:var(--accent2); }
   .card-sub { font-size: 11px; color: var(--text3); margin-top: 5px; font-family: 'Inter', sans-serif; overflow: hidden; }
   .tsplit-l { font-size: 11px; color: var(--text2); font-family: 'Inter', sans-serif; line-height: 1.55; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tsplit-l b { font-weight: 500; color: var(--text); }
@@ -237,6 +249,7 @@
     .card { padding: 12px 13px; border-radius: 9px; }
     .card-label { font-size: 9.5px; letter-spacing: 0.4px; margin-bottom: 4px; }
     .card-value { font-size: 19px; }
+    .tile-income .card-value, .tile-exp .card-value { font-size: 23px; }
     .card-sub { font-size: 9.5px; margin-top: 3px; }
     .content { padding: 16px; }
     .header { padding: 13px 15px; gap: 8px 10px; }
@@ -409,6 +422,22 @@
 .setcard.collapsed .setcard-chev { transform:rotate(-90deg); }
 .setcard.collapsed .setcard-body { display:none; }
 .setcard-body { padding:2px 16px 16px; }
+/* Per-section accent tints — a distinct light colour per section so each is easy
+   to tell apart at a glance. Applies to both setcards and logcard "sections". */
+.tint-blue   { border-left:3px solid #4d9de0; }
+.tint-red    { border-left:3px solid #E8726A; }
+.tint-green  { border-left:3px solid #5FBE86; }
+.tint-gold   { border-left:3px solid #C9A040; }
+.tint-purple { border-left:3px solid #a78bfa; }
+.tint-teal   { border-left:3px solid #3fb0ac; }
+.tint-slate  { border-left:3px solid #8891a5; }
+.tint-blue   > .setcard-head, .tint-blue   > .logcard-head { background:rgba(77,157,224,0.07); }
+.tint-red    > .setcard-head, .tint-red    > .logcard-head { background:rgba(232,114,106,0.07); }
+.tint-green  > .setcard-head, .tint-green  > .logcard-head { background:rgba(95,190,134,0.08); }
+.tint-gold   > .setcard-head, .tint-gold   > .logcard-head { background:rgba(201,160,64,0.08); }
+.tint-purple > .setcard-head, .tint-purple > .logcard-head { background:rgba(167,139,250,0.08); }
+.tint-teal   > .setcard-head, .tint-teal   > .logcard-head { background:rgba(63,176,172,0.08); }
+.tint-slate  > .setcard-head, .tint-slate  > .logcard-head { background:rgba(136,145,165,0.08); }
 /* Expense-category editor rows */
 .cat-add { display:flex; gap:8px; margin-bottom:14px; }
 .cat-add .field-input { flex:1; min-width:0; }
@@ -554,7 +583,7 @@
   <div class="tab" data-panel="dashboard" data-cap="dashboard" onclick="showPanel('dashboard')"><svg class="tab-ic" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="8" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="11" width="7" height="10" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>Dashboard</div>
   <div class="tab" data-panel="entry" data-cap="cash" onclick="showPanel('entry')"><svg class="tab-ic" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v5M18 9.5v5"/></svg>Cash</div>
   <div class="tab" data-panel="bankexp" data-cap="bank" onclick="showPanel('bankexp')"><svg class="tab-ic" viewBox="0 0 24 24"><path d="M3.5 9.5 12 4l8.5 5.5"/><path d="M5 10.5v8M10 10.5v8M14 10.5v8M19 10.5v8"/><path d="M3.5 20.5h17"/></svg>Bank</div>
-  <div class="tab" data-panel="people" data-cap="people" onclick="showPanel('people')"><svg class="tab-ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M4.2 6.5l2.1 2.1M17.7 15.4l2.1 2.1M2.5 12h3M18.5 12h3M4.2 17.5l2.1-2.1M17.7 8.6l2.1-2.1"/></svg>Settings</div>
+  <div class="tab" data-panel="people" data-cap="people" onclick="showPanel('people')"><svg class="tab-ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</div>
 </div>
 
 <!-- ===================== DASHBOARD ===================== -->
@@ -727,7 +756,7 @@
   <div id="form-success"></div>
 
   <!-- SECTION 1: Date & Opening -->
-  <div class="setcard" id="setcard-cashopen">
+  <div class="setcard collapsed tint-blue" id="setcard-cashopen">
     <div class="setcard-head" onclick="toggleSet('cashopen')"><span class="setcard-title"><span class="step-num">1</span> Date &amp; Opening Balance</span><span class="setcard-chev">▾</span></div>
     <div class="setcard-body">
     <div style="margin-bottom:14px;">
@@ -747,7 +776,7 @@
   </div>
 
   <!-- SECTION 2: Expenses -->
-  <div class="setcard collapsed" id="setcard-cashexp">
+  <div class="setcard collapsed tint-red" id="setcard-cashexp">
     <div class="setcard-head" onclick="toggleSet('cashexp')"><span class="setcard-title"><span class="step-num">2</span> Cash Expenses</span><span class="setcard-chev">▾</span></div>
     <div class="setcard-body">
     <p class="exp-note">Add each cash purchase as it happens. Pick a category, write a description, enter the amount.</p>
@@ -757,11 +786,15 @@
       <span>Total Cash Expenses</span>
       <span id="total-expenses-display" class="exp-total-val">₹0</span>
     </div>
+    <button id="save-cashexp-btn" class="btn" style="width:100%; margin-top:16px; padding:13px; font-size:14px;" onclick="saveCashExpenses()">Save Cash Expenses ✓</button>
+    <div style="margin-top:9px; font-size:11px; color:var(--text3); text-align:center; font-family:'Inter',sans-serif; line-height:1.6;">
+      Save at end of day to lock in the day's cash expenses — this is the final total counted against the cash in hand. Stays saved if you close or refresh.
+    </div>
     </div>
   </div>
 
   <!-- SECTION 3: End-of-Day Sales -->
-  <div class="setcard collapsed" id="setcard-cashsales">
+  <div class="setcard collapsed tint-green" id="setcard-cashsales">
     <div class="setcard-head" onclick="toggleSet('cashsales')"><span class="setcard-title"><span class="step-num">3</span> End-of-Day Sales</span><span class="setcard-chev">▾</span></div>
     <div class="setcard-body">
     <p class="exp-note">Fill in at closing (~11 pm). UPI &amp; Card figures from your POS app.</p>
@@ -788,7 +821,7 @@
   </div>
 
   <!-- SECTION 4: Cash Verification -->
-  <div class="setcard collapsed" id="setcard-cashverify">
+  <div class="setcard collapsed tint-gold" id="setcard-cashverify">
     <div class="setcard-head" onclick="toggleSet('cashverify')"><span class="setcard-title"><span class="step-num">4</span> Cash Verification</span><span class="setcard-chev">▾</span></div>
     <div class="setcard-body">
     <div style="margin-bottom:4px;">
@@ -806,7 +839,7 @@
   </div>
 
   <!-- Pet Pooja income upload (manager or partners) -->
-  <div class="setcard collapsed" id="setcard-petpooja">
+  <div class="setcard collapsed tint-purple" id="setcard-petpooja">
     <div class="setcard-head" onclick="toggleSet('petpooja')"><span class="setcard-title"><span class="step-num"><svg class="hd-ic" viewBox="0 0 24 24"><path d="M4 20V4M4 20h16"/><path d="M7 15l3.5-4 3 2.5L20 7"/></svg></span> Pet Pooja Sales Report</span><span class="setcard-chev">▾</span></div>
     <div class="setcard-body">
     <p class="exp-note">Upload the Pet Pooja <b>Outlet Item-Wise report</b> (Excel or CSV) — this is the restaurant's income (all channels). Cover a day or a whole period; uploading an overlapping range is safe — overlap days keep the earlier report, so nothing double-counts. (Live API sync comes later.)</p>
@@ -819,7 +852,7 @@
   </div>
 
   <!-- Collapsible: your recent entries (editable) -->
-  <div class="logcard collapsed" id="logcard-entry" style="margin-top:8px;">
+  <div class="logcard collapsed tint-slate" id="logcard-entry" style="margin-top:8px;">
     <div class="logcard-head" onclick="toggleLog('entry')">
       <span class="logcard-title"><svg class="hd-ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg> Edit recent entries <span class="logcard-count" id="count-entry">0</span></span>
       <span class="logcard-chev" id="chev-entry">▾</span>
@@ -840,7 +873,7 @@
   <div id="bank-form-errors" style="display:none; background:rgba(224,82,82,0.1); border:1px solid rgba(224,82,82,0.3); border-radius:7px; padding:12px 14px; font-size:12px; color:var(--red); font-family:'Inter',sans-serif; margin-bottom:14px;"></div>
   <div id="bank-form-success" style="display:none; background:rgba(76,175,125,0.1); border:1px solid rgba(76,175,125,0.3); border-radius:7px; padding:14px; font-size:13px; color:var(--text); margin-bottom:14px;"></div>
 
-  <div class="setcard" id="setcard-bankexp">
+  <div class="setcard collapsed tint-red" id="setcard-bankexp">
     <div class="setcard-head" onclick="toggleSet('bankexp')"><span class="setcard-title">Add Bank / Account Expense</span><span class="setcard-chev">▾</span></div>
     <div class="setcard-body">
       <p class="exp-note">Real-time IDFC account debits &amp; transfers — the ~99% of spend that leaves the main account. Stamped with your name for the audit trail.</p>
@@ -854,7 +887,7 @@
     </div>
   </div>
 
-  <div class="setcard collapsed cap-section" id="setcard-capital">
+  <div class="setcard collapsed cap-section tint-green" id="setcard-capital">
     <div class="setcard-head" onclick="toggleSet('capital')"><span class="setcard-title">Partner Money In</span><span class="setcard-chev">▾</span></div>
     <div class="setcard-body">
       <div style="margin-bottom:12px;"><label class="field-label">Where did the money go?</label>
@@ -878,7 +911,7 @@
     </div>
   </div>
 
-  <div class="setcard collapsed" id="setcard-statement" style="display:none;">
+  <div class="setcard collapsed tint-slate" id="setcard-statement" style="display:none;">
     <div class="setcard-head" onclick="toggleSet('statement')"><span class="setcard-title">Weekly Statement Upload</span><span class="setcard-chev">▾</span></div>
     <div class="setcard-body">
       <p class="exp-note">Upload the IDFC statement <b>Excel (.xlsx)</b>, PDF or CSV (as you get it from net-banking) to auto-read every debit and set the true balance. Review the parsed rows before importing.</p>
@@ -894,7 +927,7 @@
   </div>
 
   <!-- Collapsible: your recent bank entries (editable / deletable) -->
-  <div class="logcard collapsed" id="logcard-bankrecent" style="margin-top:8px;">
+  <div class="logcard collapsed tint-slate" id="logcard-bankrecent" style="margin-top:8px;">
     <div class="logcard-head" onclick="toggleLog('bankrecent')">
       <span class="logcard-title"><svg class="hd-ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg> Edit recent entries <span class="logcard-count" id="count-bankrecent">0</span></span>
       <span class="logcard-chev" id="chev-bankrecent">▾</span>
@@ -916,7 +949,7 @@
   <div id="people-msg" style="display:none; border-radius:7px; padding:10px 12px; font-size:12px; font-family:'Inter',sans-serif; margin-bottom:14px;"></div>
 
   <!-- Add / edit a person -->
-  <div class="setcard collapsed" id="setcard-addperson">
+  <div class="setcard collapsed tint-blue" id="setcard-addperson">
     <div class="setcard-head" onclick="toggleSet('addperson')"><span class="setcard-title">Add Person</span><span class="setcard-chev">▾</span></div>
     <div class="setcard-body">
       <p class="exp-note">Add partners, managers or staff. Each person gets their own PIN, so every entry they make is tagged to them for the audit trail.</p>
@@ -931,7 +964,7 @@
   </div>
 
   <!-- People & access -->
-  <div class="setcard" id="setcard-people">
+  <div class="setcard collapsed tint-teal" id="setcard-people">
     <div class="setcard-head" onclick="toggleSet('people')"><span class="setcard-title">People &amp; Access</span><span class="setcard-chev">▾</span></div>
     <div class="setcard-body">
       <div id="people-list"></div>
@@ -946,7 +979,7 @@
   </div>
 
   <!-- Expense categories -->
-  <div class="setcard collapsed" id="setcard-cats">
+  <div class="setcard collapsed tint-gold" id="setcard-cats">
     <div class="setcard-head" onclick="toggleSet('cats')"><span class="setcard-title">Expense Categories</span><span class="setcard-chev">▾</span></div>
     <div class="setcard-body">
       <p class="exp-note">These are the categories shown when adding cash or bank expenses. Add, rename or remove them here — changes sync to every device.</p>
@@ -959,7 +992,7 @@
   </div>
 
   <!-- Historical data -->
-  <div class="setcard collapsed" id="setcard-hist">
+  <div class="setcard collapsed tint-slate" id="setcard-hist">
     <div class="setcard-head" onclick="toggleSet('hist')"><span class="setcard-title">Historical Data</span><span class="setcard-chev">▾</span></div>
     <div class="setcard-body">
       <p class="exp-note">One-time: load the <b>Mar–Apr 2026</b> cash register and IDFC bank expenses (from the original statement) so the Dashboard shows real numbers. Safe to tap once — it just rewrites the same records if run again.</p>
@@ -1438,7 +1471,13 @@ function toggleLog(key) {
   const card = document.getElementById('logcard-' + key);
   if (!card) return;
   const willOpen = card.classList.contains('collapsed');
-  if (willOpen) collapseOtherLogs(key);
+  if (willOpen) {
+    collapseOtherLogs(key);
+    // On the Cash/Bank/Settings tabs, also collapse any open setcard so only
+    // one section is expanded at a time.
+    const panel = card.closest('.panel');
+    if (panel) panel.querySelectorAll('.setcard').forEach(o => o.classList.add('collapsed'));
+  }
   card.classList.toggle('collapsed');
 }
 function filterLog(key) {
@@ -2048,6 +2087,51 @@ function saveSales() {
   if (document.getElementById('panel-dashboard') && document.getElementById('panel-dashboard').classList.contains('active')) renderDashboard();
 }
 
+// Save the day's cash expenses straight away (final end-of-day total), so they
+// survive a refresh and are locked in as the expenses counted against the cash
+// in hand. Merges into the same one-per-day record; the day stays `partial`
+// (projected cash in hand = opening + cash − cash expenses) until the real cash
+// count is submitted in step 4.
+function saveCashExpenses() {
+  const date   = document.getElementById('entry-date').value;
+  const errBox = document.getElementById('form-errors');
+  if (!date) {
+    errBox.innerHTML = '<div>⚠ Date is required</div>'; errBox.style.display = 'block';
+    errBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); return;
+  }
+  errBox.style.display = 'none';
+
+  const me = currentUser ? currentUser.name : '';
+  const existing = loadEntries().find(e => e.date === date);
+  const opening = money('f-opening') || (existing ? existing.opening : 0) || 0;
+  const filled = expenseRows.filter(r => r.amount && parseFloat(r.amount) > 0);
+  const totalExpenses = filled.reduce((s, r) => s + parseFloat(r.amount), 0);
+  let rec;
+  if (existing && !existing.partial) {
+    // A fully-submitted day already exists — update its expenses, keep the rest.
+    rec = Object.assign({}, existing, { expenses: filled, totalExpenses, editedBy: me, editedAt: new Date().toLocaleString('en-IN') });
+  } else {
+    const base = existing || {};
+    const cash = money('f-cash') || base.cash || 0;
+    rec = {
+      date, opening,
+      cash, upi: money('f-upi') || base.upi || 0, card: money('f-card') || base.card || 0,
+      totalSales: (money('f-cash') || base.cash || 0) + (money('f-upi') || base.upi || 0) + (money('f-card') || base.card || 0),
+      expenses: filled, totalExpenses,
+      closing: opening + cash - totalExpenses,   // projected cash in hand until the real count
+      partial: true,
+      addedBy: base.addedBy || me,
+      submittedAt: base.submittedAt || new Date().toLocaleString('en-IN')
+    };
+    if (existing) { rec.editedBy = me; rec.editedAt = new Date().toLocaleString('en-IN'); }
+  }
+  saveEntry(rec);
+  _editingEntry = rec;
+  btnFlash('save-cashexp-btn', 'Saving…', 'Saved ✓', 'Save Cash Expenses ✓');
+  renderEntryRecent();
+  if (document.getElementById('panel-dashboard') && document.getElementById('panel-dashboard').classList.contains('active')) renderDashboard();
+}
+
 // On reopening/refreshing, pull the day's saved entry back into the form so the
 // manager sees their opening (and any progress) is still there. Non-destructive:
 // won't overwrite something already typed unless `force` is set.
@@ -2236,17 +2320,17 @@ function renderDailyStatus() {
     const cls = done ? 'ds-done' : overdue ? 'ds-over' : 'ds-pend';
     const ic  = done ? '✓' : overdue ? '⚠' : 'ⓘ';
     const txt = done ? doneText : overdue ? overText : pendText;
-    return `<div class="ds-row ${cls}"><span class="ds-ic">${ic}</span><span>${txt}</span></div>`;
+    return `<div class="ds-row ${cls}"><span class="ds-ic">${ic}</span><span class="ds-tx">${txt}</span></div>`;
   };
   el.innerHTML =
     line(openingDone, mins >= OPEN_DEADLINE,
       'OPENING CASH ADDED FOR TODAY',
       'OPENING CASH YET TO BE ADDED',
-      'OPENING CASH NOT ADDED — OVERDUE (BY 12 PM)') +
+      'OPENING CASH NOT ADDED — OVERDUE (12 PM)') +
     line(closingDone, mins >= CLOSE_DEADLINE,
       'CLOSING CASH UPDATED FOR TODAY',
       'CLOSING CASH YET TO BE UPDATED',
-      'CLOSING CASH NOT UPDATED — OVERDUE (BY 11:45 PM)');
+      'CLOSING CASH NOT UPDATED — OVERDUE (11:45 PM)');
 }
 
 function renderDashboard() {
@@ -3052,8 +3136,8 @@ function renderPnlBank() {
   const sEl = document.getElementById('pnl-summary');
   if (sEl) sEl.innerHTML = `
     <div class="cards2">
-      <div class="card card-click" onclick="focusLog('sales')"><div class="card-label">Income (Sales)</div><div class="card-value green">${inr(income)}</div><div class="card-sub">${regTot ? splitBox([{k:'UPI/Card',v:incNon},{k:'Cash',v:incCash}], income) : ''}</div></div>
-      <div class="card card-click" onclick="focusLog('expcat')"><div class="card-label">Expenses</div><div class="card-value red">${inr(totalExp)}</div><div class="card-sub">${splitBox([{k:'Bank',v:bankExp},{k:'Cash',v:cashExp},{k:'Direct',v:ledgerOpex}], totalExp)}</div></div>
+      <div class="card card-click tile-income" onclick="focusLog('sales')"><div class="card-label">Income (Sales)</div><div class="card-value green">${inr(income)}</div><div class="card-sub">${regTot ? splitBox([{k:'UPI/Card',v:incNon},{k:'Cash',v:incCash}], income) : ''}</div></div>
+      <div class="card card-click tile-exp" onclick="focusLog('expcat')"><div class="card-label">Expenses</div><div class="card-value red">${inr(totalExp)}</div><div class="card-sub">${splitBox([{k:'Bank',v:bankExp},{k:'Cash',v:cashExp},{k:'Direct',v:ledgerOpex}], totalExp)}</div></div>
     </div>
     <div class="pnl-hero">
       <div class="card-label">Net Profit / Loss</div>
@@ -3061,8 +3145,8 @@ function renderPnlBank() {
       <div class="card-sub">Income ${inr(income)} − expenses ${inr(totalExp)}</div>
     </div>
     <div class="cards2">
-      <div class="card card-click" onclick="focusLog('bank')"><div class="card-label">Available Balance</div><div class="card-value green">${inr(available)}</div><div class="card-sub">${splitBox([{k:'Bank',v:bankBal||0},{k:'Cash',v:cashBal}], available)}</div></div>
-      <div class="card card-click" onclick="focusLog('sales')"><div class="card-label">Discounts &amp; Comps</div><div class="card-value">${inr(discount)}</div><div class="card-sub">${discPct ? discPct.trim() : 'From Pet Pooja'}</div></div>
+      <div class="card card-click tile-avail" onclick="focusLog('bank')"><div class="card-label">Available Balance</div><div class="card-value">${inr(available)}</div><div class="card-sub">${splitBox([{k:'Bank',v:bankBal||0},{k:'Cash',v:cashBal}], available)}</div></div>
+      <div class="card card-click tile-disc" onclick="focusLog('sales')"><div class="card-label">Discounts &amp; Comps</div><div class="card-value">${inr(discount)}</div><div class="card-sub">${discPct ? discPct.trim() : 'From Pet Pooja'}</div></div>
     </div>
     <div class="pnl-divider"><span>Capital &amp; investment</span></div>
     <div class="card cap-invest ${_capCollapsed ? 'cap-collapsed' : ''}" id="cap-card">
@@ -4270,10 +4354,14 @@ function removePerson(id) {
 function toggleSet(key) {
   const c = document.getElementById('setcard-' + key);
   if (!c) return;
-  // Accordion: opening one card collapses the others in the same tab.
+  // Accordion: opening one section collapses every other section in the same
+  // tab — both setcards and logcards — so only one is ever open at a time.
   if (c.classList.contains('collapsed')) {
     const panel = c.closest('.panel');
-    if (panel) panel.querySelectorAll('.setcard').forEach(o => { if (o !== c) o.classList.add('collapsed'); });
+    if (panel) {
+      panel.querySelectorAll('.setcard').forEach(o => { if (o !== c) o.classList.add('collapsed'); });
+      panel.querySelectorAll('.logcard').forEach(o => o.classList.add('collapsed'));
+    }
   }
   c.classList.toggle('collapsed');
 }
