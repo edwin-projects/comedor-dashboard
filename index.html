@@ -1459,9 +1459,14 @@ function monthLabelFromKey(k) {
   const p = String(k || '').split('-'); if (p.length < 2) return k || '';
   return new Date(Number(p[0]), Number(p[1]) - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
 }
+// Accordion: only one month open at a time within a list. Opening a month first
+// collapses its siblings; tapping an open month just closes it.
 function toggleMonth(headEl) {
   const b = headEl.closest ? headEl.closest('.month-block') : null;
-  if (b) b.classList.toggle('collapsed');
+  if (!b) return;
+  const willOpen = b.classList.contains('collapsed');
+  if (willOpen && b.parentNode) b.parentNode.querySelectorAll('.month-block').forEach(x => x.classList.add('collapsed'));
+  b.classList.toggle('collapsed');
 }
 function renderMonthlyGrouped(entries, tableStyle, theadHTML, rowFn, keyFn) {
   const groups = [], idx = {};
@@ -1470,8 +1475,9 @@ function renderMonthlyGrouped(entries, tableStyle, theadHTML, rowFn, keyFn) {
     if (idx[k] === undefined) { idx[k] = groups.length; groups.push({ k: k, items: [] }); }
     groups[idx[k]].items.push(e);
   });
-  const body = groups.map((g, gi) => `
-    <div class="month-block${gi === 0 ? '' : ' collapsed'}" data-month="${g.k}">
+  // Every month starts collapsed — the user opens one at a time.
+  const body = groups.map(g => `
+    <div class="month-block collapsed" data-month="${g.k}">
       <div class="month-head" onclick="toggleMonth(this)"><span>${esc(monthLabelFromKey(g.k))} <span class="month-count">· ${g.items.length}</span></span><span class="mh-chev">▾</span></div>
       <div class="month-rows"><table style="${tableStyle}"><thead>${theadHTML}</thead><tbody>${g.items.map(rowFn).join('')}</tbody></table></div>
     </div>`).join('');
@@ -2490,20 +2496,19 @@ function renderEntryRecent() {
   if (countEl) countEl.textContent = mine.length + (mine.length === 1 ? ' entry' : ' entries');
   if (!mine.length) { wrap.innerHTML = '<div class="log-empty">No entries yet. Your saved days will appear here to edit.</div>'; return; }
   const inr = n => '₹' + Number(n || 0).toLocaleString('en-IN');
-  const thead = `<tr><th>Date</th><th class="num">Sales ₹</th><th class="num">Expenses ₹</th><th class="num">Closing ₹</th><th>By</th><th></th></tr>`;
+  const thead = `<tr><th style="width:50px;">Date</th><th>Sales · exp</th><th class="num" style="width:70px;">Close ₹</th><th style="width:92px;"></th></tr>`;
   const rowFn = e => {
     const d = new Date(e.date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short' });
-    const openTag = e.partial ? ' <span style="display:inline-block;font-size:9px;letter-spacing:.04em;text-transform:uppercase;padding:1px 5px;border-radius:4px;background:rgba(212,175,55,0.18);color:#caa63a;vertical-align:middle;">Open</span>' : '';
+    const openTag = e.partial ? ' <span style="display:inline-block;font-size:9px;letter-spacing:.04em;text-transform:uppercase;padding:1px 4px;border-radius:4px;background:rgba(212,175,55,0.18);color:#caa63a;vertical-align:middle;">Open</span>' : '';
+    const sub = `Sales ${inr(e.totalSales)}${(e.totalExpenses > 0) ? ` · <span class="red-text">Exp ${inr(e.totalExpenses)}</span>` : ''}${e.addedBy ? ` · ${esc(e.addedBy)}${e.editedBy ? ' ✎' : ''}` : ''}`;
     return `<tr>
       <td style="white-space:nowrap;">${d}${openTag}</td>
-      <td class="num">${inr(e.totalSales)}</td>
-      <td class="num red-text">${inr(e.totalExpenses)}</td>
-      <td class="num">${inr(e.closing)}</td>
-      <td style="font-size:11px;color:var(--text2);white-space:nowrap;">${(e.addedBy || '—')}${e.editedBy ? ' ✎' : ''}</td>
-      <td style="white-space:nowrap;"><div style="display:flex;gap:5px;"><button class="cat-act cat-edit" style="padding:3px 7px;font-size:11px;" onclick="editEntry('${e.date}')">Edit</button><button class="cat-act cat-del" style="padding:3px 7px;font-size:11px;" onclick="deleteEntry('${e.date}')">Del</button></div></td>
+      <td style="font-size:12px;"><div style="color:var(--text3);font-size:11px;">${sub}</div></td>
+      <td class="num" style="white-space:nowrap;">${inr(e.closing)}</td>
+      <td style="padding-left:4px;padding-right:6px;"><div style="display:flex;gap:5px;justify-content:flex-end;"><button class="cat-act cat-edit" style="padding:3px 7px;font-size:11px;" onclick="editEntry('${e.date}')">Edit</button><button class="cat-act cat-del" style="padding:3px 7px;font-size:11px;" onclick="deleteEntry('${e.date}')">Del</button></div></td>
     </tr>`;
   };
-  wrap.innerHTML = renderMonthlyGrouped(mine, '', thead, rowFn, e => e.date);
+  wrap.innerHTML = renderMonthlyGrouped(mine, 'width:100%;table-layout:fixed;', thead, rowFn, e => e.date);
   reapplyLogFilter('entry');
 }
 
