@@ -4427,6 +4427,12 @@ const HIST_INCOME_DAILY=[{"from":"2026-03-03","to":"2026-03-03","gross":1827.0,"
 // anything a device already saved (a real entry for a date always wins).
 // Latest IDFC closing balance (statement of 1–7 Jul 2026).
 const LATEST_BANKBAL={amount:526091.98,asOf:'7 Jul 2026',asOfISO:'2026-07-07',by:'IDFC statement'};
+// July 1–7 2026 IDFC debits (bank expenses). Two RAMU PRADHAN payments (₹3,000
+// each) that were stopped/reversed and credited straight back are excluded — they
+// weren't real expenses. All are dated on/before the 7 Jul statement balance, so
+// they show up as expenses in the P&L but are NOT re-subtracted from the balance
+// (rule 6: entries on/before the statement date are already baked into the base).
+const HIST_BANK_JULY=[{"id":"idfc_185","date":"2026-07-02","amount":3000.0,"category":"Salaries","desc":"NEFT/IDFB6183M6906298/MANOTOSH MANDAL/KKBK0000958/COMEDOR advance june26","capital":false,"addedBy":"Backfill · IDFC","at":"Jul 2026"},{"id":"idfc_186","date":"2026-07-02","amount":5000.0,"category":"Salaries","desc":"NEFT/IDFB6183M6906300/ARUN DAS/HDFC0000060/COMEDOR advance june26","capital":false,"addedBy":"Backfill · IDFC","at":"Jul 2026"},{"id":"idfc_187","date":"2026-07-02","amount":10000.0,"category":"Salaries","desc":"NEFT/IDFB6183M6906299/RIYAJ MOLLA/KKBK0001368/COMEDOR advance june26","capital":false,"addedBy":"Backfill · IDFC","at":"Jul 2026"},{"id":"idfc_188","date":"2026-07-02","amount":5000.0,"category":"Salaries","desc":"NEFT/IDFB6183M6906301/SAJID MONDAL/KKBK0001368/COMEDOR advance june26","capital":false,"addedBy":"Backfill · IDFC","at":"Jul 2026"},{"id":"idfc_189","date":"2026-07-02","amount":1000.0,"category":"Salaries","desc":"NEFT/IDFB6183M6906296/UDAY CHAKRABORTY/HDFC0000060/COMEDOR advance june26","capital":false,"addedBy":"Backfill · IDFC","at":"Jul 2026"},{"id":"idfc_190","date":"2026-07-02","amount":4000.0,"category":"Salaries","desc":"NEFT/IDFB6183M6906297/RAKHIBUL BISWAS/BKID0000098/COMEDOR advance june26","capital":false,"addedBy":"Backfill · IDFC","at":"Jul 2026"},{"id":"idfc_191","date":"2026-07-02","amount":10000.0,"category":"Salaries","desc":"NEFT/IDFB6183M6906294/ROHIT/PUNB0006200/COMEDOR advance june26","capital":false,"addedBy":"Backfill · IDFC","at":"Jul 2026"},{"id":"idfc_192","date":"2026-07-02","amount":8700.0,"category":"Vendor / Other","desc":"IMPS-OPM/618313062597/GAAEAWELLBEING PRIVATE LIMITED/ICIC0000004/9351/Comedor020","capital":false,"addedBy":"Backfill · IDFC","at":"Jul 2026"},{"id":"idfc_193","date":"2026-07-02","amount":8900.0,"category":"Vendor / Other","desc":"IMPS-OPM/618313064283/GAAEAWELLBEING PRIVATE LIMITED/ICIC0000004/9351/Comedor027","capital":false,"addedBy":"Backfill · IDFC","at":"Jul 2026"},{"id":"idfc_194","date":"2026-07-02","amount":18312.0,"category":"Ingredients","desc":"IMPS-OPM/618317452216/CROWN EDIBLES/ICIC0000004/0527/COMEDOR","capital":false,"addedBy":"Backfill · IDFC","at":"Jul 2026"},{"id":"idfc_195","date":"2026-07-02","amount":3000.0,"category":"Salaries","desc":"IMPS-OPM/618323923018/ROHIT THAPA/CNRB0000205/0107/Comedoradvancejune26","capital":false,"addedBy":"Backfill · IDFC","at":"Jul 2026"},{"id":"idfc_196","date":"2026-07-03","amount":7500.0,"category":"Vendor / Other","desc":"IMPS-OPM/618412377945/NATULIX INDIA MARKETING/KKBK0001368/0345/Comedor926","capital":false,"addedBy":"Backfill · IDFC","at":"Jul 2026"},{"id":"idfc_197","date":"2026-07-04","amount":20680.0,"category":"Ingredients","desc":"IMPS-OPM/618510422720/GREENLEAF COMPANY/HDFC0000060/6055/Comedor","capital":false,"addedBy":"Backfill · IDFC","at":"Jul 2026"},{"id":"idfc_198","date":"2026-07-04","amount":20000.0,"category":"Ingredients","desc":"IMPS-OPM/618516899086/GREEN APRON/ICIC0000004/2114/Comedormushrooms","capital":false,"addedBy":"Backfill · IDFC","at":"Jul 2026"},{"id":"idfc_199","date":"2026-07-06","amount":3600.0,"category":"Vendor / Other","desc":"IMPS-OPM/618714897179/SOHAIL/UBIN0558923/4668/Gstfilingsaprilmay26 (GST filing fee)","capital":false,"addedBy":"Backfill · IDFC","at":"Jul 2026"},{"id":"idfc_200","date":"2026-07-06","amount":171000.0,"category":"Rent","desc":"IMPS-OPM/618714898281/RAMYA S/HDFC0000060/0167/Comedorrentals","capital":false,"addedBy":"Backfill · IDFC","at":"Jul 2026"},{"id":"idfc_201","date":"2026-07-06","amount":2207.0,"category":"Vendor / Other","desc":"IMPS-OPM/618722563524/MAHIDUL ISLAM SEKH/CNRB0000791/2049/Jackfruitandwifi","capital":false,"addedBy":"Backfill · IDFC","at":"Jul 2026"}];
 function seedHistoricalCashBook(){
   if(!_db)return;
   // Advance the statement balance to the latest IDFC closing, but only when the
@@ -4439,6 +4445,12 @@ function seedHistoricalCashBook(){
     var k=e.date.replace(/-/g,'_');
     _db.ref('comedor/entries/'+k).once('value').then(function(s){
       if(!s.exists())_db.ref('comedor/entries/'+k).set(e).catch(function(){});
+    }).catch(function(){});
+  });
+  // July 1–7 IDFC bank expenses — seed each once, never clobbering a real entry.
+  HIST_BANK_JULY.forEach(function(b){
+    _db.ref('comedor/bank_expenses/'+b.id).once('value').then(function(s){
+      if(!s.exists())_db.ref('comedor/bank_expenses/'+b.id).set(b).catch(function(){});
     }).catch(function(){});
   });
   // Income = exact per-day Pet Pooja records (net of discount, matching Pet
@@ -4464,17 +4476,17 @@ function importHistorical() {
     if (String(x.addedBy || '').indexOf('Backfill') === 0) { if (_db) _db.ref('comedor/bank_expenses/' + x.id).remove().catch(function(){}); return; }
     mapB[x.id] = x;
   });
-  HIST_BANK.forEach(function (b) { mapB[b.id] = b; if (_db) _db.ref('comedor/bank_expenses/' + b.id).set(b).catch(function(){}); });
+  HIST_BANK.concat(HIST_BANK_JULY).forEach(function (b) { mapB[b.id] = b; if (_db) _db.ref('comedor/bank_expenses/' + b.id).set(b).catch(function(){}); });
   localStorage.setItem('comedor_bank', JSON.stringify(Object.values(mapB)));
   var mapI = {}; (JSON.parse(localStorage.getItem('comedor_income') || '[]')).forEach(function (x) { mapI[x.id] = x; });
   HIST_INCOME.forEach(function (r) { mapI[r.id] = r; if (_db) _db.ref('comedor/income/' + r.id).set(r).catch(function(){}); });
   localStorage.setItem('comedor_income', JSON.stringify(Object.values(mapI)));
-  localStorage.setItem('comedor_bankbal', JSON.stringify(HIST_BANKBAL));
-  if (_db) _db.ref('comedor/meta/bankBalance').set(HIST_BANKBAL).catch(function(){});
+  localStorage.setItem('comedor_bankbal', JSON.stringify(LATEST_BANKBAL));
+  if (_db) _db.ref('comedor/meta/bankBalance').set(LATEST_BANKBAL).catch(function(){});
   currentDashFilter = 'ytd';
   document.querySelectorAll('.dfbtn').forEach(function (b) { b.classList.toggle('active', /YTD/i.test(b.textContent)); });
   if (document.getElementById('panel-dashboard')) renderDashboard();
-  alert('Loaded ' + HIST_BANK.length + ' bank expenses (Mar\u2013Jun) + the 30 Jun closing balance of \u20b95,28,537. Dashboard is set to YTD.');
+  alert('Loaded ' + (HIST_BANK.length + HIST_BANK_JULY.length) + ' bank expenses (Mar\u2013Jul) + the 7 Jul closing balance of \u20b95,26,092. Dashboard is set to YTD.');
 }
 
 // ─── THEME ───────────────────────────────────────────────────────────────────
