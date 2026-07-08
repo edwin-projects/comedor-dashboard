@@ -107,6 +107,9 @@
   .ds-pend { color:#C9A040; background:rgba(201,160,64,0.09); border-color:rgba(201,160,64,0.32); }
   .ds-over { color:var(--red); background:rgba(224,82,82,0.11); border-color:rgba(224,82,82,0.38); }
   .pnl-hero { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px 18px 22px; margin-bottom:12px; text-align:center; }
+  /* Net P/L hero — classy green/red gradient keyed to the sign of the figure. */
+  .pnl-hero.hero-pos { background:linear-gradient(140deg, rgba(27,122,74,0.30) 0%, rgba(111,214,154,0.05) 100%); border-color:rgba(111,214,154,0.36); }
+  .pnl-hero.hero-neg { background:linear-gradient(140deg, rgba(192,58,43,0.28) 0%, rgba(232,114,106,0.05) 100%); border-color:rgba(232,114,106,0.36); }
   .pnl-hero .card-value { font-size:40px; margin-top:4px; }
   /* Centre only the digits of the P/L; the ₹ and minus hang just to the left. */
   .pnl-hero .card-value .cv-fig { position:relative; display:inline-block; }
@@ -3139,7 +3142,7 @@ function renderPnlBank() {
       <div class="card card-click tile-income" onclick="focusLog('sales')"><div class="card-label">Income (Sales)</div><div class="card-value green">${inr(income)}</div><div class="card-sub">${regTot ? splitBox([{k:'UPI/Card',v:incNon},{k:'Cash',v:incCash}], income) : ''}</div></div>
       <div class="card card-click tile-exp" onclick="focusLog('expcat')"><div class="card-label">Expenses</div><div class="card-value red">${inr(totalExp)}</div><div class="card-sub">${splitBox([{k:'Bank',v:bankExp},{k:'Cash',v:cashExp},{k:'Direct',v:ledgerOpex}], totalExp)}</div></div>
     </div>
-    <div class="pnl-hero">
+    <div class="pnl-hero ${net >= 0 ? 'hero-pos' : 'hero-neg'}">
       <div class="card-label">Net Profit / Loss</div>
       <div class="card-value ${net >= 0 ? 'green' : 'red'}">${heroNet}</div>
       <div class="card-sub">Income ${inr(income)} − expenses ${inr(totalExp)}</div>
