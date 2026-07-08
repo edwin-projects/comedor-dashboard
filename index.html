@@ -361,6 +361,20 @@
 .log-scroll thead th { position: sticky; top: 0; z-index: 2; padding: 9px 11px; }
 .log-scroll tbody td { padding: 9px 11px; }
 .log-empty { padding: 22px 16px; color: var(--text3); font-family: 'Inter', sans-serif; font-size: 12.5px; text-align: center; }
+/* Month-grouped, collapsible entry lists (Edit recent entries) */
+.month-block { border: 1px solid var(--border); border-radius: 9px; margin-bottom: 8px; overflow: hidden; background: var(--surface); }
+.month-block:last-child { margin-bottom: 0; }
+.month-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 13px; cursor: pointer; user-select: none; background: var(--surface2); font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; color: var(--text2); }
+.month-head:hover { color: var(--text); }
+.month-head .mh-chev { color: var(--text3); font-size: 12px; transition: transform 0.2s; }
+.month-count { color: var(--text3); font-weight: 500; }
+.month-block.collapsed .month-rows { display: none; }
+.month-block.collapsed .mh-chev { transform: rotate(-90deg); }
+.month-rows table { width: 100%; }
+.log-scroll .month-rows thead th { position: static; }
+/* Highlighted "where did the money go?" destination select */
+.field-select.dest-highlight { border: 1.5px solid #C9A040; background: rgba(201,160,64,0.10); box-shadow: 0 0 0 3px rgba(201,160,64,0.10); }
+.field-select.dest-highlight:focus { border-color: #C9A040; }
 /* Sales-by-category accordion */
 .sc-list { display: flex; flex-direction: column; }
 .sc-cat { border-bottom: 1px solid var(--border); }
@@ -793,7 +807,7 @@
   <!-- Collapsible: your recent entries (editable) -->
   <div class="logcard collapsed" id="logcard-entry" style="margin-top:8px;">
     <div class="logcard-head" onclick="toggleLog('entry')">
-      <span class="logcard-title"><svg class="hd-ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg> Recent entries you can edit <span class="logcard-count" id="count-entry">0</span></span>
+      <span class="logcard-title"><svg class="hd-ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg> Edit recent entries <span class="logcard-count" id="count-entry">0</span></span>
       <span class="logcard-chev" id="chev-entry">▾</span>
     </div>
     <div class="logcard-body">
@@ -830,9 +844,9 @@
     <div class="setcard-head" onclick="toggleSet('capital')"><span class="setcard-title">Partner Money In</span><span class="setcard-chev">▾</span></div>
     <div class="setcard-body">
       <div style="margin-bottom:12px;"><label class="field-label">Where did the money go?</label>
-        <select id="cap-dest" class="field-select" onchange="onCapDestChange()">
-          <option value="bank">Into the IDFC account — capital infusion</option>
-          <option value="direct">Paid a vendor directly — counts as an expense</option>
+        <select id="cap-dest" class="field-select dest-highlight" onchange="onCapDestChange()">
+          <option value="bank" selected>INTO IDFC A/C — CAPITAL INFUSION</option>
+          <option value="direct">PAID A VENDOR DIRECTLY — AN EXPENSE</option>
         </select>
       </div>
       <p class="exp-note" id="cap-note">Money the partners put <b>into</b> the IDFC account — e.g. moving a matured capital bond in. This is <b>not an expense</b>: it lifts the bank balance &amp; the partner's capital, and never touches the P&amp;L.</p>
@@ -850,7 +864,7 @@
     </div>
   </div>
 
-  <div class="setcard collapsed" id="setcard-statement">
+  <div class="setcard collapsed" id="setcard-statement" style="display:none;">
     <div class="setcard-head" onclick="toggleSet('statement')"><span class="setcard-title">Weekly Statement Upload</span><span class="setcard-chev">▾</span></div>
     <div class="setcard-body">
       <p class="exp-note">Upload the IDFC statement <b>Excel (.xlsx)</b>, PDF or CSV (as you get it from net-banking) to auto-read every debit and set the true balance. Review the parsed rows before importing.</p>
@@ -868,7 +882,7 @@
   <!-- Collapsible: your recent bank entries (editable / deletable) -->
   <div class="logcard collapsed" id="logcard-bankrecent" style="margin-top:8px;">
     <div class="logcard-head" onclick="toggleLog('bankrecent')">
-      <span class="logcard-title"><svg class="hd-ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg> Recent bank entries you can edit <span class="logcard-count" id="count-bankrecent">0</span></span>
+      <span class="logcard-title"><svg class="hd-ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg> Edit recent entries <span class="logcard-count" id="count-bankrecent">0</span></span>
       <span class="logcard-chev" id="chev-bankrecent">▾</span>
     </div>
     <div class="logcard-body">
@@ -1419,11 +1433,49 @@ function filterLog(key) {
   const wrap = document.getElementById(wrapId);
   if (!input || !wrap) return;
   const q = (input.value || '').trim().toLowerCase();
+  const monthly = (key === 'entry' || key === 'bankrecent');   // month-grouped, collapsible lists
+  if (monthly && !q) {                                          // cleared search → restore default month grouping
+    if (key === 'entry') renderEntryRecent(); else renderBankRecent();
+    return;
+  }
+  if (monthly) wrap.querySelectorAll('.month-block').forEach(mb => { mb.style.display = ''; mb.classList.remove('collapsed'); });
   wrap.querySelectorAll('tbody tr').forEach(tr => {
     if (tr.classList.contains('log-total')) return;      // always keep the totals row
     tr.style.display = (!q || tr.textContent.toLowerCase().includes(q)) ? '' : 'none';
   });
+  if (monthly && q) {                                          // hide months with no matching rows
+    wrap.querySelectorAll('.month-block').forEach(mb => {
+      const anyVisible = Array.from(mb.querySelectorAll('tbody tr')).some(tr => tr.style.display !== 'none');
+      mb.style.display = anyVisible ? '' : 'none';
+    });
+  }
   if (key === 'cash') updateClearBtn('dcash');
+}
+
+// Group a date-sorted (desc) list into collapsible month blocks. The latest month
+// starts open, older ones collapsed. rowFn(entry) returns a <tr>; keyFn(entry) the
+// entry's ISO date. Used by the "Edit recent entries" lists on Cash & Bank.
+function monthLabelFromKey(k) {
+  const p = String(k || '').split('-'); if (p.length < 2) return k || '';
+  return new Date(Number(p[0]), Number(p[1]) - 1, 1).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+}
+function toggleMonth(headEl) {
+  const b = headEl.closest ? headEl.closest('.month-block') : null;
+  if (b) b.classList.toggle('collapsed');
+}
+function renderMonthlyGrouped(entries, tableStyle, theadHTML, rowFn, keyFn) {
+  const groups = [], idx = {};
+  entries.forEach(e => {
+    const k = String(keyFn(e) || '').slice(0, 7);
+    if (idx[k] === undefined) { idx[k] = groups.length; groups.push({ k: k, items: [] }); }
+    groups[idx[k]].items.push(e);
+  });
+  const body = groups.map((g, gi) => `
+    <div class="month-block${gi === 0 ? '' : ' collapsed'}" data-month="${g.k}">
+      <div class="month-head" onclick="toggleMonth(this)"><span>${esc(monthLabelFromKey(g.k))} <span class="month-count">· ${g.items.length}</span></span><span class="mh-chev">▾</span></div>
+      <div class="month-rows"><table style="${tableStyle}"><thead>${theadHTML}</thead><tbody>${g.items.map(rowFn).join('')}</tbody></table></div>
+    </div>`).join('');
+  return `<div style="padding:8px;">${body}</div>`;
 }
 function reapplyLogFilter(key) {
   const input = document.getElementById('search-' + key);
@@ -2434,26 +2486,24 @@ function renderEntryRecent() {
   const wrap = document.getElementById('entry-recent-wrap');
   const countEl = document.getElementById('count-entry');
   if (!wrap) return;
-  const mine = loadEntries().filter(e => canEditCash(e.addedBy)).sort((a, b) => (b.date||'').localeCompare(a.date||'')).slice(0, 60);
+  const mine = loadEntries().filter(e => canEditCash(e.addedBy)).sort((a, b) => (b.date||'').localeCompare(a.date||'')).slice(0, 200);
   if (countEl) countEl.textContent = mine.length + (mine.length === 1 ? ' entry' : ' entries');
-  if (!mine.length) { wrap.innerHTML = '<div class="log-empty">No entries yet. Your submitted days will appear here to edit.</div>'; return; }
+  if (!mine.length) { wrap.innerHTML = '<div class="log-empty">No entries yet. Your saved days will appear here to edit.</div>'; return; }
   const inr = n => '₹' + Number(n || 0).toLocaleString('en-IN');
-  wrap.innerHTML = `<table><thead><tr>
-      <th>Date</th><th class="num">Sales ₹</th><th class="num">Expenses ₹</th><th class="num">Closing ₹</th><th>Added by</th><th></th>
-    </tr></thead><tbody>
-    ${mine.map(e => {
-      const d = new Date(e.date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
-      const openTag = e.partial ? ' <span style="display:inline-block;font-size:9px;letter-spacing:.04em;text-transform:uppercase;padding:1px 5px;border-radius:4px;background:rgba(212,175,55,0.18);color:#caa63a;vertical-align:middle;">Open</span>' : '';
-      return `<tr>
-        <td style="white-space:nowrap;">${d}${openTag}</td>
-        <td class="num">${inr(e.totalSales)}</td>
-        <td class="num red-text">${inr(e.totalExpenses)}</td>
-        <td class="num">${inr(e.closing)}</td>
-        <td style="font-size:11px;color:var(--text2);white-space:nowrap;">${(e.addedBy || '—')}${e.editedBy ? ' ✎' : ''}</td>
-        <td style="white-space:nowrap;"><div style="display:flex;gap:5px;"><button class="cat-act cat-edit" style="padding:3px 7px;font-size:11px;" onclick="editEntry('${e.date}')">Edit</button><button class="cat-act cat-del" style="padding:3px 7px;font-size:11px;" onclick="deleteEntry('${e.date}')">Del</button></div></td>
-      </tr>`;
-    }).join('')}
-  </tbody></table>`;
+  const thead = `<tr><th>Date</th><th class="num">Sales ₹</th><th class="num">Expenses ₹</th><th class="num">Closing ₹</th><th>By</th><th></th></tr>`;
+  const rowFn = e => {
+    const d = new Date(e.date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short' });
+    const openTag = e.partial ? ' <span style="display:inline-block;font-size:9px;letter-spacing:.04em;text-transform:uppercase;padding:1px 5px;border-radius:4px;background:rgba(212,175,55,0.18);color:#caa63a;vertical-align:middle;">Open</span>' : '';
+    return `<tr>
+      <td style="white-space:nowrap;">${d}${openTag}</td>
+      <td class="num">${inr(e.totalSales)}</td>
+      <td class="num red-text">${inr(e.totalExpenses)}</td>
+      <td class="num">${inr(e.closing)}</td>
+      <td style="font-size:11px;color:var(--text2);white-space:nowrap;">${(e.addedBy || '—')}${e.editedBy ? ' ✎' : ''}</td>
+      <td style="white-space:nowrap;"><div style="display:flex;gap:5px;"><button class="cat-act cat-edit" style="padding:3px 7px;font-size:11px;" onclick="editEntry('${e.date}')">Edit</button><button class="cat-act cat-del" style="padding:3px 7px;font-size:11px;" onclick="deleteEntry('${e.date}')">Del</button></div></td>
+    </tr>`;
+  };
+  wrap.innerHTML = renderMonthlyGrouped(mine, '', thead, rowFn, e => e.date);
   reapplyLogFilter('entry');
 }
 
@@ -3163,24 +3213,24 @@ function renderBankRecent() {
   if (!wrap) return;
   const inr = n => '₹' + Number(n || 0).toLocaleString('en-IN');
   const mine = loadBankEntries().filter(b => canEditBank(b.addedBy))
-    .sort((a, b) => (b.date + (b.at || '')).localeCompare(a.date + (a.at || ''))).slice(0, 60);
+    .sort((a, b) => (b.date + (b.at || '')).localeCompare(a.date + (a.at || ''))).slice(0, 200);
   const cnt = document.getElementById('count-bankrecent');
   if (cnt) cnt.textContent = mine.length + (mine.length === 1 ? ' entry' : ' entries');
   if (!mine.length) { wrap.innerHTML = '<div class="log-empty">No bank entries yet. Ones you add appear here to edit or delete.</div>'; return; }
   const typeLabel = b => b.capital ? 'Capital in' : b.direct ? ((b.category || '—') + ' · partner-paid') : isGstEntry(b) ? 'GST' : (b.category || '—');
-  wrap.innerHTML = `<table style="width:100%;table-layout:fixed;"><thead><tr><th style="width:52px;">Date</th><th>Type</th><th class="num" style="width:74px;">₹</th><th style="width:96px;"></th></tr></thead><tbody>
-    ${mine.map(b => {
-      const d = new Date(b.date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short' });
-      const pos = !!b.capital;
-      const sub = (b.desc && b.desc !== 'Capital infusion') ? b.desc : '';
-      return `<tr>
-        <td style="white-space:nowrap;">${d}</td>
-        <td style="font-size:12px;word-break:break-word;">${esc(typeLabel(b))}${sub ? `<div style="color:var(--text3);font-size:11px;">${esc(sub)}</div>` : ''}</td>
-        <td class="num ${pos ? 'green-text' : 'red-text'}" style="white-space:nowrap;">${pos ? '+' : '–'}${inr(b.amount)}</td>
-        <td style="padding-left:4px;padding-right:6px;"><div style="display:flex;gap:5px;justify-content:flex-end;"><button class="cat-act cat-edit" style="padding:3px 7px;font-size:11px;" onclick="editBankExpense('${b.id}')">Edit</button><button class="cat-act cat-del" style="padding:3px 7px;font-size:11px;" onclick="deleteBankExpense('${b.id}')">Del</button></div></td>
-      </tr>`;
-    }).join('')}
-  </tbody></table>`;
+  const thead = `<tr><th style="width:52px;">Date</th><th>Type</th><th class="num" style="width:74px;">₹</th><th style="width:96px;"></th></tr>`;
+  const rowFn = b => {
+    const d = new Date(b.date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short' });
+    const pos = !!b.capital;
+    const sub = (b.desc && b.desc !== 'Capital infusion') ? b.desc : '';
+    return `<tr>
+      <td style="white-space:nowrap;">${d}</td>
+      <td style="font-size:12px;word-break:break-word;">${esc(typeLabel(b))}${sub ? `<div style="color:var(--text3);font-size:11px;">${esc(sub)}</div>` : ''}</td>
+      <td class="num ${pos ? 'green-text' : 'red-text'}" style="white-space:nowrap;">${pos ? '+' : '–'}${inr(b.amount)}</td>
+      <td style="padding-left:4px;padding-right:6px;"><div style="display:flex;gap:5px;justify-content:flex-end;"><button class="cat-act cat-edit" style="padding:3px 7px;font-size:11px;" onclick="editBankExpense('${b.id}')">Edit</button><button class="cat-act cat-del" style="padding:3px 7px;font-size:11px;" onclick="deleteBankExpense('${b.id}')">Del</button></div></td>
+    </tr>`;
+  };
+  wrap.innerHTML = renderMonthlyGrouped(mine, 'width:100%;table-layout:fixed;', thead, rowFn, b => b.date);
   reapplyLogFilter('bankrecent');
 }
 
