@@ -360,7 +360,7 @@
 .dash-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
 .dfbtn { padding: 5px 11px; background: var(--surface2); border: 1px solid var(--border); color: var(--text2); border-radius: 6px; cursor: pointer; font-size: 10.5px; font-family: 'Inter', sans-serif; letter-spacing: 0.6px; text-transform: uppercase; white-space: nowrap; transition: all 0.2s; }
 .dfbtn:hover { border-color: var(--accent); color: var(--accent); }
-.dfbtn.active { background: var(--accent); border-color: var(--accent); color: var(--bg); font-weight: 600; }
+.dfbtn.active { background: linear-gradient(135deg, #F0D488 0%, #C9A040 52%, #A9812C 100%); border-color: #C9A040; color: #201700; font-weight: 700; box-shadow: 0 2px 9px rgba(201,160,64,0.30); }
 .dash-export-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
 /* Collapsible / searchable log cards */
 .logcard { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); margin-bottom: 16px; overflow: hidden; }
@@ -598,8 +598,7 @@
 <!-- ===================== DASHBOARD ===================== -->
 <div id="panel-dashboard" class="panel active content">
   <div class="dash-filters">
-    <button class="dfbtn active" onclick="setDashFilter('latest',this)">Latest Sales</button>
-    <button class="dfbtn" onclick="setDashFilter('today',this)">Today</button>
+    <button class="dfbtn active" onclick="setDashFilter('today',this)">Today</button>
     <button class="dfbtn" onclick="setDashFilter('yesterday',this)">Yesterday</button>
     <button class="dfbtn" onclick="setDashFilter('lastmonth',this)">Last Month</button>
     <button class="dfbtn" onclick="setDashFilter('month',this)">This Month</button>
@@ -2249,19 +2248,8 @@ function checkOpening() {
 }
 
 // ─── CASH DASHBOARD ──────────────────────────────────────────────────────────
-// Default view is "Latest Sales" — the most recent day that actually has a Pet
-// Pooja report (usually yesterday, since reports are the previous day's sales),
-// so uploaded income + category split show the moment you open the dashboard.
-let currentDashFilter = 'latest';
+let currentDashFilter = 'today';   // default view is always Today
 let dashCustomFrom = null, dashCustomTo = null;
-
-// Most recent day (on/before today) that has any Pet Pooja income; '' if none.
-function latestSalesDay() {
-  const today = todayLocalISO();
-  let latest = '';
-  loadIncome().forEach(r => { const d = r.to || r.from; if (d && d <= today && d > latest) latest = d; });
-  return latest;
-}
 
 function setDashFilter(filter, btn) {
   currentDashFilter = filter;
@@ -2311,7 +2299,6 @@ function computeDashRange() {
   const todayStr = fmt(today);
   let from, to;
   switch (currentDashFilter) {
-    case 'latest': from = to = (latestSalesDay() || todayStr); break;
     case 'today': from = to = todayStr; break;
     case 'yesterday': { const y = new Date(today); y.setDate(y.getDate() - 1); from = to = fmt(y); break; }
     case 'week': {
@@ -2364,11 +2351,6 @@ function renderPeriodLabel() {
   if (!from || !to) { el.textContent = ''; return; }
   const d = iso => { const [y, m, day] = iso.split('-'); const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m - 1]; return `${+day} ${mon} ${y}`; };
   const label = from === to ? d(from) : `${d(from)} – ${d(to)}`;
-  if (currentDashFilter === 'latest') {
-    const suffix = latestSalesDay() ? 'latest day with Pet Pooja sales' : 'no sales uploaded yet — showing today';
-    el.textContent = `${label}  ·  ${suffix}`;
-    return;
-  }
   el.textContent = `${label}  ·  FY ${fyLabel(new Date())} (Apr–Mar)`;
 }
 // Two at-a-glance notes for today's manager cash actions: is the opening cash
