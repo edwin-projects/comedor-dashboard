@@ -1093,6 +1093,14 @@
 </div>
 
 <script>
+// ─── BUILD VERSION ───────────────────────────────────────────────────────────
+// Bump this string on EVERY deploy and write the SAME value into version.json.
+// The app fetches version.json with cache:'no-store' (which the ~10-min GitHub
+// Pages HTTP cache cannot intercept) on load and on each foreground; if the live
+// version differs from this baked-in one, the running (stale) page reloads once
+// and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
+const APP_VERSION = '2026-07-09-05';
+
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
 // Firebase Console → Project Settings → Your apps → SDK setup & configuration
@@ -4764,7 +4772,31 @@ window.onload = function() {
   const bbi = document.getElementById('bank-bal-input');
   if (bb && bbi) bbi.value = bb.amount;
   registerServiceWorker();
+  checkForUpdate();
+  // Re-check whenever the app returns to the foreground (reopened tab / resumed
+  // PWA) and as a slow heartbeat while it stays open.
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkForUpdate(); });
+  setInterval(() => { if (document.visibilityState === 'visible') checkForUpdate(); }, 120000);
 };
+
+// Ask the server (bypassing the HTTP cache with no-store) what the current build
+// is. If it's newer than the one we're running, reload once to pick it up. This
+// works even before the service worker is installed, so a stale cached page
+// self-heals within a second of opening instead of waiting out the 10-min cache.
+// Loop-guarded via sessionStorage so a mismatched deploy can't reload endlessly.
+function checkForUpdate() {
+  try {
+    fetch('version.json?_=' + Date.now(), { cache: 'no-store' })
+      .then(r => (r && r.ok) ? r.json() : null)
+      .then(v => {
+        if (!v || !v.version || v.version === APP_VERSION) return;
+        if (sessionStorage.getItem('comedor_updated_to') === v.version) return;
+        sessionStorage.setItem('comedor_updated_to', v.version);
+        location.reload();
+      })
+      .catch(() => {});
+  } catch (e) {}
+}
 
 // Register a network-first service worker so a new deploy shows up on the
 // next app open instead of waiting out GitHub Pages' ~10-min HTML cache.

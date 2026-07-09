@@ -4,6 +4,15 @@ Single-file app: everything lives in `index.html` (inline CSS + HTML + JS). No b
 Data syncs live across devices via Firebase Realtime Database (`comedor/*`), mirrored to
 localStorage. Deployed as a static page (GitHub Pages).
 
+**Cache-busting — bump the version on EVERY deploy.** GitHub Pages puts a ~10-min HTTP cache
+on `index.html`, so changes otherwise lag on already-open devices. On each change that ships,
+bump `const APP_VERSION` in `index.html` **and** write the identical value into `version.json`.
+The app fetches `version.json` with `cache:'no-store'` on load + on every foreground and reloads
+itself when the live version differs, so stale pages self-heal in ~1s. Keep the two values
+identical — if `version.json` is ahead of the deployed `APP_VERSION`, clients reload-loop (the
+per-session guard limits it, but it's still wrong). A network-first service worker (`sw.js`) is
+the second layer. Do not remove either.
+
 ## Design thumb-rules (apply to every change)
 
 1. **Money inputs — live Indian-lakh grouping.** Any field where a person types an amount
