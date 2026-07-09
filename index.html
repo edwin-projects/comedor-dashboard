@@ -358,14 +358,16 @@
 .cs-trigger .cs-val { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cs-trigger.cs-placeholder .cs-val { color: var(--text3); }
 .cs-trigger::after { content: '▾'; color: var(--text3); font-size: 12px; flex-shrink: 0; }
-.cs-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1190; }
+.cs-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.12); z-index: 1190; }
 .cs-panel { position: fixed; z-index: 1200; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 14px 36px rgba(0,0,0,0.45); display: flex; flex-direction: column; overflow: hidden; }
-.cs-searchbar { display: flex; align-items: center; gap: 9px; padding: 0 13px; border-bottom: 1px solid var(--border); background: var(--surface2); }
-.cs-search-ic { width: 18px; height: 18px; flex-shrink: 0; color: var(--text3); }
+.cs-searchbar { display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-bottom: 1px solid var(--border); }
+.cs-searchpill { flex: 1; display: flex; align-items: center; gap: 8px; background: var(--surface2); border: 1px solid var(--border); border-radius: 9px; padding: 0 11px; min-width: 0; }
+.cs-search-ic { width: 17px; height: 17px; flex-shrink: 0; color: var(--text3); }
 /* 16px is the threshold below which iOS Safari force-zooms a focused input —
    keep it at 16 so tapping the search bar never triggers the zoom jump. */
-.cs-search { border: none; background: transparent; color: var(--text); padding: 13px 2px; font-size: 16px; font-family: 'Inter', sans-serif; outline: none; width: 100%; box-sizing: border-box; }
+.cs-search { border: none; background: transparent; color: var(--text); padding: 10px 2px; font-size: 16px; font-family: 'Inter', sans-serif; outline: none; width: 100%; box-sizing: border-box; }
 .cs-search::placeholder { color: var(--text3); }
+.cs-done { flex-shrink: 0; background: none; border: none; color: #C9A040; font-weight: 600; font-size: 15px; font-family: 'Inter', sans-serif; cursor: pointer; padding: 6px 6px; }
 .cs-list { list-style: none; margin: 0; padding: 4px; overflow-y: auto; -webkit-overflow-scrolling: touch; flex: 1 1 auto; min-height: 0; }
 .cs-opt { padding: 12px 12px; border-radius: 7px; cursor: pointer; font-size: 15px; color: var(--text); font-family: 'Inter', sans-serif; }
 .cs-opt.cs-active, .cs-opt:hover { background: var(--surface2); }
@@ -1104,7 +1106,7 @@
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-09-06';
+const APP_VERSION = '2026-07-09-07';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -1866,10 +1868,11 @@ function enhanceCatSelect(sel) {
   trigger.innerHTML = '<span class="cs-val"></span>';
   const panel = document.createElement('div');
   panel.className = 'cs-panel'; panel.style.display = 'none';
-  panel.innerHTML = '<div class="cs-searchbar"><svg class="cs-search-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7.5"></circle><line x1="21" y1="21" x2="16.5" y2="16.5"></line></svg><input class="cs-search" type="text" inputmode="search" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="Search category…"></div><ul class="cs-list"></ul>';
+  panel.innerHTML = '<div class="cs-searchbar"><div class="cs-searchpill"><svg class="cs-search-ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7.5"></circle><line x1="21" y1="21" x2="16.5" y2="16.5"></line></svg><input class="cs-search" type="text" inputmode="search" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" placeholder="Search category…"></div><button type="button" class="cs-done">Done</button></div><ul class="cs-list"></ul>';
   wrap.appendChild(trigger); wrap.appendChild(panel);
   const search = panel.querySelector('.cs-search');
   const list = panel.querySelector('.cs-list');
+  const doneBtn = panel.querySelector('.cs-done');
   let activeIdx = -1;
 
   function sync() {
@@ -1905,18 +1908,28 @@ function enhanceCatSelect(sel) {
   const isMobile = () => window.matchMedia('(max-width: 640px)').matches;
   function position() {
     const vv = window.visualViewport;
+    const r = trigger.getBoundingClientRect();
     if (isMobile()) {
-      // Anchor a full-width sheet to the top of the *visible* viewport — the area
-      // above the on-screen keyboard — so it never lands under the keys or jumps
-      // when the keyboard animates in. visualViewport reflects the keyboard inset.
-      const top = (vv ? vv.offsetTop : 0) + 12;
-      const availH = (vv ? vv.height : window.innerHeight) - 24;
+      // A COMPACT popover anchored to the field — not a full-page takeover. Cap the
+      // height to a handful of rows; open below the field, or flip above / clamp so
+      // the whole card stays inside the visible viewport (the area above the
+      // keyboard, which visualViewport reports).
+      const vTop = vv ? vv.offsetTop : 0;
+      const vH = vv ? vv.height : window.innerHeight;
+      const vBottom = vTop + vH;
+      const cap = Math.min(360, vH - 20);
       panel.style.left = '12px'; panel.style.right = '12px'; panel.style.width = 'auto';
+      panel.style.maxHeight = cap + 'px';
+      list.style.maxHeight = (cap - 62) + 'px';
+      const ph = Math.min(panel.offsetHeight, cap);
+      let top = r.bottom + 6;
+      if (top + ph > vBottom - 8) {                 // not enough room below → flip above
+        const above = r.top - 6 - ph;
+        top = (above >= vTop + 8) ? above : Math.max(vTop + 8, vBottom - 8 - ph);
+      }
+      if (top < vTop + 8) top = vTop + 8;
       panel.style.top = top + 'px';
-      panel.style.maxHeight = availH + 'px';
-      list.style.maxHeight = (availH - 58) + 'px';
     } else {
-      const r = trigger.getBoundingClientRect();
       panel.style.right = 'auto'; panel.style.maxHeight = '';
       panel.style.left = r.left + 'px';
       panel.style.width = r.width + 'px';
@@ -1967,6 +1980,7 @@ function enhanceCatSelect(sel) {
     opts[activeIdx].scrollIntoView({ block: 'nearest' });
   }
   trigger.addEventListener('click', () => { panel.style.display === 'none' ? open() : close(); });
+  doneBtn.addEventListener('mousedown', e => { e.preventDefault(); close(); });
   search.addEventListener('input', () => build(search.value));
   search.addEventListener('keydown', e => {
     if (e.key === 'ArrowDown') { e.preventDefault(); setActive(activeIdx + 1); }
