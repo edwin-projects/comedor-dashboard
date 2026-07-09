@@ -4731,7 +4731,27 @@ window.onload = function() {
   const bb = (function(){ try { return JSON.parse(localStorage.getItem('comedor_bankbal') || 'null'); } catch(e){ return null; } })();
   const bbi = document.getElementById('bank-bal-input');
   if (bb && bbi) bbi.value = bb.amount;
+  registerServiceWorker();
 };
+
+// Register a network-first service worker so a new deploy shows up on the
+// next app open instead of waiting out GitHub Pages' ~10-min HTML cache.
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  try {
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
+      .then(reg => { try { reg.update(); } catch (e) {} })
+      .catch(() => {});
+    // When a brand-new worker takes control, reload once so the running tab
+    // swaps to the freshly-fetched shell. Guard against reload loops.
+    let swapped = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (swapped) return;
+      swapped = true;
+      location.reload();
+    });
+  } catch (e) {}
+}
 </script>
 </body>
 </html>
