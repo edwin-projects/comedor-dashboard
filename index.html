@@ -2845,11 +2845,11 @@ function renderEntryRecent() {
   const thead = `<tr><th style="width:50px;">Date</th><th>Sales · exp</th><th class="num" style="width:70px;">Close ₹</th><th style="width:92px;"></th></tr>`;
   const rowFn = e => {
     const d = new Date(e.date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short' });
-    const openTag = e.partial ? ' <span style="display:inline-block;font-size:9px;letter-spacing:.04em;text-transform:uppercase;padding:1px 4px;border-radius:4px;background:rgba(212,175,55,0.18);color:#caa63a;vertical-align:middle;">Open</span>' : '';
+    const openTag = e.partial ? '<span style="display:inline-block;font-size:8.5px;letter-spacing:.04em;text-transform:uppercase;padding:1px 5px;border-radius:4px;background:rgba(212,175,55,0.18);color:#caa63a;margin-right:5px;">Open</span>' : '';
     const sub = `Sales ${inr(e.totalSales)}${(e.totalExpenses > 0) ? ` · <span class="red-text">Exp ${inr(e.totalExpenses)}</span>` : ''}${e.addedBy ? ` · ${esc(e.addedBy)}${e.editedBy ? ' ✎' : ''}` : ''}`;
     return `<tr>
-      <td style="white-space:nowrap;">${d}${openTag}</td>
-      <td style="font-size:12px;"><div style="color:var(--text3);font-size:11px;">${sub}</div></td>
+      <td style="white-space:nowrap;">${d}</td>
+      <td style="font-size:12px;"><div style="color:var(--text3);font-size:11px;">${openTag}${sub}</div></td>
       <td class="num" style="white-space:nowrap;">${inr(e.closing)}</td>
       <td style="padding-left:4px;padding-right:6px;"><div style="display:flex;gap:5px;justify-content:flex-end;"><button class="cat-act cat-edit" style="padding:3px 7px;font-size:11px;" onclick="editEntry('${e.date}')">Edit</button><button class="cat-act cat-del" style="padding:3px 7px;font-size:11px;" onclick="deleteEntry('${e.date}')">Del</button></div></td>
     </tr>`;
@@ -3237,7 +3237,16 @@ window.addEventListener('resize', () => {
 function renderPnlBank() {
   const cashEntries = getDashEntries();
   const range = getRange();
-  const income   = Math.round(incomeInRange(range.from, range.to));
+  // Income = Pet Pooja (authoritative). For any day in range that has NO Pet
+  // Pooja report yet, fall back to that day's End-of-Day Sales total from the
+  // cash register — so the figure isn't ₹0 until the report is uploaded. Once a
+  // Pet Pooja report covers the day, that day is "owned" and the register value
+  // is dropped, so nothing double-counts.
+  const _ppOwner = incomeDayOwner();
+  const ppIncome = Math.round(incomeInRange(range.from, range.to));
+  const regFallback = Math.round(cashEntries.reduce((s, e) => s + ((e.date && _ppOwner[e.date] === undefined) ? (Number(e.totalSales) || 0) : 0), 0));
+  const income = ppIncome + regFallback;
+  const estFromRegister = regFallback > 0;
   const discount = Math.round(incomeFieldInRange(range.from, range.to, 'discount'));
   const cashExp  = cashEntries.reduce((s, e) => s + (e.totalExpenses || 0), 0);
   const bank = getBankInRange();
@@ -3307,7 +3316,7 @@ function renderPnlBank() {
   const sEl = document.getElementById('pnl-summary');
   if (sEl) sEl.innerHTML = `
     <div class="cards2">
-      <div class="card card-click tile-income" onclick="focusLog('sales')"><div class="card-label">Income (Sales)</div><div class="card-value green">${inr(income)}</div><div class="card-sub">${regTot ? splitBox([{k:'UPI/Card',v:incNon},{k:'Cash',v:incCash}], income) : ''}</div></div>
+      <div class="card card-click tile-income" onclick="focusLog('sales')"><div class="card-label">Income (Sales)</div><div class="card-value green">${inr(income)}</div><div class="card-sub">${regTot ? splitBox([{k:'UPI/Card',v:incNon},{k:'Cash',v:incCash}], income) : ''}${estFromRegister ? `<div class="tsplit-l" style="color:var(--text3);margin-top:2px;">From End-of-Day Sales · Pet Pooja not uploaded yet</div>` : ''}</div></div>
       <div class="card card-click tile-exp" onclick="focusLog('expcat')"><div class="card-label">Expenses</div><div class="card-value red">${inr(totalExp)}</div><div class="card-sub">${splitBox([{k:'Bank',v:bankExp},{k:'Cash',v:cashExp},{k:'Direct',v:ledgerOpex}], totalExp)}</div></div>
     </div>
     <div class="pnl-hero ${net >= 0 ? 'hero-pos' : 'hero-neg'}">
@@ -3572,15 +3581,21 @@ function renderBankRecent() {
   const cnt = document.getElementById('count-bankrecent');
   if (cnt) cnt.textContent = mine.length + (mine.length === 1 ? ' entry' : ' entries');
   if (!mine.length) { wrap.innerHTML = '<div class="log-empty">No bank entries yet. Ones you add appear here to edit or delete.</div>'; return; }
-  const typeLabel = b => b.capital ? 'Capital in' : b.direct ? ((b.category || '—') + ' · partner-paid') : isGstEntry(b) ? 'GST' : (b.category || '—');
+  const who = b => (b.partner || b.addedBy || 'partner');
+  const typeLabel = b => b.capital ? ('Capital in · ' + who(b))
+    : b.direct ? ((b.category || '—') + ' · paid by ' + who(b))
+    : isGstEntry(b) ? 'GST' : (b.category || '—');
   const thead = `<tr><th style="width:52px;">Date</th><th>Type</th><th class="num" style="width:74px;">₹</th><th style="width:96px;"></th></tr>`;
   const rowFn = b => {
     const d = new Date(b.date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short' });
     const pos = !!b.capital;
-    const sub = (b.desc && b.desc !== 'Capital infusion') ? b.desc : '';
+    const parts = [];
+    if (b.desc && b.desc !== 'Capital infusion') parts.push(esc(b.desc));
+    if (b.addedBy) parts.push('by ' + esc(b.addedBy) + (b.editedBy ? ' ✎' : ''));
+    const sub = parts.join(' · ');
     return `<tr>
       <td style="white-space:nowrap;">${d}</td>
-      <td style="font-size:12px;word-break:break-word;">${esc(typeLabel(b))}${sub ? `<div style="color:var(--text3);font-size:11px;">${esc(sub)}</div>` : ''}</td>
+      <td style="font-size:12px;word-break:break-word;">${esc(typeLabel(b))}${sub ? `<div style="color:var(--text3);font-size:11px;">${sub}</div>` : ''}</td>
       <td class="num ${pos ? 'green-text' : 'red-text'}" style="white-space:nowrap;">${pos ? '+' : '–'}${inr(b.amount)}</td>
       <td style="padding-left:4px;padding-right:6px;"><div style="display:flex;gap:5px;justify-content:flex-end;"><button class="cat-act cat-edit" style="padding:3px 7px;font-size:11px;" onclick="editBankExpense('${b.id}')">Edit</button><button class="cat-act cat-del" style="padding:3px 7px;font-size:11px;" onclick="deleteBankExpense('${b.id}')">Del</button></div></td>
     </tr>`;
