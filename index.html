@@ -1015,12 +1015,21 @@
   <div class="setcard collapsed tint-gold" id="setcard-cats">
     <div class="setcard-head" onclick="toggleSet('cats')"><span class="setcard-title">Expense Categories</span><span class="setcard-chev">▾</span></div>
     <div class="setcard-body">
-      <p class="exp-note">These are the categories shown when adding cash or bank expenses. Add, rename or remove them here — changes sync to every device.</p>
+      <p class="exp-note">Two separate lists. <b>Staff categories</b> show in the <b>Cash</b> tab; <b>Partner categories</b> show in the <b>Bank</b> tab. Edit each independently — changes sync to every device.</p>
+
+      <div class="section-title" style="margin-top:4px;">Staff categories · Cash tab</div>
       <div class="cat-add">
-        <input id="cat-new" class="field-input" placeholder="New category name" onkeydown="if(event.key==='Enter'){event.preventDefault();addCategory();}">
-        <button class="btn" id="cat-add-btn" onclick="addCategory()">Add ✓</button>
+        <input id="cat-new-staff" class="field-input" placeholder="New staff category" onkeydown="if(event.key==='Enter'){event.preventDefault();addCategory('staff');}">
+        <button class="btn" id="cat-add-staff-btn" onclick="addCategory('staff')">Add ✓</button>
       </div>
-      <div id="cat-list"></div>
+      <div id="cat-list-staff"></div>
+
+      <div class="section-title" style="margin-top:24px;">Partner categories · Bank tab</div>
+      <div class="cat-add">
+        <input id="cat-new-partner" class="field-input" placeholder="New partner category" onkeydown="if(event.key==='Enter'){event.preventDefault();addCategory('partner');}">
+        <button class="btn" id="cat-add-partner-btn" onclick="addCategory('partner')">Add ✓</button>
+      </div>
+      <div id="cat-list-partner"></div>
     </div>
   </div>
 
@@ -1182,14 +1191,24 @@ function initFirebase() {
       if (document.getElementById('pin-screen')?.style.display !== 'none') populatePinNames();
     }, onErr('users'));
 
+    // Two independent category lists: staff (Cash) and partner (Bank).
+    ['staff', 'partner'].forEach(kind => {
+      _db.ref(_catRef(kind)).on('value', snap => {
+        const val = snap.exists() ? snap.val() : null;
+        const list = Array.isArray(val) ? val : (val && typeof val === 'object' ? Object.values(val) : null);
+        if (list && list.length) localStorage.setItem(_catKey(kind), JSON.stringify(list));
+        else localStorage.removeItem(_catKey(kind));
+        if (kind === 'partner') bankCatOptions(true);
+        else if (document.getElementById('panel-entry')?.classList.contains('active')) renderExpenseRows();
+        if (document.getElementById('panel-people')?.classList.contains('active')) renderCategories();
+      }, onErr('categories_' + kind));
+    });
+    // Keep the legacy combined list mirrored locally — it seeds either list until
+    // that list is first customised.
     _db.ref('comedor/expense_categories').on('value', snap => {
       const val = snap.exists() ? snap.val() : null;
       const list = Array.isArray(val) ? val : (val && typeof val === 'object' ? Object.values(val) : null);
       if (list && list.length) localStorage.setItem('comedor_expcats', JSON.stringify(list));
-      else localStorage.removeItem('comedor_expcats');
-      bankCatOptions(true);
-      if (document.getElementById('panel-entry')?.classList.contains('active')) renderExpenseRows();
-      if (document.getElementById('panel-people')?.classList.contains('active')) renderCategories();
     }, onErr('expense_categories'));
 
     _db.ref('comedor/income').on('value', snap => {
@@ -1723,48 +1742,56 @@ const EXPENSE_CATEGORIES = [
 
 // The active category list is editable from the Settings tab and synced across
 // devices; it falls back to the built-in defaults until someone customises it.
-function getExpenseCategories() {
-  let list;
-  try { const c = JSON.parse(localStorage.getItem('comedor_expcats') || 'null'); if (Array.isArray(c) && c.length) list = c; } catch (e) {}
-  if (!list) list = EXPENSE_CATEGORIES.slice();
-  // Always presented A→Z (case-insensitive) so every category picker and the
-  // Settings list read in the same alphabetical order across all tabs.
-  return list.slice().sort((a, b) => String(a).toLowerCase().localeCompare(String(b).toLowerCase()));
+// Two independent category lists: 'staff' (shown in the Cash tab) and 'partner'
+// (shown in the Bank tab — bank expenses + partner-direct). Each is edited and
+// synced separately. The legacy single list (comedor_expcats) seeds both the
+// first time, so no categories are lost on upgrade.
+function _catKey(kind) { return kind === 'partner' ? 'comedor_expcats_partner' : 'comedor_expcats_staff'; }
+function _catRef(kind) { return kind === 'partner' ? 'comedor/expense_categories_partner' : 'comedor/expense_categories_staff'; }
+function _sortCats(list) { return list.slice().sort((a, b) => String(a).toLowerCase().localeCompare(String(b).toLowerCase())); }
+function getCategories(kind) {
+  try { const c = JSON.parse(localStorage.getItem(_catKey(kind)) || 'null'); if (Array.isArray(c) && c.length) return _sortCats(c); } catch (e) {}
+  // Not customised yet → seed from the legacy combined list (or built-in defaults).
+  let base;
+  try { const old = JSON.parse(localStorage.getItem('comedor_expcats') || 'null'); if (Array.isArray(old) && old.length) base = old; } catch (e) {}
+  if (!base) base = EXPENSE_CATEGORIES.slice();
+  return _sortCats(base);
 }
-function saveExpenseCategories(list) {
+function saveCategories(kind, list) {
   const clean = [];
   (list || []).forEach(c => { c = String(c || '').trim(); if (c && !clean.some(x => x.toLowerCase() === c.toLowerCase())) clean.push(c); });
-  localStorage.setItem('comedor_expcats', JSON.stringify(clean));
-  if (_db) _db.ref('comedor/expense_categories').set(clean).catch(syncWriteErr);
-  // Refresh anything showing the category list.
-  bankCatOptions(true);
-  renderExpenseRows();
+  localStorage.setItem(_catKey(kind), JSON.stringify(clean));
+  if (_db) _db.ref(_catRef(kind)).set(clean).catch(syncWriteErr);
+  // Refresh only the pickers that use this list.
+  if (kind === 'partner') { bankCatOptions(true); capCatOptions(); }
+  else { renderExpenseRows(); }
   if (document.getElementById('panel-people') && document.getElementById('panel-people').classList.contains('active')) renderCategories();
 }
-function renderCategories() {
-  const el = document.getElementById('cat-list');
+function renderCategories() { renderCategoryEditor('staff'); renderCategoryEditor('partner'); }
+function renderCategoryEditor(kind) {
+  const el = document.getElementById('cat-list-' + kind);
   if (!el) return;
-  const cats = getExpenseCategories();
+  const cats = getCategories(kind);
   el.innerHTML = cats.map((c, i) => `<div class="cat-row">
     <span class="cat-name">${esc(c)}</span>
-    <button class="cat-act cat-edit" onclick="editCategory(${i})">Rename</button>
-    <button class="cat-act cat-del" onclick="deleteCategory(${i})">Delete</button>
+    <button class="cat-act cat-edit" onclick="editCategory('${kind}',${i})">Rename</button>
+    <button class="cat-act cat-del" onclick="deleteCategory('${kind}',${i})">Delete</button>
   </div>`).join('') || '<div class="log-empty">No categories yet — add one above.</div>';
 }
-function addCategory() {
-  const inp = document.getElementById('cat-new');
+function addCategory(kind) {
+  const inp = document.getElementById('cat-new-' + kind);
   const name = (inp.value || '').trim();
   if (!name) return;
-  const cats = getExpenseCategories();
+  const cats = getCategories(kind);
   if (cats.some(c => c.toLowerCase() === name.toLowerCase())) { peopleMsg('“' + name + '” already exists', false); return; }
   cats.push(name);
-  saveExpenseCategories(cats);
+  saveCategories(kind, cats);
   inp.value = '';
-  renderCategories();
-  btnFlash('cat-add-btn', 'Adding…', 'Added ✓', 'Add ✓');
+  renderCategoryEditor(kind);
+  btnFlash('cat-add-' + kind + '-btn', 'Adding…', 'Added ✓', 'Add ✓');
 }
-function editCategory(i) {
-  const cats = getExpenseCategories();
+function editCategory(kind, i) {
+  const cats = getCategories(kind);
   if (i < 0 || i >= cats.length) return;
   const next = prompt('Rename category', cats[i]);
   if (next == null) return;
@@ -1772,16 +1799,16 @@ function editCategory(i) {
   if (!name) return;
   if (cats.some((c, j) => j !== i && c.toLowerCase() === name.toLowerCase())) { peopleMsg('“' + name + '” already exists', false); return; }
   cats[i] = name;
-  saveExpenseCategories(cats);
-  renderCategories();
+  saveCategories(kind, cats);
+  renderCategoryEditor(kind);
 }
-function deleteCategory(i) {
-  const cats = getExpenseCategories();
+function deleteCategory(kind, i) {
+  const cats = getCategories(kind);
   if (i < 0 || i >= cats.length) return;
   if (!confirm('Remove category “' + cats[i] + '”? Existing entries keep their label; it just won\'t appear in the picker.')) return;
   cats.splice(i, 1);
-  saveExpenseCategories(cats);
-  renderCategories();
+  saveCategories(kind, cats);
+  renderCategoryEditor(kind);
 }
 
 // ─── SEARCHABLE CATEGORY DROPDOWN ────────────────────────────────────────────
@@ -1903,7 +1930,7 @@ function renderExpenseRows() {
       ${row.saved ? '<div style="font-size:10px; color:var(--green); font-family:\'Inter\',sans-serif; letter-spacing:1px; margin-bottom:6px;">✓ SAVED</div>' : ''}
       <select id="exp-cat-${row.id}" class="field-select" style="margin-bottom:8px;" onchange="expenseRows[${i}].category=this.value">
         <option value="">Select category…</option>
-        ${getExpenseCategories().map(c => `<option value="${c}"${row.category === c ? ' selected' : ''}>${c}</option>`).join('')}
+        ${getCategories('staff').map(c => `<option value="${c}"${row.category === c ? ' selected' : ''}>${c}</option>`).join('')}
       </select>
       <div style="display:grid; grid-template-columns:1fr 72px 34px 34px; gap:6px; align-items:center;">
         <input id="exp-desc-${row.id}" value="${row.desc}" onchange="expenseRows[${i}].desc=this.value"
@@ -3359,7 +3386,7 @@ function bankCatOptions(force) {
   if (force || sel.options.length <= 1) {
     const keep = sel.value;
     sel.innerHTML = '<option value="">Select category…</option>';
-    getExpenseCategories().forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
+    getCategories('partner').forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
     if (keep) sel.value = keep;
   }
   enhanceCatSelect(sel); if (sel._csSync) sel._csSync();
@@ -3371,7 +3398,7 @@ function capCatOptions() {
   if (!sel) return;
   const keep = sel.value;
   sel.innerHTML = '<option value="">Select category…</option>';
-  getExpenseCategories().forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
+  getCategories('partner').forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
   if (keep) sel.value = keep;
   enhanceCatSelect(sel); if (sel._csSync) sel._csSync();
 }
