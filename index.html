@@ -598,7 +598,8 @@
 <!-- ===================== DASHBOARD ===================== -->
 <div id="panel-dashboard" class="panel active content">
   <div class="dash-filters">
-    <button class="dfbtn active" onclick="setDashFilter('today',this)">Today</button>
+    <button class="dfbtn active" onclick="setDashFilter('latest',this)">Latest Sales</button>
+    <button class="dfbtn" onclick="setDashFilter('today',this)">Today</button>
     <button class="dfbtn" onclick="setDashFilter('yesterday',this)">Yesterday</button>
     <button class="dfbtn" onclick="setDashFilter('lastmonth',this)">Last Month</button>
     <button class="dfbtn" onclick="setDashFilter('month',this)">This Month</button>
@@ -770,7 +771,7 @@
     <div class="setcard-body">
     <div style="margin-bottom:14px;">
       <label class="field-label">Date</label>
-      <input id="entry-date" type="date" class="field-input" onchange="checkOpening(); hydrateFormForDate(this.value)" style="text-align:center; display:block; width:100%; -webkit-appearance:none; appearance:none; box-sizing:border-box;">
+      <input id="entry-date" type="date" class="field-input" onchange="checkOpening(); hydrateFormForDate(this.value)" onkeydown="return false" onpaste="return false" style="text-align:center; display:block; width:100%; box-sizing:border-box;">
     </div>
     <div>
       <label class="field-label">Opening Cash Balance ₹ *</label>
@@ -1247,9 +1248,16 @@ function grantAccess(user) {
   document.getElementById('pin-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   applyRoleAccess(currentRole, user);
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayLocalISO();
   const dateField = document.getElementById('entry-date');
   if (dateField) { dateField.value = today; hydrateFormForDate(today); }
+}
+
+// Today's date as YYYY-MM-DD in the device's local timezone (NOT UTC — an
+// ISO/UTC date rolls over early in India, showing "yesterday" before 5:30 AM).
+function todayLocalISO() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
 // ─── PIN SCREEN (on-screen keypad) ───────────────────────────────────────────
@@ -1640,7 +1648,9 @@ function showPanel(id) {
   }
   if (id === 'entry') {
     renderEntryRecent(); renderIncomeList();
-    const _d = document.getElementById('entry-date') ? document.getElementById('entry-date').value : '';
+    const dateEl = document.getElementById('entry-date');
+    if (dateEl && !dateEl.value) dateEl.value = todayLocalISO();   // always default to today
+    const _d = dateEl ? dateEl.value : '';
     if (_d) hydrateFormForDate(_d);
     updateCashVerifyLock();
     if (_db) {
@@ -1700,8 +1710,12 @@ const EXPENSE_CATEGORIES = [
 // The active category list is editable from the Settings tab and synced across
 // devices; it falls back to the built-in defaults until someone customises it.
 function getExpenseCategories() {
-  try { const c = JSON.parse(localStorage.getItem('comedor_expcats') || 'null'); if (Array.isArray(c) && c.length) return c; } catch (e) {}
-  return EXPENSE_CATEGORIES.slice();
+  let list;
+  try { const c = JSON.parse(localStorage.getItem('comedor_expcats') || 'null'); if (Array.isArray(c) && c.length) list = c; } catch (e) {}
+  if (!list) list = EXPENSE_CATEGORIES.slice();
+  // Always presented A→Z (case-insensitive) so every category picker and the
+  // Settings list read in the same alphabetical order across all tabs.
+  return list.slice().sort((a, b) => String(a).toLowerCase().localeCompare(String(b).toLowerCase()));
 }
 function saveExpenseCategories(list) {
   const clean = [];
@@ -2235,8 +2249,19 @@ function checkOpening() {
 }
 
 // ─── CASH DASHBOARD ──────────────────────────────────────────────────────────
-let currentDashFilter = 'today';   // default view is always Today
+// Default view is "Latest Sales" — the most recent day that actually has a Pet
+// Pooja report (usually yesterday, since reports are the previous day's sales),
+// so uploaded income + category split show the moment you open the dashboard.
+let currentDashFilter = 'latest';
 let dashCustomFrom = null, dashCustomTo = null;
+
+// Most recent day (on/before today) that has any Pet Pooja income; '' if none.
+function latestSalesDay() {
+  const today = todayLocalISO();
+  let latest = '';
+  loadIncome().forEach(r => { const d = r.to || r.from; if (d && d <= today && d > latest) latest = d; });
+  return latest;
+}
 
 function setDashFilter(filter, btn) {
   currentDashFilter = filter;
@@ -2286,6 +2311,7 @@ function computeDashRange() {
   const todayStr = fmt(today);
   let from, to;
   switch (currentDashFilter) {
+    case 'latest': from = to = (latestSalesDay() || todayStr); break;
     case 'today': from = to = todayStr; break;
     case 'yesterday': { const y = new Date(today); y.setDate(y.getDate() - 1); from = to = fmt(y); break; }
     case 'week': {
@@ -2338,6 +2364,11 @@ function renderPeriodLabel() {
   if (!from || !to) { el.textContent = ''; return; }
   const d = iso => { const [y, m, day] = iso.split('-'); const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m - 1]; return `${+day} ${mon} ${y}`; };
   const label = from === to ? d(from) : `${d(from)} – ${d(to)}`;
+  if (currentDashFilter === 'latest') {
+    const suffix = latestSalesDay() ? 'latest day with Pet Pooja sales' : 'no sales uploaded yet — showing today';
+    el.textContent = `${label}  ·  ${suffix}`;
+    return;
+  }
   el.textContent = `${label}  ·  FY ${fyLabel(new Date())} (Apr–Mar)`;
 }
 // Two at-a-glance notes for today's manager cash actions: is the opening cash
