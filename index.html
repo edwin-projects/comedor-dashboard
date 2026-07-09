@@ -425,6 +425,12 @@
 .setcard.collapsed .setcard-chev { transform:rotate(-90deg); }
 .setcard.collapsed .setcard-body { display:none; }
 .setcard-body { padding:2px 16px 16px; }
+/* Locked section (e.g. Cash Verification before the day is entered) */
+.setcard.sec-locked .setcard-head { opacity:0.55; }
+.setcard.sec-locked .step-num { background:var(--text3); }
+.cv-lock { display:flex; gap:12px; align-items:flex-start; padding:14px 15px; border-radius:9px; border:1px solid rgba(201,160,64,0.32); background:rgba(201,160,64,0.09); color:var(--text2); font-size:12.5px; line-height:1.55; font-family:'Inter',sans-serif; }
+.cv-lock b { color:var(--accent2); }
+.cv-lock-ic { font-size:17px; line-height:1.2; flex-shrink:0; }
 /* Per-section accent tints — a distinct light colour per section so each is easy
    to tell apart at a glance. Applies to both setcards and logcard "sections". */
 .tint-blue   { border-left:3px solid #4d9de0; }
@@ -827,6 +833,14 @@
   <div class="setcard collapsed tint-gold" id="setcard-cashverify">
     <div class="setcard-head" onclick="toggleSet('cashverify')"><span class="setcard-title"><span class="step-num">4</span> Cash Verification</span><span class="setcard-chev">▾</span></div>
     <div class="setcard-body">
+    <div id="cashverify-lock" class="cv-lock" style="display:none;">
+      <span class="cv-lock-ic">🔒</span>
+      <div>
+        <b>Finish the steps above first.</b><br>
+        Save the <b>opening balance</b> (step 1) and the day's <b>end-of-day sales</b> (step 3), then come back here at close to count and verify the cash.
+      </div>
+    </div>
+    <div id="cashverify-content">
     <div style="margin-bottom:4px;">
       <label class="field-label">Cash in Hand (Closing Balance) ₹ *</label>
       <input id="f-closing" type="text" inputmode="decimal" class="field-input field-input-mono" placeholder="Count your cash and enter here" oninput="onMoneyInput(this); recalc()">
@@ -837,6 +851,7 @@
     </button>
     <div style="margin-top:12px; font-size:11px; color:var(--text3); text-align:center; font-family:'Inter',sans-serif; line-height:1.8;">
       Timestamped automatically. Discrepancies flagged to owner.
+    </div>
     </div>
     </div>
   </div>
@@ -1460,7 +1475,7 @@ function applyRoleAccess(role, user) {
     const tab = document.querySelector('.tab[data-panel="' + firstPanel + '"]');
     if (tab) tab.classList.add('active');
     if (firstPanel === 'dashboard') renderDashboard();
-    if (firstPanel === 'entry') { checkOpening(); renderEntryRecent(); renderIncomeList(); }
+    if (firstPanel === 'entry') { checkOpening(); renderEntryRecent(); renderIncomeList(); updateCashVerifyLock(); }
     if (firstPanel === 'people') { ensureUsersSeeded(); renderPeople(); }
   }
 }
@@ -1627,6 +1642,7 @@ function showPanel(id) {
     renderEntryRecent(); renderIncomeList();
     const _d = document.getElementById('entry-date') ? document.getElementById('entry-date').value : '';
     if (_d) hydrateFormForDate(_d);
+    updateCashVerifyLock();
     if (_db) {
       _db.ref('comedor/entries').get().then(snap => {
         if (snap.exists()) {
@@ -1747,24 +1763,17 @@ function renderExpenseRows() {
   container.innerHTML = expenseRows.map((row, i) => {
     const savedBorder = row.saved ? 'border-color:rgba(76,175,125,0.5);' : '';
     const savedBg     = row.saved ? 'background:rgba(76,175,125,0.05);' : '';
-    const hasPhoto  = !!row.photo;
     const tickStyle = row.saved
       ? 'background:rgba(76,175,125,0.25); border:1px solid rgba(76,175,125,0.5); color:var(--green); border-radius:6px; padding:0; cursor:default; font-size:15px; height:36px; width:34px; font-weight:700;'
-      : hasPhoto
-        ? 'background:rgba(76,175,125,0.1); border:1px solid rgba(76,175,125,0.3); color:var(--green); border-radius:6px; padding:0; cursor:pointer; font-size:15px; height:36px; width:34px; font-weight:700;'
-        : 'background:rgba(255,255,255,0.03); border:1px solid var(--border); color:var(--text3); border-radius:6px; padding:0; cursor:not-allowed; font-size:15px; height:36px; width:34px; opacity:0.35;';
-    const photoBtn  = hasPhoto
-      ? `<button id="exp-photo-btn-${row.id}" onclick="document.getElementById('exp-photo-input-${row.id}').click()" style="background:transparent; border:1px solid rgba(76,175,125,0.4); border-radius:6px; padding:0; cursor:pointer; height:36px; width:34px; overflow:hidden;" title="Photo attached — tap to change"><img src="${row.photo}" style="width:100%;height:100%;object-fit:cover;display:block;"></button>`
-      : `<button id="exp-photo-btn-${row.id}" onclick="document.getElementById('exp-photo-input-${row.id}').click()" style="background:rgba(255,255,255,0.04); border:1px solid var(--border); border-radius:6px; padding:0; cursor:pointer; font-size:15px; height:36px; width:34px;" title="Add receipt photo">📷</button>`;
+      : 'background:rgba(76,175,125,0.1); border:1px solid rgba(76,175,125,0.3); color:var(--green); border-radius:6px; padding:0; cursor:pointer; font-size:15px; height:36px; width:34px; font-weight:700;';
     return `
     <div style="${savedBg} ${savedBorder} border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:10px; ${savedBorder}">
       ${row.saved ? '<div style="font-size:10px; color:var(--green); font-family:\'Inter\',sans-serif; letter-spacing:1px; margin-bottom:6px;">✓ SAVED</div>' : ''}
-      <input type="file" accept="image/*" id="exp-photo-input-${row.id}" style="display:none" onchange="handleExpensePhoto(${i}, this)">
       <select id="exp-cat-${row.id}" class="field-select" style="margin-bottom:8px;" onchange="expenseRows[${i}].category=this.value">
         <option value="">Select category…</option>
         ${getExpenseCategories().map(c => `<option value="${c}"${row.category === c ? ' selected' : ''}>${c}</option>`).join('')}
       </select>
-      <div style="display:grid; grid-template-columns:1fr 72px 34px 34px 34px; gap:6px; align-items:center;">
+      <div style="display:grid; grid-template-columns:1fr 72px 34px 34px; gap:6px; align-items:center;">
         <input id="exp-desc-${row.id}" value="${row.desc}" onchange="expenseRows[${i}].desc=this.value"
           placeholder="Description *" class="field-input" style="font-size:13px; padding:8px 12px;" required>
         <div style="position:relative;">
@@ -1772,8 +1781,7 @@ function renderExpenseRows() {
           <input id="exp-amt-${row.id}" type="text" inputmode="decimal" value="${groupIndian(String(row.amount||''))}" oninput="onMoneyInput(this); expenseRows[${i}].amount=this.value.replace(/,/g,''); recalc()"
             placeholder="0" class="field-input field-input-mono" style="padding:8px 6px 8px 18px; font-size:13px;">
         </div>
-        ${photoBtn}
-        <button onclick="tickExpenseRow(${i})" style="${tickStyle}" ${!hasPhoto && !row.saved ? 'disabled' : ''} title="${hasPhoto || row.saved ? 'Save this entry' : 'Add a photo first'}">✓</button>
+        <button onclick="tickExpenseRow(${i})" style="${tickStyle}" title="Save this entry">✓</button>
         <button onclick="removeExpenseRow(${i})" style="background:rgba(224,82,82,0.15); border:1px solid rgba(224,82,82,0.3); color:var(--red); border-radius:6px; padding:0; cursor:pointer; font-size:13px; height:36px; width:34px;">✕</button>
       </div>
     </div>`;
@@ -1816,11 +1824,6 @@ function tickExpenseRow(i) {
   if (!desc.trim()) {
     if (descEl) descEl.style.borderColor = 'var(--red)';
     setTimeout(() => { if (descEl) descEl.style.borderColor = ''; }, 2000);
-    return;
-  }
-  if (!row.photo) {
-    const btn = document.getElementById('exp-photo-btn-' + row.id);
-    if (btn) { btn.style.borderColor = 'var(--red)'; btn.style.borderWidth = '2px'; setTimeout(() => { btn.style.borderColor = ''; btn.style.borderWidth = ''; }, 2000); }
     return;
   }
   row.category = cat;
@@ -1915,9 +1918,41 @@ function recalc() {
   // Total expenses display
   const expDisp = document.getElementById('total-expenses-display');
   if (expDisp) expDisp.textContent = `₹${totalExpenses.toLocaleString('en-IN')}`;
+
+  updateCashVerifyLock();
+}
+
+// Cash Verification (step 4) only unlocks once the day's opening (step 1) and
+// end-of-day sales (step 3) have been entered — either saved for the day or
+// filled in the form right now. Until then the section shows a "finish the
+// steps above" message instead of the count/verify form.
+function cashVerifyReady() {
+  const dateEl = document.getElementById('entry-date');
+  const date = dateEl ? dateEl.value : '';
+  const entry = date ? loadEntries().find(e => e.date === date) : null;
+  const opening = (entry && Number(entry.opening) > 0) ? Number(entry.opening) : money('f-opening');
+  const savedSales = entry ? Number(entry.totalSales) || 0 : 0;
+  const formSales  = money('f-cash') + money('f-upi') + money('f-card');
+  const sales = savedSales > 0 ? savedSales : formSales;
+  return opening > 0 && sales > 0;
+}
+
+function updateCashVerifyLock() {
+  const lock = document.getElementById('cashverify-lock');
+  const content = document.getElementById('cashverify-content');
+  if (!lock || !content) return;
+  const ready = cashVerifyReady();
+  lock.style.display = ready ? 'none' : 'flex';
+  content.style.display = ready ? 'block' : 'none';
+  const card = document.getElementById('setcard-cashverify');
+  if (card) card.classList.toggle('sec-locked', !ready);
 }
 
 function submitEntry() {
+  if (!cashVerifyReady()) {
+    alert('Please finish the steps above first — save the opening balance (step 1) and the day’s sales (step 3), then verify the cash.');
+    return;
+  }
   const date    = document.getElementById('entry-date').value;
   const opening = money('f-opening');
   const cash    = money('f-cash');
