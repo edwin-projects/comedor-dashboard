@@ -351,6 +351,21 @@
 .field-input-mono { font-family: 'Inter', sans-serif; font-size: 16px; }
 .field-select { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: 10px 14px; font-size: 13px; font-family: 'Inter', sans-serif; outline: none; transition: border-color 0.2s; appearance: none; -webkit-appearance: none; cursor: pointer; }
 .field-select:focus { border-color: var(--accent); }
+/* Searchable category dropdown (type-to-filter) */
+.cs-wrap { position: relative; }
+.cs-trigger { width: 100%; box-sizing: border-box; background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: 10px 14px; font-size: 13px; font-family: 'Inter', sans-serif; text-align: left; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; transition: border-color 0.2s; }
+.cs-trigger:focus, .cs-trigger.cs-open { outline: none; border-color: var(--accent); }
+.cs-trigger .cs-val { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cs-trigger.cs-placeholder .cs-val { color: var(--text3); }
+.cs-trigger::after { content: '▾'; color: var(--text3); font-size: 12px; flex-shrink: 0; }
+.cs-panel { position: fixed; z-index: 1200; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 14px 36px rgba(0,0,0,0.45); display: flex; flex-direction: column; overflow: hidden; }
+.cs-search { border: none; border-bottom: 1px solid var(--border); background: var(--surface2); color: var(--text); padding: 11px 13px; font-size: 14px; font-family: 'Inter', sans-serif; outline: none; width: 100%; box-sizing: border-box; }
+.cs-search::placeholder { color: var(--text3); }
+.cs-list { list-style: none; margin: 0; padding: 4px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.cs-opt { padding: 10px 12px; border-radius: 7px; cursor: pointer; font-size: 14px; color: var(--text); font-family: 'Inter', sans-serif; }
+.cs-opt.cs-active, .cs-opt:hover { background: var(--surface2); }
+.cs-opt.cs-sel { color: var(--accent2); font-weight: 600; }
+.cs-empty { padding: 13px 12px; color: var(--text3); font-size: 13px; text-align: center; font-family: 'Inter', sans-serif; }
 #entry-date { position: relative; }
 .opening-hint { font-size: 11px; font-family: 'Inter', sans-serif; margin-top: 7px; padding: 8px 12px; border-radius: 6px; line-height: 1.5; }
 .opening-hint.ok   { background: rgba(76,175,125,0.1);  border: 1px solid rgba(76,175,125,0.3);  color: var(--green); }
@@ -1769,6 +1784,110 @@ function deleteCategory(i) {
   renderCategories();
 }
 
+// ─── SEARCHABLE CATEGORY DROPDOWN ────────────────────────────────────────────
+// Turns a native <select> into a type-to-filter combobox while keeping the
+// native select in the DOM (hidden) as the value holder — so every existing
+// `.value` read/write and `onchange` handler keeps working unchanged. The list
+// is rebuilt from the select's live <option>s each time it opens, so category
+// edits and edits-in-progress are always reflected.
+function enhanceCatSelect(sel) {
+  if (!sel || sel._csEnhanced) return;
+  sel._csEnhanced = true;
+  sel.style.display = 'none';
+  const wrap = document.createElement('div');
+  wrap.className = 'cs-wrap';
+  if (sel.style.marginBottom) wrap.style.marginBottom = sel.style.marginBottom;
+  sel.parentNode.insertBefore(wrap, sel);
+  wrap.appendChild(sel);
+
+  const trigger = document.createElement('button');
+  trigger.type = 'button'; trigger.className = 'cs-trigger';
+  trigger.innerHTML = '<span class="cs-val"></span>';
+  const panel = document.createElement('div');
+  panel.className = 'cs-panel'; panel.style.display = 'none';
+  panel.innerHTML = '<input class="cs-search" type="text" placeholder="Type to find a category…"><ul class="cs-list"></ul>';
+  wrap.appendChild(trigger); wrap.appendChild(panel);
+  const search = panel.querySelector('.cs-search');
+  const list = panel.querySelector('.cs-list');
+  let activeIdx = -1;
+
+  function sync() {
+    const o = sel.options[sel.selectedIndex];
+    const txt = (o && o.value) ? o.textContent : (sel.options[0] ? sel.options[0].textContent : 'Select category…');
+    trigger.querySelector('.cs-val').textContent = txt;
+    trigger.classList.toggle('cs-placeholder', !sel.value);
+  }
+  sel._csSync = sync;
+
+  function build(q) {
+    q = (q || '').toLowerCase().trim();
+    list.innerHTML = ''; activeIdx = -1;
+    let first = true;
+    Array.from(sel.options).forEach(o => {
+      if (!o.value) return;                                   // skip the placeholder option
+      if (q && o.textContent.toLowerCase().indexOf(q) < 0) return;
+      const li = document.createElement('li');
+      li.className = 'cs-opt' + (o.value === sel.value ? ' cs-sel' : '');
+      li.textContent = o.textContent;
+      if (first) { li.classList.add('cs-active'); activeIdx = 0; first = false; }
+      li.addEventListener('mousedown', e => { e.preventDefault(); pick(o.value); });
+      list.appendChild(li);
+    });
+    if (!list.children.length) { const li = document.createElement('li'); li.className = 'cs-empty'; li.textContent = 'No matching category'; list.appendChild(li); }
+  }
+  function pick(val) {
+    sel.value = val;
+    sel.dispatchEvent(new Event('change', { bubbles: true }));
+    sync(); close();
+  }
+  function position() {
+    const r = trigger.getBoundingClientRect();
+    panel.style.left = r.left + 'px';
+    panel.style.width = r.width + 'px';
+    const spaceBelow = window.innerHeight - r.bottom - 10, spaceAbove = r.top - 10;
+    const up = spaceBelow < 240 && spaceAbove > spaceBelow;
+    const room = Math.max(150, Math.min(300, up ? spaceAbove : spaceBelow));
+    list.style.maxHeight = (room - 52) + 'px';
+    const ph = panel.offsetHeight;
+    panel.style.top = (up ? (r.top - ph - 4) : (r.bottom + 4)) + 'px';
+  }
+  function open() {
+    build(''); search.value = '';
+    panel.style.visibility = 'hidden'; panel.style.display = 'flex';
+    position(); panel.style.visibility = 'visible';
+    trigger.classList.add('cs-open');
+    setTimeout(() => search.focus(), 0);
+    document.addEventListener('mousedown', outside, true);
+    window.addEventListener('scroll', onScroll, true);
+    window.addEventListener('resize', close, true);
+  }
+  function close() {
+    panel.style.display = 'none';
+    trigger.classList.remove('cs-open');
+    document.removeEventListener('mousedown', outside, true);
+    window.removeEventListener('scroll', onScroll, true);
+    window.removeEventListener('resize', close, true);
+  }
+  function outside(e) { if (!wrap.contains(e.target)) close(); }
+  function onScroll(e) { if (list.contains(e.target)) return; if (panel.style.display !== 'none') position(); }
+  function setActive(i) {
+    const opts = list.querySelectorAll('.cs-opt'); if (!opts.length) return;
+    activeIdx = (i + opts.length) % opts.length;
+    opts.forEach((el, k) => el.classList.toggle('cs-active', k === activeIdx));
+    opts[activeIdx].scrollIntoView({ block: 'nearest' });
+  }
+  trigger.addEventListener('click', () => { panel.style.display === 'none' ? open() : close(); });
+  search.addEventListener('input', () => build(search.value));
+  search.addEventListener('keydown', e => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActive(activeIdx + 1); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(activeIdx - 1); }
+    else if (e.key === 'Enter') { e.preventDefault(); const el = list.querySelectorAll('.cs-opt')[activeIdx]; if (el) el.dispatchEvent(new MouseEvent('mousedown')); }
+    else if (e.key === 'Escape') { e.preventDefault(); close(); }
+  });
+  sync();
+}
+function csSync(id) { const s = document.getElementById(id); if (s && s._csSync) s._csSync(); }
+
 let expenseRows = [{ id: Date.now(), category: '', desc: '', amount: '', saved: false, photo: null }];
 
 function renderExpenseRows() {
@@ -1799,6 +1918,7 @@ function renderExpenseRows() {
       </div>
     </div>`;
   }).join('');
+  container.querySelectorAll('select[id^="exp-cat-"]').forEach(enhanceCatSelect);
   recalc();
 }
 
@@ -3233,6 +3353,7 @@ function bankCatOptions(force) {
     getExpenseCategories().forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
     if (keep) sel.value = keep;
   }
+  enhanceCatSelect(sel); if (sel._csSync) sel._csSync();
 }
 
 // Fill the direct-expense category picker on the "Partner Money In" form.
@@ -3243,6 +3364,7 @@ function capCatOptions() {
   sel.innerHTML = '<option value="">Select category…</option>';
   getExpenseCategories().forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
   if (keep) sel.value = keep;
+  enhanceCatSelect(sel); if (sel._csSync) sel._csSync();
 }
 
 // Toggle the "Partner Money In" form between a plain capital infusion (into IDFC)
@@ -3297,7 +3419,7 @@ function editBankExpense(id) {
     const who = b.partner || b.addedBy || '';
     if (who && !Array.from(sel.options).some(o => o.value === who)) { const o = document.createElement('option'); o.value = who; o.textContent = who; sel.appendChild(o); }
     if (who) sel.value = who;
-    if (isDirect) { capCatOptions(); const cat = document.getElementById('cap-category'); if (cat) cat.value = b.category || ''; }
+    if (isDirect) { capCatOptions(); const cat = document.getElementById('cap-category'); if (cat) cat.value = b.category || ''; csSync('cap-category'); }
     document.getElementById('cap-desc').value = (b.desc && b.desc !== 'Capital infusion') ? b.desc : '';
     const cb = document.getElementById('cap-submit-btn'); if (cb) cb.textContent = 'Save changes ✓';
     const m = document.getElementById('cap-form-msg');
@@ -3311,6 +3433,7 @@ function editBankExpense(id) {
   document.getElementById('be-date').value     = b.date || '';
   setMoney('be-amount', b.amount || '');
   document.getElementById('be-category').value = b.category || '';
+  csSync('be-category');
   document.getElementById('be-desc').value     = b.desc || '';
   const btn = document.getElementById('be-submit-btn');
   if (btn) btn.textContent = 'Save changes ✓';
@@ -3324,6 +3447,7 @@ function cancelBankEdit() {
   _editingBankId = null;
   ['be-amount','be-desc'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('be-category').value = '';
+  csSync('be-category');
   const btn = document.getElementById('be-submit-btn');
   if (btn) btn.textContent = 'Add to Bank Ledger ✓';
   document.getElementById('bank-form-success').style.display = 'none';
