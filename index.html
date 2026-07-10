@@ -1184,7 +1184,7 @@
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-10-07';
+const APP_VERSION = '2026-07-10-08';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -1339,24 +1339,25 @@ function initFirebase() {
     seedRecurringDefaults();
     migrateRecurringSalary();
     migrateRecurringGst();
+    migrateRecurringCa();
   } catch (e) { console.warn('Firebase init failed:', e); setSyncStatus('offline'); }
 }
 // The restaurant's fixed monthly commitments, derived from the Mar–Jul history:
 // shop rent is a flat ₹1,71,000 every month (~6th); staff salaries run ~₹3,31,716
 // (~13th) — set to the latest full month (June), since the head-count only grows
 // so that's the best guide for months ahead; staff accommodation rent ₹45,000
-// (~10th); GST filing lands on the 20th (a reminder — the app already keeps GST
-// out of the P&L). Everyday variable spend (groceries/ingredients/vendors) is
-// intentionally NOT listed here — it flows through the run-rate projection
-// instead. Amounts are starting estimates; edit any in Settings → Recurring & Reminders.
+// (~10th); GST payment lands on the 20th (computed live at 5% of last month's
+// sales); the CA's flat ₹3,600 filing fee recurs quarterly. Everyday variable
+// spend (groceries/ingredients/vendors) is intentionally NOT listed here.
+// Amounts are starting estimates; edit any in Settings → Scheduled Expenses.
 var HIST_RECURRING = [
   { id:'rec_seed_rent',      label:'Shop rent',                kind:'expense',  amount:171000, freq:'monthly', day:6,  month:null, date:null, category:'Rent',       addedBy:'Backfill' },
   { id:'rec_seed_salary',    label:'Staff salaries',           kind:'expense',  amount:331716, freq:'monthly', day:13, month:null, date:null, category:'Salaries',   addedBy:'Backfill' },
   { id:'rec_seed_staffrent', label:'Staff accommodation rent', kind:'expense',  amount:45000,  freq:'monthly', day:10, month:null, date:null, category:'Staff Rent', addedBy:'Backfill' },
   // GST is 5% of the previous month's sales — computed live, so it always tracks
-  // turnover. The CA's filing fee is a separate, roughly-quarterly reminder.
-  { id:'rec_seed_gst',    label:'GST payment',        kind:'expense',  amount:0, computed:'gst5', freq:'monthly',   day:20, month:null, date:null, category:'GST', addedBy:'Backfill' },
-  { id:'rec_seed_gst_ca', label:'GST filing (CA fees)', kind:'reminder', amount:0,                freq:'quarterly', day:20, month:7,    date:null, category:'',    addedBy:'Backfill' }
+  // turnover. The CA's fee is a separate, flat ₹3,600 filing charge every quarter.
+  { id:'rec_seed_gst',    label:'GST payment', kind:'expense', amount:0, computed:'gst5', freq:'monthly',   day:20, month:null, date:null, category:'GST', addedBy:'Backfill' },
+  { id:'rec_seed_gst_ca', label:'CA Fees',     kind:'expense', amount:3600,               freq:'quarterly', day:20, month:7,    date:null, category:'GST', addedBy:'Backfill' }
 ];
 // One-time correction for installs already seeded at the earlier ₹2,80,000
 // estimate: bump the salary commitment to the latest-month figure — but ONLY if
@@ -1383,7 +1384,7 @@ function migrateRecurringSalary() {
 // reminder: turn it into the computed monthly GST payment (5% of last month's
 // sales) and add the separate quarterly CA-filing reminder. Only touches the GST
 // item while it's still the untouched reminder default.
-var GST_CA_DEFAULT = { id:'rec_seed_gst_ca', label:'GST filing (CA fees)', kind:'reminder', amount:0, freq:'quarterly', day:20, month:7, date:null, category:'', addedBy:'Backfill' };
+var GST_CA_DEFAULT = { id:'rec_seed_gst_ca', label:'CA Fees', kind:'expense', amount:3600, freq:'quarterly', day:20, month:7, date:null, category:'GST', addedBy:'Backfill' };
 function migrateRecurringGst() {
   if (!_db) {
     if (localStorage.getItem('comedor_recurring_gstV2')) return;
@@ -1404,6 +1405,27 @@ function migrateRecurringGst() {
       if (!sn2.exists()) _db.ref('comedor/recurring/rec_seed_gst_ca').set(GST_CA_DEFAULT).catch(function () {});
     }).catch(function () {});
     _db.ref('comedor/meta/recurringGstV2').set(true).catch(function () {});
+  }).catch(function () {});
+}
+// One-time correction for installs seeded with the old CA-filing *reminder*: turn
+// it into the flat ₹3,600 quarterly *expense* and rename it "CA Fees". Only touches
+// the record while it's still the untouched reminder default, so a hand-edited
+// amount/label/type is never overwritten.
+function migrateRecurringCa() {
+  function isDefault(c) { return c && c.kind === 'reminder' && Number(c.amount) === 0 && c.label === 'GST filing (CA fees)'; }
+  if (!_db) {
+    if (localStorage.getItem('comedor_recurring_caV3')) return;
+    var list = loadRecurring(), c = list.find(function (x) { return x && x.id === 'rec_seed_gst_ca'; });
+    if (isDefault(c)) { c.label = 'CA Fees'; c.kind = 'expense'; c.amount = 3600; c.category = 'GST'; localStorage.setItem('comedor_recurring', JSON.stringify(list)); }
+    localStorage.setItem('comedor_recurring_caV3', '1');
+    return;
+  }
+  _db.ref('comedor/meta/recurringCaV3').once('value').then(function (s) {
+    if (s.exists() && s.val()) return;
+    _db.ref('comedor/recurring/rec_seed_gst_ca').once('value').then(function (sn) {
+      if (isDefault(sn.val())) _db.ref('comedor/recurring/rec_seed_gst_ca').update({ label: 'CA Fees', kind: 'expense', amount: 3600, category: 'GST' }).catch(function () {});
+      _db.ref('comedor/meta/recurringCaV3').set(true).catch(function () {});
+    }).catch(function () {});
   }).catch(function () {});
 }
 // Seed the commitments above ONCE (globally, guarded by a Firebase meta flag so a
