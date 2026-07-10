@@ -1106,7 +1106,7 @@
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-09-07';
+const APP_VERSION = '2026-07-10-01';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -2577,35 +2577,75 @@ function renderPeriodLabel() {
   const label = from === to ? d(from) : `${d(from)} – ${d(to)}`;
   el.textContent = `${label}  ·  FY ${fyLabel(new Date())} (Apr–Mar)`;
 }
-// Two at-a-glance notes for today's manager cash actions: is the opening cash
-// added, and is the closing cash updated. Green tick = done; amber ⓘ = still to
-// do; red ⚠ = overdue (opening past 12:00 PM, closing past 11:45 PM).
+// At-a-glance notes on the manager's cash actions — is the opening cash added,
+// is the closing cash updated. These follow the SELECTED period, exactly like
+// every other tile: pick Yesterday and they report on yesterday, pick a month
+// and they summarise that month. Green tick = done; amber ⓘ = still to do;
+// red ⚠ = overdue. (The 12 PM / 11:45 PM deadlines only apply to *today*; for a
+// past day left undone it's simply a gap, for a future day nothing is due yet.)
 function renderDailyStatus() {
   const el = document.getElementById('daily-status');
   if (!el) return;
   const now = new Date();
-  const todayISO = now.toISOString().split('T')[0];   // matches the entry-date default
-  const mins = now.getHours() * 60 + now.getMinutes();
-  const entry = loadEntries().find(e => e.date === todayISO);
-  const openingDone = !!(entry && Number(entry.opening) > 0);
-  const closingDone = !!(entry && !entry.partial);     // real cash count submitted
-  const OPEN_DEADLINE = 12 * 60;        // 12:00 PM
-  const CLOSE_DEADLINE = 23 * 60 + 45;  // 11:45 PM
-  const line = (done, overdue, doneText, pendText, overText) => {
-    const cls = done ? 'ds-done' : overdue ? 'ds-over' : 'ds-pend';
-    const ic  = done ? '✓' : overdue ? '⚠' : 'ⓘ';
-    const txt = done ? doneText : overdue ? overText : pendText;
-    return `<div class="ds-row ${cls}"><span class="ds-ic">${ic}</span><span class="ds-tx">${txt}</span></div>`;
-  };
+  const pad = n => String(n).padStart(2, '0');
+  // Local date, matching computeDashRange() (NOT UTC) so 'today' lines up with
+  // the Today filter in every timezone.
+  const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+  const todayISO = fmt(now);
+  const { from, to } = computeDashRange();
+  if (!from || !to) { el.innerHTML = ''; return; }
+  const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const dShort = iso => { const [y, m, d] = iso.split('-'); return `${+d} ${MON[+m-1].toUpperCase()}`; };
+  const row = (cls, ic, txt) => `<div class="ds-row ${cls}"><span class="ds-ic">${ic}</span><span class="ds-tx">${txt}</span></div>`;
+
+  // ── Single day → that specific day's opening/closing status. ──
+  if (from === to) {
+    const date = from;
+    const entry = loadEntries().find(e => e.date === date);
+    const openingDone = !!(entry && Number(entry.opening) > 0);
+    const closingDone = !!(entry && !entry.partial);     // real cash count submitted
+    const isToday = date === todayISO;
+    const isPast  = date < todayISO;
+    const mins = now.getHours() * 60 + now.getMinutes();
+    const OPEN_DEADLINE = 12 * 60;        // 12:00 PM
+    const CLOSE_DEADLINE = 23 * 60 + 45;  // 11:45 PM
+    const when = isToday ? 'TODAY' : dShort(date);
+    // Overdue = today past its deadline, or any past day still left undone.
+    const openOverdue  = isToday ? mins >= OPEN_DEADLINE  : isPast;
+    const closeOverdue = isToday ? mins >= CLOSE_DEADLINE : isPast;
+    const oneLine = (done, overdue, doneTxt, pendTxt, overTxt) =>
+      done ? row('ds-done', '✓', doneTxt) : overdue ? row('ds-over', '⚠', overTxt) : row('ds-pend', 'ⓘ', pendTxt);
+    el.innerHTML =
+      oneLine(openingDone, openOverdue,
+        `OPENING CASH ADDED FOR ${when}`,
+        isToday ? 'OPENING CASH YET TO BE ADDED' : `OPENING CASH YET TO BE ADDED · ${when}`,
+        isToday ? 'OPENING CASH NOT ADDED — OVERDUE (12 PM)' : `OPENING CASH NOT ADDED · ${when}`) +
+      oneLine(closingDone, closeOverdue,
+        `CLOSING CASH UPDATED FOR ${when}`,
+        isToday ? 'CLOSING CASH YET TO BE UPDATED' : `CLOSING CASH YET TO BE UPDATED · ${when}`,
+        isToday ? 'CLOSING CASH NOT UPDATED — OVERDUE (11:45 PM)' : `CLOSING CASH NOT UPDATED · ${when}`);
+    return;
+  }
+
+  // ── Multi-day period → summarise across the days that were actually opened,
+  // so days the comedor never operated can't raise a false alarm. Opening = how
+  // many days were recorded; Closing = how many of those still lack a final count.
+  const inRange = loadEntries().filter(e => e.date && e.date >= from && e.date <= to);
+  const opened  = inRange.filter(e => Number(e.opening) > 0);
+  const nOpen = opened.length;
+  const nPend = opened.filter(e => e.partial).length;
+  const days = n => (n === 1 ? '1 DAY' : n + ' DAYS');
+  if (nOpen === 0) {
+    el.innerHTML =
+      row('ds-pend', 'ⓘ', 'NO OPENING CASH RECORDED THIS PERIOD') +
+      row('ds-pend', 'ⓘ', 'NO CLOSING CASH RECORDED THIS PERIOD');
+    return;
+  }
   el.innerHTML =
-    line(openingDone, mins >= OPEN_DEADLINE,
-      'OPENING CASH ADDED FOR TODAY',
-      'OPENING CASH YET TO BE ADDED',
-      'OPENING CASH NOT ADDED — OVERDUE (12 PM)') +
-    line(closingDone, mins >= CLOSE_DEADLINE,
-      'CLOSING CASH UPDATED FOR TODAY',
-      'CLOSING CASH YET TO BE UPDATED',
-      'CLOSING CASH NOT UPDATED — OVERDUE (11:45 PM)');
+    row('ds-done', '✓', `OPENING CASH RECORDED · ${days(nOpen)}`) +
+    (nPend === 0
+      ? row('ds-done', '✓', `CLOSING CASH COMPLETE · ${days(nOpen)}`)
+      : row('ds-over', '⚠', `CLOSING CASH PENDING · ${nPend} OF ${days(nOpen)}`));
 }
 
 function renderDashboard() {
