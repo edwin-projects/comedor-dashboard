@@ -166,6 +166,39 @@
   .tsplit-l { font-size: 11px; color: var(--text2); font-family: 'Inter', sans-serif; line-height: 1.55; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tsplit-l b { font-weight: 500; color: var(--text); }
   .tpct { color: var(--text3); font-size: 10px; }
+  /* Upcoming / expected-expenses tile + its drill-down list */
+  .tile-upc    { background:linear-gradient(140deg, rgba(176,110,40,0.26) 0%, rgba(224,150,77,0.05) 100%); border-color:rgba(224,150,77,0.34); }
+  .tile-upc .card-value { color:#e0a04d; }
+  .tile-upc .card-value.upc-neg { color:var(--red); }
+  .upc-chip { display:inline-block; margin-top:6px; font-size:10px; font-weight:600; letter-spacing:0.3px; padding:2px 8px; border-radius:999px; font-family:'Inter',sans-serif; }
+  .upc-ok    { color:#6fd69a; background:rgba(111,214,154,0.12); }
+  .upc-short { color:#e8726a; background:rgba(232,114,106,0.14); }
+  .upc-detail { margin-top:-2px; }
+  .upc-detail-title { font-size:11px; text-transform:uppercase; letter-spacing:1.6px; color:var(--text3); margin-bottom:4px; }
+  .upc-detail-note { font-size:11px; color:var(--text3); margin-bottom:10px; }
+  .upc-row { display:flex; align-items:center; gap:10px; padding:9px 0; border-top:1px solid var(--border); }
+  .upc-row:first-of-type { border-top:none; }
+  .upc-date { flex:0 0 52px; font-size:11px; color:var(--text3); font-variant-numeric:tabular-nums; }
+  .upc-lbl { flex:1; font-size:13px; color:var(--text); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .upc-tag { font-size:9px; text-transform:uppercase; letter-spacing:1px; padding:1px 6px; border-radius:6px; margin-left:2px; }
+  .upc-tag-rem { color:#a78bfa; background:rgba(167,139,250,0.14); }
+  .upc-amt { flex:0 0 auto; font-size:13px; font-weight:600; color:var(--text); font-variant-numeric:tabular-nums; }
+  .upc-amt-rem { color:var(--text3); font-weight:500; font-size:11px; text-transform:uppercase; letter-spacing:1px; }
+  .upc-empty { font-size:12px; color:var(--text3); padding:8px 0; }
+  /* Recurring & reminders editor (Settings) */
+  .rec-row { display:flex; align-items:center; gap:8px; padding:11px 12px; border:1px solid var(--border); border-radius:9px; background:var(--surface2); margin-bottom:8px; }
+  .rec-main { flex:1; min-width:0; }
+  .rec-name { font-size:13.5px; color:var(--text); font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .rec-when { font-size:11px; color:var(--text3); margin-top:2px; }
+  .rec-amt { font-size:13.5px; font-weight:600; color:var(--text); white-space:nowrap; }
+  .rec-amt.rec-amt-rem { color:#a78bfa; font-size:10px; text-transform:uppercase; letter-spacing:1px; }
+  .rec-act { border:none; background:none; cursor:pointer; font-size:11px; padding:4px 5px; font-family:'Inter',sans-serif; }
+  .rec-edit { color:#4d9de0; } .rec-del { color:var(--red); }
+  .rec-sugg { border:1px dashed var(--border); border-radius:9px; padding:11px 12px; margin-bottom:8px; display:flex; align-items:center; gap:10px; }
+  .rec-sugg-add { border:none; background:var(--accent2); color:#161616; font-weight:700; border-radius:7px; padding:7px 13px; cursor:pointer; font-size:12px; flex:0 0 auto; }
+  .rec-seg { display:flex; gap:6px; margin:2px 0 12px; }
+  .rec-seg button { flex:1; padding:9px 6px; border:1px solid var(--border); background:var(--surface2); color:var(--text2); border-radius:8px; font-size:12px; font-family:'Inter',sans-serif; cursor:pointer; }
+  .rec-seg button.on { border-color:var(--accent2); color:var(--text); background:rgba(201,160,64,0.12); font-weight:600; }
 
   /* SECTION TITLES */
   .section-title { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 2.4px; margin-bottom: 16px; margin-top: 28px; padding-bottom: 9px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
@@ -1059,6 +1092,60 @@
     </div>
   </div>
 
+  <!-- Recurring expenses & reminders -->
+  <div class="setcard collapsed tint-red" id="setcard-recurring">
+    <div class="setcard-head" onclick="toggleSet('recurring')"><span class="setcard-title">Recurring &amp; Reminders</span><span class="setcard-chev">▾</span></div>
+    <div class="setcard-body">
+      <p class="exp-note">Tell the app about outflows that come round on a schedule — <b>salary on a fixed day, rent, a yearly licence</b> — and date <b>reminders</b> like GST filing (no amount). These power the <b>Upcoming</b> tile on the Dashboard, which projects what's still due in the selected period and checks it against your balance.</p>
+
+      <div class="rec-seg" id="rec-type-seg">
+        <button type="button" class="on" id="rec-type-expense" onclick="recSetType('expense')">Payment</button>
+        <button type="button" id="rec-type-reminder" onclick="recSetType('reminder')">Reminder only</button>
+      </div>
+
+      <label class="field-label">Name</label>
+      <input id="rec-label" class="field-input" placeholder="e.g. Staff salary, IDFC rent, GST filing" style="width:100%; margin-bottom:12px;">
+
+      <div id="grp-amount">
+        <label class="field-label">Amount ₹</label>
+        <input id="rec-amount" class="field-input" type="text" inputmode="decimal" oninput="onMoneyInput(this)" placeholder="e.g. 1,70,000" style="width:100%; margin-bottom:12px;">
+      </div>
+
+      <div id="grp-category">
+        <label class="field-label">Category (optional)</label>
+        <input id="rec-category" class="field-input" list="rec-cat-list" placeholder="e.g. Salary, Rent" style="width:100%; margin-bottom:12px;">
+        <datalist id="rec-cat-list"></datalist>
+      </div>
+
+      <label class="field-label">Schedule</label>
+      <div class="rec-seg" id="rec-freq-seg">
+        <button type="button" class="on" id="rec-freq-monthly" onclick="recSetFreq('monthly')">Monthly</button>
+        <button type="button" id="rec-freq-yearly" onclick="recSetFreq('yearly')">Yearly</button>
+        <button type="button" id="rec-freq-once" onclick="recSetFreq('once')">One-off</button>
+      </div>
+
+      <div id="grp-monthly">
+        <label class="field-label">Day of month</label>
+        <input id="rec-day" class="field-input" type="number" min="1" max="31" placeholder="e.g. 5" style="width:100%; margin-bottom:12px;">
+      </div>
+      <div id="grp-yearly" style="display:none;">
+        <div style="display:grid; grid-template-columns:1fr 110px; gap:10px; margin-bottom:12px;">
+          <div><label class="field-label">Month</label><select id="rec-ymonth" class="field-select"></select></div>
+          <div><label class="field-label">Day</label><input id="rec-yday" class="field-input" type="number" min="1" max="31" placeholder="1"></div>
+        </div>
+      </div>
+      <div id="grp-once" style="display:none;">
+        <label class="field-label">Date</label>
+        <input id="rec-date" class="field-input" type="date" style="width:100%; margin-bottom:12px;">
+      </div>
+
+      <button id="rec-add-btn" class="btn" style="width:100%; padding:12px;" onclick="addRecurring()">Add ✓</button>
+
+      <div id="rec-suggest" style="margin-top:16px;"></div>
+      <div id="rec-list" style="margin-top:14px;"></div>
+    </div>
+  </div>
+
   <!-- Historical data -->
   <div class="setcard collapsed tint-slate" id="setcard-hist">
     <div class="setcard-head" onclick="toggleSet('hist')"><span class="setcard-title">Historical Data</span><span class="setcard-chev">▾</span></div>
@@ -1106,7 +1193,7 @@
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-10-01';
+const APP_VERSION = '2026-07-10-02';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -1250,6 +1337,12 @@ function initFirebase() {
       renderActivePanel();
       if (document.getElementById('panel-entry')?.classList.contains('active')) renderIncomeList();
     }, onErr('income'));
+
+    _db.ref('comedor/recurring').on('value', snap => {
+      localStorage.setItem('comedor_recurring', JSON.stringify(snap.exists() ? Object.values(snap.val()) : []));
+      renderActivePanel();
+      if (document.getElementById('panel-people')?.classList.contains('active')) renderRecurring();
+    }, onErr('recurring'));
     upgradeHistoricalIncome();
     seedHistoricalCashBook();
   } catch (e) { console.warn('Firebase init failed:', e); setSyncStatus('offline'); }
@@ -1845,6 +1938,121 @@ function deleteCategory(kind, i) {
   cats.splice(i, 1);
   saveCategories(kind, cats);
   renderCategoryEditor(kind);
+}
+
+// ─── RECURRING & REMINDERS EDITOR (Settings) ────────────────────────────────
+let _recType = 'expense', _recFreq = 'monthly', _recEditId = null, _recSuggCache = [];
+function _recId() { return 'rec_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function _ordSuffix(n) { const s = ['th','st','nd','rd'], v = n % 100; return s[(v - 20) % 10] || s[v] || s[0]; }
+function recSetType(t) {
+  _recType = t;
+  const be = document.getElementById('rec-type-expense'), br = document.getElementById('rec-type-reminder');
+  if (be) be.classList.toggle('on', t === 'expense');
+  if (br) br.classList.toggle('on', t === 'reminder');
+  const isExp = t === 'expense';
+  const ga = document.getElementById('grp-amount'), gc = document.getElementById('grp-category');
+  if (ga) ga.style.display = isExp ? '' : 'none';
+  if (gc) gc.style.display = isExp ? '' : 'none';
+}
+function recSetFreq(f) {
+  _recFreq = f;
+  ['monthly','yearly','once'].forEach(x => { const b = document.getElementById('rec-freq-' + x); if (b) b.classList.toggle('on', x === f); });
+  const gm = document.getElementById('grp-monthly'), gy = document.getElementById('grp-yearly'), go = document.getElementById('grp-once');
+  if (gm) gm.style.display = f === 'monthly' ? '' : 'none';
+  if (gy) gy.style.display = f === 'yearly' ? '' : 'none';
+  if (go) go.style.display = f === 'once' ? '' : 'none';
+}
+function _recWhenText(r) {
+  const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const ord = n => n + _ordSuffix(n);
+  if (r.freq === 'once') return r.date ? `One-off · ${(+r.date.slice(8,10))} ${MON[+r.date.slice(5,7)-1]} ${r.date.slice(0,4)}` : 'One-off';
+  if (r.freq === 'yearly') return `Every year · ${ord(Number(r.day)||1)} ${MON[(Number(r.month)||1)-1]}`;
+  return `Every month · ${ord(Number(r.day)||1)}`;
+}
+function renderRecurring() {
+  const msel = document.getElementById('rec-ymonth');
+  if (msel && !msel.options.length) { const MON = ['January','February','March','April','May','June','July','August','September','October','November','December']; msel.innerHTML = MON.map((m,i)=>`<option value="${i+1}">${m}</option>`).join(''); }
+  const dl = document.getElementById('rec-cat-list');
+  if (dl) dl.innerHTML = getCategories('partner').map(c => `<option value="${esc(c)}"></option>`).join('');
+  const sg = document.getElementById('rec-suggest');
+  if (sg) {
+    _recSuggCache = suggestRecurring();
+    sg.innerHTML = _recSuggCache.length
+      ? `<div class="upc-detail-title" style="margin-bottom:8px;">Suggested from your history</div>` + _recSuggCache.map((s,i) => `<div class="rec-sugg"><div class="rec-main"><div class="rec-name">${esc(s.label)}</div><div class="rec-when">Looks monthly · ~₹${Math.round(s.amount).toLocaleString('en-IN')} · around the ${s.day}${_ordSuffix(s.day)} · seen in ${s.months} months</div></div><button class="rec-sugg-add" onclick="applySuggestion(${i})">Add</button></div>`).join('')
+      : '';
+  }
+  const el = document.getElementById('rec-list');
+  if (!el) return;
+  const recs = loadRecurring().slice().sort((a,b) => (Number(b.amount)||0)-(Number(a.amount)||0));
+  el.innerHTML = recs.length
+    ? recs.map(r => `<div class="rec-row"><div class="rec-main"><div class="rec-name">${esc(r.label)}${r.kind==='reminder'?'<span class="upc-tag upc-tag-rem" style="margin-left:6px;">reminder</span>':''}</div><div class="rec-when">${_recWhenText(r)}${r.category?' · '+esc(r.category):''}</div></div><div class="rec-amt ${r.kind==='reminder'?'rec-amt-rem':''}">${r.kind==='reminder'?'—':'₹'+Math.round(Number(r.amount)||0).toLocaleString('en-IN')}</div><button class="rec-act rec-edit" onclick="editRecurring('${r.id}')">Edit</button><button class="rec-act rec-del" onclick="deleteRecurring('${r.id}')">Delete</button></div>`).join('')
+    : '<div class="log-empty">Nothing yet — add a payment or reminder above, or tap a suggestion.</div>';
+}
+function applySuggestion(i) {
+  const s = _recSuggCache[i]; if (!s) return;
+  saveRecurringRec({ id:_recId(), label:s.label, kind:'expense', amount:s.amount, freq:'monthly', day:s.day, month:null, date:null, category:s.category, addedBy:(currentUser?currentUser.name:''), at:new Date().toLocaleString('en-IN') });
+  renderRecurring();
+  if (document.getElementById('panel-dashboard')?.classList.contains('active')) renderDashboard();
+}
+function _recResetForm() {
+  _recEditId = null;
+  const lbl = document.getElementById('rec-label'); if (lbl) lbl.value = '';
+  setMoney('rec-amount', '');
+  const c = document.getElementById('rec-category'); if (c) c.value = '';
+  const d = document.getElementById('rec-day'); if (d) d.value = '';
+  const yd = document.getElementById('rec-yday'); if (yd) yd.value = '';
+  const dt = document.getElementById('rec-date'); if (dt) dt.value = '';
+  recSetType('expense'); recSetFreq('monthly');
+  const b = document.getElementById('rec-add-btn'); if (b) b.textContent = 'Add ✓';
+}
+function addRecurring() {
+  const label = (document.getElementById('rec-label').value || '').trim();
+  if (!label) { peopleMsg('Give it a name', false); return; }
+  const editing = !!_recEditId;
+  const kind = _recType;
+  const amount = kind === 'expense' ? money('rec-amount') : 0;
+  if (kind === 'expense' && amount <= 0) { peopleMsg('Enter an amount (or switch to Reminder only)', false); return; }
+  const rec = { id: _recEditId || _recId(), label, kind, amount, freq: _recFreq, day: null, month: null, date: null,
+    category: kind === 'expense' ? (document.getElementById('rec-category').value || '').trim() : '',
+    addedBy: (currentUser ? currentUser.name : ''), at: new Date().toLocaleString('en-IN') };
+  if (_recFreq === 'once') {
+    rec.date = document.getElementById('rec-date').value;
+    if (!rec.date) { peopleMsg('Pick a date', false); return; }
+  } else if (_recFreq === 'yearly') {
+    rec.month = Number(document.getElementById('rec-ymonth').value) || 1;
+    rec.day = Number(document.getElementById('rec-yday').value) || 1;
+  } else {
+    rec.day = Number(document.getElementById('rec-day').value) || 0;
+    if (!rec.day) { peopleMsg('Enter the day of the month', false); return; }
+  }
+  if (editing) { const prev = loadRecurring().find(x => x.id === _recEditId); if (prev) { rec.addedBy = prev.addedBy || rec.addedBy; rec.editedBy = currentUser ? currentUser.name : ''; } }
+  saveRecurringRec(rec);
+  _recResetForm();
+  renderRecurring();
+  btnFlash('rec-add-btn', editing ? 'Saving…' : 'Adding…', editing ? 'Saved ✓' : 'Added ✓', 'Add ✓');
+  if (document.getElementById('panel-dashboard')?.classList.contains('active')) renderDashboard();
+}
+function editRecurring(id) {
+  const r = loadRecurring().find(x => x.id === id); if (!r) return;
+  _recEditId = id;
+  document.getElementById('rec-label').value = r.label || '';
+  recSetType(r.kind === 'reminder' ? 'reminder' : 'expense');
+  if (r.kind === 'expense') setMoney('rec-amount', r.amount || '');
+  const c = document.getElementById('rec-category'); if (c) c.value = r.category || '';
+  recSetFreq(r.freq || 'monthly');
+  if (r.freq === 'once') { document.getElementById('rec-date').value = r.date || ''; }
+  else if (r.freq === 'yearly') { document.getElementById('rec-ymonth').value = r.month || 1; document.getElementById('rec-yday').value = r.day || 1; }
+  else { document.getElementById('rec-day').value = r.day || ''; }
+  const b = document.getElementById('rec-add-btn'); if (b) b.textContent = 'Save changes ✓';
+  document.getElementById('rec-label').scrollIntoView({ behavior: 'smooth', block: 'center' });
+}
+function deleteRecurring(id) {
+  const r = loadRecurring().find(x => x.id === id); if (!r) return;
+  if (!confirm('Remove “' + r.label + '”?')) return;
+  deleteRecurringRec(id);
+  if (_recEditId === id) _recResetForm();
+  renderRecurring();
+  if (document.getElementById('panel-dashboard')?.classList.contains('active')) renderDashboard();
 }
 
 // ─── SEARCHABLE CATEGORY DROPDOWN ────────────────────────────────────────────
@@ -3032,6 +3240,163 @@ function getBankInRange() {
 
 function isGstEntry(b) { return !b.capital && !b.direct && b.category === 'GST'; }
 
+// ─── RECURRING EXPENSES & REMINDERS (upcoming-outflow forecast) ──────────────
+// User-defined commitments the app knows are coming — salary on a fixed day,
+// rent on the 1st, a yearly licence — plus date-only reminders (e.g. GST filing)
+// that carry no rupee amount. These drive the "Upcoming" tile, which projects
+// expected spend for the selected period and checks it against the available
+// balance. Stored at comedor/recurring, mirrored to localStorage.
+//   rec = { id, label, kind:'expense'|'reminder', amount, freq:'monthly'|'yearly'|'once',
+//           day(1-31), month(1-12, yearly only), date(ISO, once only), category, addedBy, at, editedBy }
+function loadRecurring() { try { const v = JSON.parse(localStorage.getItem('comedor_recurring') || '[]'); return Array.isArray(v) ? v : []; } catch (e) { return []; } }
+function saveRecurringRec(rec) {
+  const list = loadRecurring().filter(r => r.id !== rec.id);
+  list.push(rec);
+  localStorage.setItem('comedor_recurring', JSON.stringify(list));
+  if (_db) _db.ref('comedor/recurring/' + rec.id).set(rec).catch(syncWriteErr);
+}
+function deleteRecurringRec(id) {
+  localStorage.setItem('comedor_recurring', JSON.stringify(loadRecurring().filter(r => r.id !== id)));
+  if (_db) _db.ref('comedor/recurring/' + id).remove().catch(syncWriteErr);
+}
+// Clamp a day-of-month to a real day (e.g. "31st" → 30 in April, 28/29 in Feb).
+function _clampDom(year, month0, dom) { const last = new Date(year, month0 + 1, 0).getDate(); return Math.min(Math.max(dom, 1), last); }
+function _isoYMD(year, month0, day) { const pad = n => String(n).padStart(2, '0'); return `${year}-${pad(month0 + 1)}-${pad(day)}`; }
+// Every occurrence of every recurring item that lands inside [from,to], sorted
+// by date. Guarded so a malformed record can never spin the loop.
+function recurringOccurrencesInRange(from, to) {
+  if (!from || !to || from > to) return [];
+  const out = [];
+  const [fy, fm] = from.split('-').map(Number);
+  const [ty, tm] = to.split('-').map(Number);
+  loadRecurring().forEach(r => {
+    if (!r) return;
+    if (r.freq === 'once') {
+      if (r.date && r.date >= from && r.date <= to) out.push({ rec: r, date: r.date });
+      return;
+    }
+    if (r.freq === 'yearly') {
+      const mo = Math.min(Math.max(Number(r.month) || 1, 1), 12);
+      const dom = Math.min(Math.max(Number(r.day) || 1, 1), 31);
+      for (let y = fy; y <= ty; y++) {
+        const d = _isoYMD(y, mo - 1, _clampDom(y, mo - 1, dom));
+        if (d >= from && d <= to) out.push({ rec: r, date: d });
+      }
+      return;
+    }
+    // monthly (default)
+    const dom = Math.min(Math.max(Number(r.day) || 1, 1), 31);
+    let y = fy, m0 = fm - 1, guard = 0;
+    while ((y < ty || (y === ty && m0 <= tm - 1)) && guard < 480) {
+      const d = _isoYMD(y, m0, _clampDom(y, m0, dom));
+      if (d >= from && d <= to) out.push({ rec: r, date: d });
+      m0++; if (m0 > 11) { m0 = 0; y++; } guard++;
+    }
+  });
+  out.sort((a, b) => a.date.localeCompare(b.date));
+  return out;
+}
+
+// Flat list of dated operational expenses, used for the run-rate projection and
+// for detecting recurring patterns. `drawsBalance` marks spend that comes out of
+// the business's own bank/cash (vs partner-direct opex, which is real spend the
+// partner funded personally). GST is flagged so the run-rate can skip it (lumpy
+// and better captured as a scheduled item).
+function _opexEvents() {
+  const ev = [];
+  loadBankEntries().forEach(b => {
+    if (!b || b.capital || b.direct || !b.date) return;
+    ev.push({ date: b.date, amount: Number(b.amount) || 0, category: b.category || '', gst: b.category === 'GST', drawsBalance: true });
+  });
+  loadEntries().forEach(e => {
+    if (!e || !e.date) return;
+    const t = Number(e.totalExpenses) || 0;
+    if (t > 0) ev.push({ date: e.date, amount: t, category: 'Cash expenses', gst: false, drawsBalance: true });
+  });
+  loadLedger().forEach(r => {
+    if (r && r[3] === 'O' && r[0]) ev.push({ date: r[0], amount: Number(r[1]) || 0, category: r[4] || '', gst: false, drawsBalance: false });
+  });
+  return ev;
+}
+// Does an actual expense look like one of the defined monthly commitments? Used
+// to strip scheduled items out of the everyday run-rate so they aren't counted
+// twice (once in the projection, once as a scheduled line).
+function _matchesRecurring(ev, recs) {
+  const dom = Number(ev.date.slice(8, 10));
+  return recs.some(r => {
+    if (r.kind !== 'expense' || r.freq !== 'monthly') return false;
+    if ((r.category || '').toLowerCase() !== (ev.category || '').toLowerCase()) return false;
+    const amt = Number(r.amount) || 0; if (!amt) return false;
+    if (Math.abs(ev.amount - amt) > amt * 0.2) return false;
+    const rd = Number(r.day) || 1;
+    let dd = Math.abs(dom - rd); if (dd > 15) dd = 31 - dd;   // wrap around month end
+    return dd <= 4;
+  });
+}
+// Everyday variable spend rate (₹/day) from the last ~90 days of business-funded,
+// non-GST, non-scheduled expenses — the baseline the projection scales up.
+function _dailyRunRate() {
+  const today = todayLocalISO();
+  const recs = loadRecurring();
+  const events = _opexEvents().filter(ev => ev.drawsBalance && !ev.gst && ev.date <= today && !_matchesRecurring(ev, recs));
+  if (!events.length) return { rate: 0, from: null, n: 0 };
+  const earliest = events.map(e => e.date).sort()[0];
+  const lb = isoAdd(today, -90);
+  const start = lb > earliest ? lb : earliest;
+  const win = events.filter(e => e.date >= start && e.date <= today);
+  const total = win.reduce((s, e) => s + e.amount, 0);
+  const days = Math.max(1, daysInclusive(start, today));
+  return { rate: total / days, from: start, n: win.length };
+}
+// The forecast for a selected dashboard period. Looks only at the *upcoming*
+// slice of the period (from today, or the period start if it's still in the
+// future, to the period end) so it answers "what's still coming, and does the
+// balance cover it?". Lifetime's open-ended end is clamped to one year out.
+function forecastForPeriod(from, to) {
+  const today = todayLocalISO();
+  const pastPeriod = to < today;
+  const winFrom = from > today ? from : today;
+  const projCap = isoAdd(today, 366);
+  const winTo = to > projCap ? projCap : to;
+  const occ = (pastPeriod || winFrom > winTo) ? [] : recurringOccurrencesInRange(winFrom, winTo);
+  const schedOcc  = occ.filter(o => o.rec.kind === 'expense');
+  const reminders = occ.filter(o => o.rec.kind === 'reminder');
+  const scheduled = schedOcc.reduce((s, o) => s + (Number(o.rec.amount) || 0), 0);
+  const rr = _dailyRunRate();
+  const remainingDays = pastPeriod ? 0 : Math.max(0, daysInclusive(winFrom, winTo));
+  const projected = pastPeriod ? 0 : rr.rate * remainingDays;
+  const expected = scheduled + projected;
+  return { pastPeriod, winFrom, winTo, remainingDays, scheduled, projected, expected, schedOcc, reminders, rate: rr.rate };
+}
+// Scan expense history for monthly patterns not yet defined as recurring, so we
+// can offer them as one-tap additions. Groups business + partner-paid opex by
+// category; a category qualifies if it recurs in ≥3 distinct months on a roughly
+// stable day. Suggests the typical (median) amount and the most common day.
+function suggestRecurring() {
+  const defined = loadRecurring();
+  const isDefined = cat => defined.some(r => r.kind === 'expense' && (r.category || '').toLowerCase() === cat.toLowerCase());
+  const byCat = {};
+  _opexEvents().forEach(ev => {
+    const c = (ev.category || '').trim();
+    if (!c || ev.gst || c === 'Cash expenses') return;
+    (byCat[c] = byCat[c] || []).push(ev);
+  });
+  const median = arr => { const s = arr.slice().sort((a, b) => a - b); const m = Math.floor(s.length / 2); return s.length % 2 ? s[m] : Math.round((s[m - 1] + s[m]) / 2); };
+  const mode = arr => { const f = {}; let best = arr[0], bc = 0; arr.forEach(v => { f[v] = (f[v] || 0) + 1; if (f[v] > bc) { bc = f[v]; best = v; } }); return best; };
+  const out = [];
+  Object.keys(byCat).forEach(cat => {
+    if (isDefined(cat)) return;
+    const evs = byCat[cat];
+    const months = new Set(evs.map(e => e.date.slice(0, 7)));
+    if (months.size < 3) return;                       // needs a real repeating history
+    const amt = median(evs.map(e => Number(e.amount) || 0));
+    const day = mode(evs.map(e => Number(e.date.slice(8, 10)) || 1));
+    if (amt <= 0) return;
+    out.push({ label: cat, category: cat, amount: amt, day, freq: 'monthly', months: months.size });
+  });
+  return out.sort((a, b) => b.amount - a.amount).slice(0, 6);
+}
+
 
 // ─── DAY-1 SETUP & CAPITAL LEDGER (partner-funded; equity + capex, kept out of P&L) ───
 // Day-1 setup & capital ledger (Wolfpack Ventures Ledger, 6 Jul 2026). Row = [date, INR, 'E'|'P', bucket 'C'apex|'S'etup(pre-open)|'O'perating, category]
@@ -3356,6 +3721,14 @@ function toggleCapCard() {
   const c = document.getElementById('cap-card');
   if (c) { c.classList.toggle('cap-collapsed', _capCollapsed); if (!_capCollapsed) fitSplitLines(c); }
 }
+// Expandable dated list of upcoming payments & reminders under the Upcoming tile.
+let _upcOpen = false;
+function toggleUpcoming(e) {
+  if (e && e.stopPropagation) e.stopPropagation();
+  _upcOpen = !_upcOpen;
+  const d = document.getElementById('upc-detail');
+  if (d) d.style.display = _upcOpen ? 'block' : 'none';
+}
 
 // Keep every split line on ONE line at any screen width: shrink the whole
 // group's font (one uniform size per box) until the widest line fits, down to
@@ -3452,6 +3825,27 @@ function renderPnlBank() {
     { k: 'Operating spend (counted as expense)', v: tO, parts: [{ k: 'Edwin', v: opexO.Edwin }, { k: 'Prathvi', v: opexO.Prathvi }], type: 'opex' }
   ].sort((a, b) => b.v - a.v);
 
+  // ── Upcoming-expenses forecast for the selected period ──
+  const fc = forecastForPeriod(range.from, range.to);
+  const PERIOD_WORD = { today:'today', yesterday:'yesterday', week:'this week', month:'this month', lastmonth:'last month', quarter:'this quarter', half:'this half', ytd:'rest of FY', lifetime:'year ahead', custom:'this range' };
+  const upcWord = PERIOD_WORD[currentDashFilter] || 'ahead';
+  const upcCovered = available >= fc.expected;
+  const upcShort = Math.max(0, fc.expected - available);
+  const MON3 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const dChip = iso => { const p = iso.split('-'); return `${+p[2]} ${MON3[+p[1]-1]}`; };
+  const upcItems = [...fc.schedOcc.map(o => ({ date:o.date, label:o.rec.label, amt:Number(o.rec.amount)||0, rem:false })),
+                    ...fc.reminders.map(o => ({ date:o.date, label:o.rec.label, amt:0, rem:true }))]
+                    .sort((a,b) => a.date.localeCompare(b.date));
+  const upcTileSub = fc.pastPeriod
+    ? '<div class="tsplit-l" style="color:var(--text3)">Period has ended</div>'
+    : ((fc.scheduled > 0 || fc.projected > 0)
+        ? `${splitBox([{k:'Scheduled',v:fc.scheduled},{k:'Projected',v:fc.projected}], fc.expected)}<div class="upc-chip ${upcCovered?'upc-ok':'upc-short'}">${upcCovered ? 'Covered by balance ✓' : 'Short '+inr(upcShort)+' ⚠'}</div>`
+        : '<div class="tsplit-l" style="color:var(--text3)">Nothing scheduled yet</div>');
+  const upcDetailRows = upcItems.length
+    ? upcItems.map(it => `<div class="upc-row"><span class="upc-date">${dChip(it.date)}</span><span class="upc-lbl">${esc(it.label)}${it.rem?'<span class="upc-tag upc-tag-rem">reminder</span>':''}</span><span class="upc-amt ${it.rem?'upc-amt-rem':''}">${it.rem?'—':inr(it.amt)}</span></div>`).join('')
+    : '<div class="upc-empty">No scheduled payments or reminders in this period. Add them in Settings → Recurring &amp; Reminders.</div>';
+  const upcProjNote = (!fc.pastPeriod && fc.projected > 0) ? `<div class="upc-detail-note">Plus ~${inr(fc.projected)} projected everyday spend over ${fc.remainingDays} day${fc.remainingDays===1?'':'s'}, from your recent run-rate.</div>` : '';
+
   // Hero P/L: centre the number itself; the ₹ (and any minus) sit just to its
   // left, absolutely positioned, so they don't shift the optical centre.
   const netParts = inr(net).match(/^(\D*)(.*)$/);
@@ -3460,7 +3854,7 @@ function renderPnlBank() {
   const sEl = document.getElementById('pnl-summary');
   if (sEl) sEl.innerHTML = `
     <div class="cards2">
-      <div class="card card-click tile-income" onclick="focusLog('sales')"><div class="card-label">Income (Sales)</div><div class="card-value green">${inr(income)}</div><div class="card-sub">${regTot ? splitBox([{k:'UPI/Card',v:incNon},{k:'Cash',v:incCash}], income) : ''}${estFromRegister ? `<div class="tsplit-l" style="color:var(--text3);margin-top:2px;">From End-of-Day Sales · Pet Pooja not uploaded yet</div>` : ''}</div></div>
+      <div class="card card-click tile-income" onclick="focusLog('sales')"><div class="card-label">Income (Sales)</div><div class="card-value green">${inr(income)}</div><div class="card-sub">${regTot ? splitBox([{k:'UPI/Card',v:incNon},{k:'Cash',v:incCash}], income) : ''}<div class="tsplit-l" style="color:var(--text3);">Comps &amp; discounts <b>${inr(discount)}</b>${discount > 0 ? discPct : ''}</div>${estFromRegister ? `<div class="tsplit-l" style="color:var(--text3);margin-top:2px;">From End-of-Day Sales · Pet Pooja not uploaded yet</div>` : ''}</div></div>
       <div class="card card-click tile-exp" onclick="focusLog('expcat')"><div class="card-label">Expenses</div><div class="card-value red">${inr(totalExp)}</div><div class="card-sub">${splitBox([{k:'Bank',v:bankExp},{k:'Cash',v:cashExp},{k:'Direct',v:ledgerOpex}], totalExp)}</div></div>
     </div>
     <div class="pnl-hero ${net >= 0 ? 'hero-pos' : 'hero-neg'}">
@@ -3470,7 +3864,12 @@ function renderPnlBank() {
     </div>
     <div class="cards2">
       <div class="card card-click tile-avail" onclick="focusLog('bank')"><div class="card-label">Available Balance</div><div class="card-value">${inr(available)}</div><div class="card-sub">${splitBox([{k:'Bank',v:bankBal||0},{k:'Cash',v:cashBal}], available)}</div></div>
-      <div class="card card-click tile-disc" onclick="focusLog('sales')"><div class="card-label">Discounts &amp; Comps</div><div class="card-value">${inr(discount)}</div><div class="card-sub">${discPct ? discPct.trim() : 'From Pet Pooja'}</div></div>
+      <div class="card card-click tile-upc" onclick="toggleUpcoming(event)"><div class="card-label">Upcoming · ${upcWord}</div><div class="card-value ${(!fc.pastPeriod && !upcCovered && fc.expected>0)?'upc-neg':''}">${fc.pastPeriod ? '—' : inr(fc.expected)}</div><div class="card-sub">${upcTileSub}</div></div>
+    </div>
+    <div class="card upc-detail" id="upc-detail" style="display:${_upcOpen ? 'block' : 'none'};">
+      <div class="upc-detail-title">Upcoming payments &amp; reminders · ${upcWord}</div>
+      ${upcProjNote}
+      ${upcDetailRows}
     </div>
     <div class="pnl-divider"><span>Capital &amp; investment</span></div>
     <div class="card cap-invest ${_capCollapsed ? 'cap-collapsed' : ''}" id="cap-card">
@@ -4712,6 +5111,7 @@ function toggleSubcat(key) {
 }
 function renderPeople() {
   renderCategories();
+  try { renderRecurring(); } catch (e) { console.warn('Recurring render failed:', e); }
   const sel = document.getElementById('pp-role');
   roleOptions(sel);
   if (sel && !sel._wired) { sel._wired = true; sel.onchange = () => { document.getElementById('pp-role-desc').textContent = roleAccessText(sel.value); }; sel.onchange(); }
