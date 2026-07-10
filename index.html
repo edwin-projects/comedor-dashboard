@@ -181,7 +181,8 @@
   .upc-amt-proj { font-weight:500; color:var(--text2); }
   .upc-row { display:flex; align-items:center; gap:10px; padding:9px 0; border-top:1px solid var(--border); }
   .upc-row:first-of-type { border-top:none; }
-  .upc-date { flex:0 0 52px; font-size:11px; color:var(--text3); font-variant-numeric:tabular-nums; }
+  .upc-date { flex:0 0 58px; font-size:11px; color:var(--text3); font-variant-numeric:tabular-nums; display:flex; flex-direction:column; line-height:1.35; }
+  .upc-rel { font-size:9px; color:var(--accent2); text-transform:uppercase; letter-spacing:0.5px; }
   .upc-lbl { flex:1; font-size:13px; color:var(--text); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .upc-tag { font-size:9px; text-transform:uppercase; letter-spacing:1px; padding:1px 6px; border-radius:6px; margin-left:2px; }
   .upc-tag-rem { color:#a78bfa; background:rgba(167,139,250,0.14); }
@@ -1200,7 +1201,7 @@
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-10-05';
+const APP_VERSION = '2026-07-10-06';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -3971,18 +3972,29 @@ function renderPnlBank() {
   const upcShort = Math.max(0, fc.expected - available);
   const MON3 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const dChip = iso => { const p = iso.split('-'); return `${+p[2]} ${MON3[+p[1]-1]}`; };
+  // Relative "when" for an upcoming date: today / tomorrow / in N days / in N weeks.
+  const _upcToday = todayLocalISO();
+  const goLabel = iso => { const n = daysInclusive(_upcToday, iso) - 1; return n <= 0 ? 'today' : n === 1 ? 'tomorrow' : n < 14 ? `in ${n} days` : `in ${Math.round(n / 7)} weeks`; };
   const upcItems = [...fc.schedOcc.map(o => ({ date:o.date, label:o.rec.label, amt:Number(o.amount)||0, rem:false })),
                     ...fc.reminders.map(o => ({ date:o.date, label:o.rec.label, amt:0, rem:true }))]
                     .sort((a,b) => a.date.localeCompare(b.date));
+  // Tile split shows a TIMELINE (when it's due) rather than a % share: the
+  // scheduled line points at the soonest payment (+N more if others follow),
+  // the projected line spans the remaining days.
+  const schedTL = fc.schedOcc.length ? goLabel(fc.schedOcc[0].date) + (fc.schedOcc.length > 1 ? ` +${fc.schedOcc.length - 1} more` : '') : '';
+  const projTL = fc.remainingDays <= 1 ? 'today' : `over ${fc.remainingDays} days`;
+  const upcLine = (k, v, tl) => `<div class="tsplit-l">${k} <b>${inr(v)}</b>${tl ? ` <span class="tpct">· ${tl}</span>` : ''}</div>`;
+  const upcSplitHtml = [{ k:'Scheduled', v:fc.scheduled, tl:schedTL }, { k:'Projected', v:fc.projected, tl:projTL }]
+    .filter(p => p.v > 0).sort((a, b) => b.v - a.v).map(p => upcLine(p.k, p.v, p.tl)).join('') || '<div class="tsplit-l">—</div>';
   const upcTileSub = fc.pastPeriod
     ? '<div class="tsplit-l" style="color:var(--text3)">Period has ended</div>'
     : ((fc.scheduled > 0 || fc.projected > 0)
-        ? `${splitBox([{k:'Scheduled',v:fc.scheduled},{k:'Projected',v:fc.projected}], fc.expected)}<div class="upc-chip ${upcCovered?'upc-ok':'upc-short'}">${upcCovered ? 'Covered by balance ✓' : 'Short '+inr(upcShort)+' ⚠'}</div>`
+        ? `${upcSplitHtml}<div class="upc-chip ${upcCovered?'upc-ok':'upc-short'}">${upcCovered ? 'Covered by balance ✓' : 'Short '+inr(upcShort)+' ⚠'}</div>`
         : '<div class="tsplit-l" style="color:var(--text3)">Nothing scheduled yet</div>');
   // Detail = two groups: dated scheduled payments/reminders, then the projected
   // everyday spend broken out by category (mirrors how scheduled is itemised).
   const upcSchedHtml = upcItems.length
-    ? upcItems.map(it => `<div class="upc-row"><span class="upc-date">${dChip(it.date)}</span><span class="upc-lbl">${esc(it.label)}${it.rem?'<span class="upc-tag upc-tag-rem">reminder</span>':''}</span><span class="upc-amt ${it.rem?'upc-amt-rem':''}">${it.rem?'—':inr(it.amt)}</span></div>`).join('')
+    ? upcItems.map(it => `<div class="upc-row"><span class="upc-date">${dChip(it.date)}<span class="upc-rel">${goLabel(it.date)}</span></span><span class="upc-lbl">${esc(it.label)}${it.rem?'<span class="upc-tag upc-tag-rem">reminder</span>':''}</span><span class="upc-amt ${it.rem?'upc-amt-rem':''}">${it.rem?'—':inr(it.amt)}</span></div>`).join('')
     : '<div class="upc-empty">No scheduled payments or reminders in this window.</div>';
   const upcProjHtml = (!fc.pastPeriod && fc.projected > 0)
     ? `<div class="upc-detail-sub">Projected everyday spend · ~${inr(fc.projected)} over ${fc.remainingDays} day${fc.remainingDays===1?'':'s'} <span class="upc-detail-hint">(recent run-rate)</span></div>`
