@@ -176,6 +176,9 @@
   .upc-detail { margin-top:-2px; }
   .upc-detail-title { font-size:11px; text-transform:uppercase; letter-spacing:1.6px; color:var(--text3); margin-bottom:4px; }
   .upc-detail-note { font-size:11px; color:var(--text3); margin-bottom:10px; }
+  .upc-detail-sub { font-size:10.5px; text-transform:uppercase; letter-spacing:1.4px; color:var(--text3); margin:14px 0 4px; padding-top:12px; border-top:1px solid var(--border); }
+  .upc-detail-hint { text-transform:none; letter-spacing:0; opacity:0.8; }
+  .upc-amt-proj { font-weight:500; color:var(--text2); }
   .upc-row { display:flex; align-items:center; gap:10px; padding:9px 0; border-top:1px solid var(--border); }
   .upc-row:first-of-type { border-top:none; }
   .upc-date { flex:0 0 52px; font-size:11px; color:var(--text3); font-variant-numeric:tabular-nums; }
@@ -1108,7 +1111,9 @@
 
       <div id="grp-amount">
         <label class="field-label">Amount ₹</label>
-        <input id="rec-amount" class="field-input" type="text" inputmode="decimal" oninput="onMoneyInput(this)" placeholder="e.g. 1,70,000" style="width:100%; margin-bottom:12px;">
+        <input id="rec-amount" class="field-input" type="text" inputmode="decimal" oninput="onMoneyInput(this)" placeholder="e.g. 1,70,000" style="width:100%; margin-bottom:4px;">
+        <div class="exp-note" id="rec-computed-note" style="display:none; margin-bottom:12px;">This amount is auto-calculated (5% of last month’s sales) — leave it as is.</div>
+        <div id="rec-amount-spacer" style="height:8px;"></div>
       </div>
 
       <div id="grp-category">
@@ -1120,6 +1125,7 @@
       <label class="field-label">Schedule</label>
       <div class="rec-seg" id="rec-freq-seg">
         <button type="button" class="on" id="rec-freq-monthly" onclick="recSetFreq('monthly')">Monthly</button>
+        <button type="button" id="rec-freq-quarterly" onclick="recSetFreq('quarterly')">Quarterly</button>
         <button type="button" id="rec-freq-yearly" onclick="recSetFreq('yearly')">Yearly</button>
         <button type="button" id="rec-freq-once" onclick="recSetFreq('once')">One-off</button>
       </div>
@@ -1129,10 +1135,11 @@
         <input id="rec-day" class="field-input" type="number" min="1" max="31" placeholder="e.g. 5" style="width:100%; margin-bottom:12px;">
       </div>
       <div id="grp-yearly" style="display:none;">
-        <div style="display:grid; grid-template-columns:1fr 110px; gap:10px; margin-bottom:12px;">
-          <div><label class="field-label">Month</label><select id="rec-ymonth" class="field-select"></select></div>
+        <div style="display:grid; grid-template-columns:1fr 110px; gap:10px; margin-bottom:4px;">
+          <div><label class="field-label" id="rec-ymonth-label">Month</label><select id="rec-ymonth" class="field-select"></select></div>
           <div><label class="field-label">Day</label><input id="rec-yday" class="field-input" type="number" min="1" max="31" placeholder="1"></div>
         </div>
+        <div class="exp-note" id="rec-quarterly-hint" style="display:none; margin-bottom:12px;">Repeats every 3 months from this month (e.g. Jul → Oct → Jan → Apr).</div>
       </div>
       <div id="grp-once" style="display:none;">
         <label class="field-label">Date</label>
@@ -1193,7 +1200,7 @@
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-10-04';
+const APP_VERSION = '2026-07-10-05';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -1347,6 +1354,7 @@ function initFirebase() {
     seedHistoricalCashBook();
     seedRecurringDefaults();
     migrateRecurringSalary();
+    migrateRecurringGst();
   } catch (e) { console.warn('Firebase init failed:', e); setSyncStatus('offline'); }
 }
 // The restaurant's fixed monthly commitments, derived from the Mar–Jul history:
@@ -1361,7 +1369,10 @@ var HIST_RECURRING = [
   { id:'rec_seed_rent',      label:'Shop rent',                kind:'expense',  amount:171000, freq:'monthly', day:6,  month:null, date:null, category:'Rent',       addedBy:'Backfill' },
   { id:'rec_seed_salary',    label:'Staff salaries',           kind:'expense',  amount:331716, freq:'monthly', day:13, month:null, date:null, category:'Salaries',   addedBy:'Backfill' },
   { id:'rec_seed_staffrent', label:'Staff accommodation rent', kind:'expense',  amount:45000,  freq:'monthly', day:10, month:null, date:null, category:'Staff Rent', addedBy:'Backfill' },
-  { id:'rec_seed_gst',       label:'GST filing & payment',     kind:'reminder', amount:0,      freq:'monthly', day:20, month:null, date:null, category:'',           addedBy:'Backfill' }
+  // GST is 5% of the previous month's sales — computed live, so it always tracks
+  // turnover. The CA's filing fee is a separate, roughly-quarterly reminder.
+  { id:'rec_seed_gst',    label:'GST payment',        kind:'expense',  amount:0, computed:'gst5', freq:'monthly',   day:20, month:null, date:null, category:'GST', addedBy:'Backfill' },
+  { id:'rec_seed_gst_ca', label:'GST filing (CA fees)', kind:'reminder', amount:0,                freq:'quarterly', day:20, month:7,    date:null, category:'',    addedBy:'Backfill' }
 ];
 // One-time correction for installs already seeded at the earlier ₹2,80,000
 // estimate: bump the salary commitment to the latest-month figure — but ONLY if
@@ -1382,6 +1393,33 @@ function migrateRecurringSalary() {
       if (r && Number(r.amount) === OLD) _db.ref('comedor/recurring/rec_seed_salary/amount').set(TARGET).catch(function () {});
       _db.ref('comedor/meta/recurringSalaryV2').set(true).catch(function () {});
     }).catch(function () {});
+  }).catch(function () {});
+}
+// One-time correction for installs seeded with the old single "GST filing & payment"
+// reminder: turn it into the computed monthly GST payment (5% of last month's
+// sales) and add the separate quarterly CA-filing reminder. Only touches the GST
+// item while it's still the untouched reminder default.
+var GST_CA_DEFAULT = { id:'rec_seed_gst_ca', label:'GST filing (CA fees)', kind:'reminder', amount:0, freq:'quarterly', day:20, month:7, date:null, category:'', addedBy:'Backfill' };
+function migrateRecurringGst() {
+  if (!_db) {
+    if (localStorage.getItem('comedor_recurring_gstV2')) return;
+    var list = loadRecurring(), g = list.find(function (x) { return x && x.id === 'rec_seed_gst'; });
+    if (g && g.kind === 'reminder' && !g.computed) { g.kind = 'expense'; g.computed = 'gst5'; g.amount = 0; g.category = 'GST'; g.label = 'GST payment'; }
+    if (!list.some(function (x) { return x && x.id === 'rec_seed_gst_ca'; })) list.push(GST_CA_DEFAULT);
+    localStorage.setItem('comedor_recurring', JSON.stringify(list));
+    localStorage.setItem('comedor_recurring_gstV2', '1');
+    return;
+  }
+  _db.ref('comedor/meta/recurringGstV2').once('value').then(function (s) {
+    if (s.exists() && s.val()) return;
+    _db.ref('comedor/recurring/rec_seed_gst').once('value').then(function (sn) {
+      var g = sn.val();
+      if (g && g.kind === 'reminder' && !g.computed) _db.ref('comedor/recurring/rec_seed_gst').update({ kind: 'expense', computed: 'gst5', amount: 0, category: 'GST', label: 'GST payment' }).catch(function () {});
+    }).catch(function () {});
+    _db.ref('comedor/recurring/rec_seed_gst_ca').once('value').then(function (sn2) {
+      if (!sn2.exists()) _db.ref('comedor/recurring/rec_seed_gst_ca').set(GST_CA_DEFAULT).catch(function () {});
+    }).catch(function () {});
+    _db.ref('comedor/meta/recurringGstV2').set(true).catch(function () {});
   }).catch(function () {});
 }
 // Seed the commitments above ONCE (globally, guarded by a Firebase meta flag so a
@@ -2008,18 +2046,27 @@ function recSetType(t) {
 }
 function recSetFreq(f) {
   _recFreq = f;
-  ['monthly','yearly','once'].forEach(x => { const b = document.getElementById('rec-freq-' + x); if (b) b.classList.toggle('on', x === f); });
+  ['monthly','quarterly','yearly','once'].forEach(x => { const b = document.getElementById('rec-freq-' + x); if (b) b.classList.toggle('on', x === f); });
   const gm = document.getElementById('grp-monthly'), gy = document.getElementById('grp-yearly'), go = document.getElementById('grp-once');
   if (gm) gm.style.display = f === 'monthly' ? '' : 'none';
-  if (gy) gy.style.display = f === 'yearly' ? '' : 'none';
+  if (gy) gy.style.display = (f === 'yearly' || f === 'quarterly') ? '' : 'none';   // both use month + day
   if (go) go.style.display = f === 'once' ? '' : 'none';
+  const lbl = document.getElementById('rec-ymonth-label'); if (lbl) lbl.textContent = f === 'quarterly' ? 'First month' : 'Month';
+  const hint = document.getElementById('rec-quarterly-hint'); if (hint) hint.style.display = f === 'quarterly' ? '' : 'none';
 }
 function _recWhenText(r) {
   const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const ord = n => n + _ordSuffix(n);
   if (r.freq === 'once') return r.date ? `One-off · ${(+r.date.slice(8,10))} ${MON[+r.date.slice(5,7)-1]} ${r.date.slice(0,4)}` : 'One-off';
   if (r.freq === 'yearly') return `Every year · ${ord(Number(r.day)||1)} ${MON[(Number(r.month)||1)-1]}`;
+  if (r.freq === 'quarterly') return `Every quarter · ${ord(Number(r.day)||1)}, from ${MON[(Number(r.month)||1)-1]}`;
   return `Every month · ${ord(Number(r.day)||1)}`;
+}
+// Amount label for the list: computed items show their rule, not a frozen number.
+function _recAmountLabel(r) {
+  if (r.kind === 'reminder') return '—';
+  if (r.computed === 'gst5') return '5% of last month’s sales';
+  return '₹' + Math.round(Number(r.amount) || 0).toLocaleString('en-IN');
 }
 function renderRecurring() {
   const msel = document.getElementById('rec-ymonth');
@@ -2037,7 +2084,7 @@ function renderRecurring() {
   if (!el) return;
   const recs = loadRecurring().slice().sort((a,b) => (Number(b.amount)||0)-(Number(a.amount)||0));
   el.innerHTML = recs.length
-    ? recs.map(r => `<div class="rec-row"><div class="rec-main"><div class="rec-name">${esc(r.label)}${r.kind==='reminder'?'<span class="upc-tag upc-tag-rem" style="margin-left:6px;">reminder</span>':''}</div><div class="rec-when">${_recWhenText(r)}${r.category?' · '+esc(r.category):''}</div></div><div class="rec-amt ${r.kind==='reminder'?'rec-amt-rem':''}">${r.kind==='reminder'?'—':'₹'+Math.round(Number(r.amount)||0).toLocaleString('en-IN')}</div><button class="rec-act rec-edit" onclick="editRecurring('${r.id}')">Edit</button><button class="rec-act rec-del" onclick="deleteRecurring('${r.id}')">Delete</button></div>`).join('')
+    ? recs.map(r => `<div class="rec-row"><div class="rec-main"><div class="rec-name">${esc(r.label)}${r.kind==='reminder'?'<span class="upc-tag upc-tag-rem" style="margin-left:6px;">reminder</span>':''}</div><div class="rec-when">${_recWhenText(r)}${r.category?' · '+esc(r.category):''}</div></div><div class="rec-amt ${(r.kind==='reminder'||r.computed)?'rec-amt-rem':''}">${_recAmountLabel(r)}</div><button class="rec-act rec-edit" onclick="editRecurring('${r.id}')">Edit</button><button class="rec-act rec-del" onclick="deleteRecurring('${r.id}')">Delete</button></div>`).join('')
     : '<div class="log-empty">Nothing yet — add a payment or reminder above, or tap a suggestion.</div>';
 }
 function applySuggestion(i) {
@@ -2054,6 +2101,7 @@ function _recResetForm() {
   const d = document.getElementById('rec-day'); if (d) d.value = '';
   const yd = document.getElementById('rec-yday'); if (yd) yd.value = '';
   const dt = document.getElementById('rec-date'); if (dt) dt.value = '';
+  const note = document.getElementById('rec-computed-note'); if (note) note.style.display = 'none';
   recSetType('expense'); recSetFreq('monthly');
   const b = document.getElementById('rec-add-btn'); if (b) b.textContent = 'Add ✓';
 }
@@ -2061,23 +2109,26 @@ function addRecurring() {
   const label = (document.getElementById('rec-label').value || '').trim();
   if (!label) { peopleMsg('Give it a name', false); return; }
   const editing = !!_recEditId;
+  const prev = editing ? loadRecurring().find(x => x.id === _recEditId) : null;
+  const computed = prev && prev.computed ? prev.computed : null;   // preserve auto-calculated items (e.g. GST)
   const kind = _recType;
   const amount = kind === 'expense' ? money('rec-amount') : 0;
-  if (kind === 'expense' && amount <= 0) { peopleMsg('Enter an amount (or switch to Reminder only)', false); return; }
+  if (kind === 'expense' && !computed && amount <= 0) { peopleMsg('Enter an amount (or switch to Reminder only)', false); return; }
   const rec = { id: _recEditId || _recId(), label, kind, amount, freq: _recFreq, day: null, month: null, date: null,
     category: kind === 'expense' ? (document.getElementById('rec-category').value || '').trim() : '',
     addedBy: (currentUser ? currentUser.name : ''), at: new Date().toLocaleString('en-IN') };
+  if (computed) rec.computed = computed;
   if (_recFreq === 'once') {
     rec.date = document.getElementById('rec-date').value;
     if (!rec.date) { peopleMsg('Pick a date', false); return; }
-  } else if (_recFreq === 'yearly') {
+  } else if (_recFreq === 'yearly' || _recFreq === 'quarterly') {
     rec.month = Number(document.getElementById('rec-ymonth').value) || 1;
     rec.day = Number(document.getElementById('rec-yday').value) || 1;
   } else {
     rec.day = Number(document.getElementById('rec-day').value) || 0;
     if (!rec.day) { peopleMsg('Enter the day of the month', false); return; }
   }
-  if (editing) { const prev = loadRecurring().find(x => x.id === _recEditId); if (prev) { rec.addedBy = prev.addedBy || rec.addedBy; rec.editedBy = currentUser ? currentUser.name : ''; } }
+  if (prev) { rec.addedBy = prev.addedBy || rec.addedBy; rec.editedBy = currentUser ? currentUser.name : ''; }
   saveRecurringRec(rec);
   _recResetForm();
   renderRecurring();
@@ -2090,10 +2141,11 @@ function editRecurring(id) {
   document.getElementById('rec-label').value = r.label || '';
   recSetType(r.kind === 'reminder' ? 'reminder' : 'expense');
   if (r.kind === 'expense') setMoney('rec-amount', r.amount || '');
+  const note = document.getElementById('rec-computed-note'); if (note) note.style.display = r.computed ? '' : 'none';
   const c = document.getElementById('rec-category'); if (c) c.value = r.category || '';
   recSetFreq(r.freq || 'monthly');
   if (r.freq === 'once') { document.getElementById('rec-date').value = r.date || ''; }
-  else if (r.freq === 'yearly') { document.getElementById('rec-ymonth').value = r.month || 1; document.getElementById('rec-yday').value = r.day || 1; }
+  else if (r.freq === 'yearly' || r.freq === 'quarterly') { document.getElementById('rec-ymonth').value = r.month || 1; document.getElementById('rec-yday').value = r.day || 1; }
   else { document.getElementById('rec-day').value = r.day || ''; }
   const b = document.getElementById('rec-add-btn'); if (b) b.textContent = 'Save changes ✓';
   document.getElementById('rec-label').scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -3314,25 +3366,45 @@ function deleteRecurringRec(id) {
 // Clamp a day-of-month to a real day (e.g. "31st" → 30 in April, 28/29 in Feb).
 function _clampDom(year, month0, dom) { const last = new Date(year, month0 + 1, 0).getDate(); return Math.min(Math.max(dom, 1), last); }
 function _isoYMD(year, month0, day) { const pad = n => String(n).padStart(2, '0'); return `${year}-${pad(month0 + 1)}-${pad(day)}`; }
+// The rupee amount of one occurrence. Most items carry a fixed `amount`; a
+// `computed` item is worked out live — 'gst5' = 5% of the PREVIOUS calendar
+// month's sales relative to the occurrence's month (GST is a % of turnover, so
+// it tracks sales automatically rather than being a number someone maintains).
+function _occAmount(rec, date) {
+  if (rec && rec.computed === 'gst5') {
+    const y = +date.slice(0, 4), m = +date.slice(5, 7);
+    const pm = m === 1 ? 12 : m - 1, py = m === 1 ? y - 1 : y;
+    const mm = String(pm).padStart(2, '0');
+    const last = new Date(py, pm, 0).getDate();
+    return Math.round(incomeInRange(py + '-' + mm + '-01', py + '-' + mm + '-' + String(last).padStart(2, '0')) * 0.05);
+  }
+  return Number(rec && rec.amount) || 0;
+}
 // Every occurrence of every recurring item that lands inside [from,to], sorted
-// by date. Guarded so a malformed record can never spin the loop.
+// by date, each stamped with its (possibly computed) amount. Guarded so a
+// malformed record can never spin the loop.
 function recurringOccurrencesInRange(from, to) {
   if (!from || !to || from > to) return [];
   const out = [];
+  const push = (r, d) => out.push({ rec: r, date: d, amount: _occAmount(r, d) });
   const [fy, fm] = from.split('-').map(Number);
   const [ty, tm] = to.split('-').map(Number);
   loadRecurring().forEach(r => {
     if (!r) return;
     if (r.freq === 'once') {
-      if (r.date && r.date >= from && r.date <= to) out.push({ rec: r, date: r.date });
+      if (r.date && r.date >= from && r.date <= to) push(r, r.date);
       return;
     }
-    if (r.freq === 'yearly') {
-      const mo = Math.min(Math.max(Number(r.month) || 1, 1), 12);
+    if (r.freq === 'yearly' || r.freq === 'quarterly') {
+      const anchor = Math.min(Math.max(Number(r.month) || 1, 1), 12);
       const dom = Math.min(Math.max(Number(r.day) || 1, 1), 31);
+      const fires = mo => r.freq === 'quarterly' ? ((mo - anchor) % 3 + 3) % 3 === 0 : mo === anchor;
       for (let y = fy; y <= ty; y++) {
-        const d = _isoYMD(y, mo - 1, _clampDom(y, mo - 1, dom));
-        if (d >= from && d <= to) out.push({ rec: r, date: d });
+        for (let mo = 1; mo <= 12; mo++) {
+          if (!fires(mo)) continue;
+          const d = _isoYMD(y, mo - 1, _clampDom(y, mo - 1, dom));
+          if (d >= from && d <= to) push(r, d);
+        }
       }
       return;
     }
@@ -3341,7 +3413,7 @@ function recurringOccurrencesInRange(from, to) {
     let y = fy, m0 = fm - 1, guard = 0;
     while ((y < ty || (y === ty && m0 <= tm - 1)) && guard < 480) {
       const d = _isoYMD(y, m0, _clampDom(y, m0, dom));
-      if (d >= from && d <= to) out.push({ rec: r, date: d });
+      if (d >= from && d <= to) push(r, d);
       m0++; if (m0 > 11) { m0 = 0; y++; } guard++;
     }
   });
@@ -3396,14 +3468,16 @@ function _dailyRunRate() {
   const today = todayLocalISO();
   const recs = loadRecurring();
   const events = _opexEvents().filter(ev => ev.drawsBalance && !ev.gst && ev.date <= today && !_matchesRecurring(ev, recs));
-  if (!events.length) return { rate: 0, from: null, n: 0 };
+  if (!events.length) return { rate: 0, from: null, n: 0, total: 0, byCat: {} };
   const earliest = events.map(e => e.date).sort()[0];
   const lb = isoAdd(today, -90);
   const start = lb > earliest ? lb : earliest;
   const win = events.filter(e => e.date >= start && e.date <= today);
   const total = win.reduce((s, e) => s + e.amount, 0);
   const days = Math.max(1, daysInclusive(start, today));
-  return { rate: total / days, from: start, n: win.length };
+  const byCat = {};
+  win.forEach(e => { const c = (e.category || '').trim() || 'Other'; byCat[c] = (byCat[c] || 0) + e.amount; });
+  return { rate: total / days, from: start, n: win.length, total, byCat };
 }
 // The forecast for a selected dashboard period. Looks only at the *upcoming*
 // slice of the period (from today, or the period start if it's still in the
@@ -3418,12 +3492,19 @@ function forecastForPeriod(from, to) {
   const occ = (pastPeriod || winFrom > winTo) ? [] : recurringOccurrencesInRange(winFrom, winTo);
   const schedOcc  = occ.filter(o => o.rec.kind === 'expense');
   const reminders = occ.filter(o => o.rec.kind === 'reminder');
-  const scheduled = schedOcc.reduce((s, o) => s + (Number(o.rec.amount) || 0), 0);
+  const scheduled = schedOcc.reduce((s, o) => s + (Number(o.amount) || 0), 0);
   const rr = _dailyRunRate();
   const remainingDays = pastPeriod ? 0 : Math.max(0, daysInclusive(winFrom, winTo));
   const projected = pastPeriod ? 0 : rr.rate * remainingDays;
   const expected = scheduled + projected;
-  return { pastPeriod, winFrom, winTo, remainingDays, scheduled, projected, expected, schedOcc, reminders, rate: rr.rate };
+  // Break the projection down the same way the run-rate window splits by category,
+  // so the "everyday spend" figure shows WHERE it's expected to go.
+  const projByCat = [];
+  if (projected > 0 && rr.total > 0) {
+    Object.keys(rr.byCat).forEach(c => projByCat.push({ cat: c, amt: projected * (rr.byCat[c] / rr.total) }));
+    projByCat.sort((a, b) => b.amt - a.amt);
+  }
+  return { pastPeriod, winFrom, winTo, remainingDays, scheduled, projected, expected, schedOcc, reminders, projByCat, rate: rr.rate };
 }
 // Scan expense history for monthly patterns not yet defined as recurring, so we
 // can offer them as one-tap additions. Groups business + partner-paid opex by
@@ -3890,7 +3971,7 @@ function renderPnlBank() {
   const upcShort = Math.max(0, fc.expected - available);
   const MON3 = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const dChip = iso => { const p = iso.split('-'); return `${+p[2]} ${MON3[+p[1]-1]}`; };
-  const upcItems = [...fc.schedOcc.map(o => ({ date:o.date, label:o.rec.label, amt:Number(o.rec.amount)||0, rem:false })),
+  const upcItems = [...fc.schedOcc.map(o => ({ date:o.date, label:o.rec.label, amt:Number(o.amount)||0, rem:false })),
                     ...fc.reminders.map(o => ({ date:o.date, label:o.rec.label, amt:0, rem:true }))]
                     .sort((a,b) => a.date.localeCompare(b.date));
   const upcTileSub = fc.pastPeriod
@@ -3898,10 +3979,17 @@ function renderPnlBank() {
     : ((fc.scheduled > 0 || fc.projected > 0)
         ? `${splitBox([{k:'Scheduled',v:fc.scheduled},{k:'Projected',v:fc.projected}], fc.expected)}<div class="upc-chip ${upcCovered?'upc-ok':'upc-short'}">${upcCovered ? 'Covered by balance ✓' : 'Short '+inr(upcShort)+' ⚠'}</div>`
         : '<div class="tsplit-l" style="color:var(--text3)">Nothing scheduled yet</div>');
-  const upcDetailRows = upcItems.length
+  // Detail = two groups: dated scheduled payments/reminders, then the projected
+  // everyday spend broken out by category (mirrors how scheduled is itemised).
+  const upcSchedHtml = upcItems.length
     ? upcItems.map(it => `<div class="upc-row"><span class="upc-date">${dChip(it.date)}</span><span class="upc-lbl">${esc(it.label)}${it.rem?'<span class="upc-tag upc-tag-rem">reminder</span>':''}</span><span class="upc-amt ${it.rem?'upc-amt-rem':''}">${it.rem?'—':inr(it.amt)}</span></div>`).join('')
-    : '<div class="upc-empty">No scheduled payments or reminders in this period. Add them in Settings → Recurring &amp; Reminders.</div>';
-  const upcProjNote = (!fc.pastPeriod && fc.projected > 0) ? `<div class="upc-detail-note">Plus ~${inr(fc.projected)} projected everyday spend over ${fc.remainingDays} day${fc.remainingDays===1?'':'s'}, from your recent run-rate.</div>` : '';
+    : '<div class="upc-empty">No scheduled payments or reminders in this window.</div>';
+  const upcProjHtml = (!fc.pastPeriod && fc.projected > 0)
+    ? `<div class="upc-detail-sub">Projected everyday spend · ~${inr(fc.projected)} over ${fc.remainingDays} day${fc.remainingDays===1?'':'s'} <span class="upc-detail-hint">(recent run-rate)</span></div>`
+      + (fc.projByCat.length
+          ? fc.projByCat.filter(p => p.amt >= 1).map(p => `<div class="upc-row"><span class="upc-lbl">${esc(p.cat)}</span><span class="upc-amt upc-amt-proj">${inr(p.amt)}</span></div>`).join('')
+          : '')
+    : '';
 
   // Hero P/L: centre the number itself; the ₹ (and any minus) sit just to its
   // left, absolutely positioned, so they don't shift the optical centre.
@@ -3921,12 +4009,12 @@ function renderPnlBank() {
     </div>
     <div class="cards2">
       <div class="card card-click tile-avail" onclick="focusLog('bank')"><div class="card-label">Available Balance</div><div class="card-value">${inr(available)}</div><div class="card-sub">${splitBox([{k:'Bank',v:bankBal||0},{k:'Cash',v:cashBal}], available)}</div></div>
-      <div class="card card-click tile-upc" onclick="toggleUpcoming(event)"><div class="card-label">Upcoming · ${upcWord}</div><div class="card-value ${(!fc.pastPeriod && !upcCovered && fc.expected>0)?'upc-neg':''}">${fc.pastPeriod ? '—' : inr(fc.expected)}</div><div class="card-sub">${upcTileSub}</div></div>
+      <div class="card card-click tile-upc" onclick="toggleUpcoming(event)"><div class="card-label">Upcoming Expenses</div><div class="card-value ${(!fc.pastPeriod && !upcCovered && fc.expected>0)?'upc-neg':''}">${fc.pastPeriod ? '—' : inr(fc.expected)}</div><div class="card-sub">${upcTileSub}</div></div>
     </div>
     <div class="card upc-detail" id="upc-detail" style="display:${_upcOpen ? 'block' : 'none'};">
-      <div class="upc-detail-title">Upcoming payments &amp; reminders · ${upcWord}</div>
-      ${upcProjNote}
-      ${upcDetailRows}
+      <div class="upc-detail-title">Upcoming expenses · ${upcWord}</div>
+      ${upcSchedHtml}
+      ${upcProjHtml}
     </div>
     <div class="pnl-divider"><span>Capital &amp; investment</span></div>
     <div class="card cap-invest ${_capCollapsed ? 'cap-collapsed' : ''}" id="cap-card">
