@@ -1193,7 +1193,7 @@
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-10-02';
+const APP_VERSION = '2026-07-10-03';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -1345,7 +1345,36 @@ function initFirebase() {
     }, onErr('recurring'));
     upgradeHistoricalIncome();
     seedHistoricalCashBook();
+    seedRecurringDefaults();
   } catch (e) { console.warn('Firebase init failed:', e); setSyncStatus('offline'); }
+}
+// The restaurant's fixed monthly commitments, derived from the Mar–Jul history:
+// shop rent is a flat ₹1,71,000 every month (~6th); staff salaries run ~₹2,80,000
+// (~13th); staff accommodation rent ₹45,000 (~10th); GST filing lands on the 20th
+// (a reminder — the app already keeps GST out of the P&L). Everyday variable spend
+// (groceries/ingredients/vendors) is intentionally NOT listed here — it flows
+// through the run-rate projection instead. Amounts are starting estimates; edit
+// any of them in Settings → Recurring & Reminders.
+var HIST_RECURRING = [
+  { id:'rec_seed_rent',      label:'Shop rent',                kind:'expense',  amount:171000, freq:'monthly', day:6,  month:null, date:null, category:'Rent',       addedBy:'Backfill' },
+  { id:'rec_seed_salary',    label:'Staff salaries',           kind:'expense',  amount:280000, freq:'monthly', day:13, month:null, date:null, category:'Salaries',   addedBy:'Backfill' },
+  { id:'rec_seed_staffrent', label:'Staff accommodation rent', kind:'expense',  amount:45000,  freq:'monthly', day:10, month:null, date:null, category:'Staff Rent', addedBy:'Backfill' },
+  { id:'rec_seed_gst',       label:'GST filing & payment',     kind:'reminder', amount:0,      freq:'monthly', day:20, month:null, date:null, category:'',           addedBy:'Backfill' }
+];
+// Seed the commitments above ONCE (globally, guarded by a Firebase meta flag so a
+// later delete/edit is never resurrected). New devices just read the synced copy.
+function seedRecurringDefaults() {
+  if (!_db) {
+    if (localStorage.getItem('comedor_recurring_seeded') || loadRecurring().length) { localStorage.setItem('comedor_recurring_seeded', '1'); return; }
+    HIST_RECURRING.forEach(function (r) { saveRecurringRec(r); });
+    localStorage.setItem('comedor_recurring_seeded', '1');
+    return;
+  }
+  _db.ref('comedor/meta/recurringSeededV1').once('value').then(function (s) {
+    if (s.exists() && s.val()) return;
+    HIST_RECURRING.forEach(function (r) { _db.ref('comedor/recurring/' + r.id).set(r).catch(function () {}); });
+    _db.ref('comedor/meta/recurringSeededV1').set(true).catch(function () {});
+  }).catch(function () {});
 }
 // One-time upgrade: the back-filled Mar–Jun sales were first stored as category
 // totals only. If those records already exist without item detail, replace them
@@ -3318,18 +3347,23 @@ function _opexEvents() {
   });
   return ev;
 }
-// Does an actual expense look like one of the defined monthly commitments? Used
-// to strip scheduled items out of the everyday run-rate so they aren't counted
-// twice (once in the projection, once as a scheduled line).
+// Does an actual expense belong to one of the defined recurring commitments? Used
+// to strip scheduled spend out of the everyday run-rate so it isn't counted twice
+// (once in the projection, once as a scheduled line). A commitment WITH a category
+// claims its whole category — e.g. declaring "Salaries" removes every salary
+// transaction, even though they're booked as many small payments. An
+// uncategorised commitment falls back to matching by amount + day.
 function _matchesRecurring(ev, recs) {
+  const evCat = (ev.category || '').trim().toLowerCase();
   const dom = Number(ev.date.slice(8, 10));
   return recs.some(r => {
-    if (r.kind !== 'expense' || r.freq !== 'monthly') return false;
-    if ((r.category || '').toLowerCase() !== (ev.category || '').toLowerCase()) return false;
+    if (r.kind !== 'expense') return false;
+    const rCat = (r.category || '').trim().toLowerCase();
+    if (rCat) return !!evCat && rCat === evCat;              // category-level claim
+    if (r.freq !== 'monthly') return false;                  // uncategorised → amount+day
     const amt = Number(r.amount) || 0; if (!amt) return false;
     if (Math.abs(ev.amount - amt) > amt * 0.2) return false;
-    const rd = Number(r.day) || 1;
-    let dd = Math.abs(dom - rd); if (dd > 15) dd = 31 - dd;   // wrap around month end
+    let dd = Math.abs(dom - (Number(r.day) || 1)); if (dd > 15) dd = 31 - dd;   // wrap month end
     return dd <= 4;
   });
 }
