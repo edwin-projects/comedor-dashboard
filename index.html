@@ -103,6 +103,7 @@
   .ds-row { display:flex; align-items:center; gap:7px; padding:6px 10px; border-radius:7px; border:1px solid; font-family:'Inter',sans-serif; font-size:9.5px; font-weight:600; letter-spacing:0.4px; text-transform:uppercase; line-height:1.2; white-space:nowrap; overflow:hidden; }
   .ds-row .ds-tx { min-width:0; overflow:hidden; text-overflow:ellipsis; }
   .ds-ic { font-size:11px; line-height:1; flex-shrink:0; width:13px; text-align:center; }
+  .ds-at { opacity:0.75; font-weight:600; }
   .ds-done { color:var(--green); background:rgba(111,214,154,0.08); border-color:rgba(111,214,154,0.30); }
   .ds-pend { color:#C9A040; background:rgba(201,160,64,0.09); border-color:rgba(201,160,64,0.32); }
   .ds-over { color:var(--red); background:rgba(224,82,82,0.11); border-color:rgba(224,82,82,0.38); }
@@ -203,6 +204,7 @@
   .rec-seg { display:flex; gap:6px; margin:2px 0 12px; }
   .rec-seg button { flex:1; padding:9px 6px; border:1px solid var(--border); background:var(--surface2); color:var(--text2); border-radius:8px; font-size:12px; font-family:'Inter',sans-serif; cursor:pointer; }
   .rec-seg button.on { border-color:var(--accent2); color:var(--text); background:rgba(201,160,64,0.12); font-weight:600; }
+  .addperson-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:12px; }
 
   /* SECTION TITLES */
   .section-title { font-family: 'Inter', sans-serif; font-size: 12px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 2.4px; margin-bottom: 16px; margin-top: 28px; padding-bottom: 9px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
@@ -1036,26 +1038,26 @@
 
   <div id="people-msg" style="display:none; border-radius:7px; padding:10px 12px; font-size:12px; font-family:'Inter',sans-serif; margin-bottom:14px;"></div>
 
-  <!-- Add / edit a person -->
-  <div class="setcard collapsed tint-blue" id="setcard-addperson">
-    <div class="setcard-head" onclick="toggleSet('addperson')"><span class="setcard-title">Add Person</span><span class="setcard-chev">▾</span></div>
-    <div class="setcard-body">
-      <p class="exp-note">Add partners, managers or staff. Each person gets their own PIN, so every entry they make is tagged to them for the audit trail.</p>
-      <div style="display:grid; grid-template-columns:1fr 130px 1fr; gap:12px; margin-bottom:10px;">
-        <div><label class="field-label">Name</label><input id="pp-name" class="field-input" placeholder="e.g. Rahul" style="width:100%;"></div>
-        <div><label class="field-label">PIN (4 digits)</label><input id="pp-pin" class="field-input field-input-mono" maxlength="4" inputmode="numeric" placeholder="••••" style="width:100%;"></div>
-        <div><label class="field-label">Role / Access</label><select id="pp-role" class="field-select"></select></div>
-      </div>
-      <div id="pp-role-desc" class="exp-note" style="margin-bottom:12px; color:var(--text2);"></div>
-      <button id="pp-submit-btn" class="btn" style="width:100%; padding:12px;" onclick="addPerson()">Add Person ✓</button>
-    </div>
-  </div>
-
-  <!-- People & access -->
+  <!-- People & access (with add-person built in) -->
   <div class="setcard collapsed tint-teal" id="setcard-people">
     <div class="setcard-head" onclick="toggleSet('people')"><span class="setcard-title">People &amp; Access</span><span class="setcard-chev">▾</span></div>
     <div class="setcard-body">
       <div id="people-list"></div>
+
+      <div class="subcard collapsed" id="subcat-addperson" style="margin-top:14px;">
+        <div class="subcard-head" onclick="toggleSubcat('addperson')"><span class="subcard-title">+ Add a person</span><span class="subcard-chev">▾</span></div>
+        <div class="subcard-body">
+          <p class="exp-note">Add partners, managers or staff. Each person gets their own PIN, so every entry they make is tagged to them for the audit trail.</p>
+          <div class="addperson-grid">
+            <div><label class="field-label">Name</label><input id="pp-name" class="field-input" placeholder="e.g. Rahul" style="width:100%;"></div>
+            <div><label class="field-label">PIN (4 digits)</label><input id="pp-pin" class="field-input field-input-mono" maxlength="4" inputmode="numeric" placeholder="••••" style="width:100%;"></div>
+            <div><label class="field-label">Role / Access</label><select id="pp-role" class="field-select"></select></div>
+          </div>
+          <div id="pp-role-desc" class="exp-note" style="margin:10px 0 12px; color:var(--text2);"></div>
+          <button id="pp-submit-btn" class="btn" style="width:100%; padding:12px;" onclick="addPerson()">Add Person ✓</button>
+        </div>
+      </div>
+
       <div class="note" style="margin-top:16px;">
         <strong>Roles decide what each person sees:</strong>
         <b>Partner</b> — full access incl. this Settings tab ·
@@ -1096,40 +1098,31 @@
     </div>
   </div>
 
-  <!-- Recurring expenses & reminders -->
+  <!-- Scheduled expenses -->
   <div class="setcard collapsed tint-red" id="setcard-recurring">
-    <div class="setcard-head" onclick="toggleSet('recurring')"><span class="setcard-title">Recurring &amp; Reminders</span><span class="setcard-chev">▾</span></div>
+    <div class="setcard-head" onclick="toggleSet('recurring')"><span class="setcard-title">Scheduled Expenses</span><span class="setcard-chev">▾</span></div>
     <div class="setcard-body">
-      <p class="exp-note">Tell the app about outflows that come round on a schedule — <b>salary on a fixed day, rent, a yearly licence</b> — and date <b>reminders</b> like GST filing (no amount). These power the <b>Upcoming</b> tile on the Dashboard, which projects what's still due in the selected period and checks it against your balance.</p>
-
-      <div class="rec-seg" id="rec-type-seg">
-        <button type="button" class="on" id="rec-type-expense" onclick="recSetType('expense')">Payment</button>
-        <button type="button" id="rec-type-reminder" onclick="recSetType('reminder')">Reminder only</button>
-      </div>
+      <p class="exp-note">Your regular bills — <b>salary, rent, electricity, GST</b>. Each shows up in the <b>Upcoming Expenses</b> tile so you can see what's due and whether the balance covers it. Give it a name, an amount, and when it repeats. Leave the amount blank for a date-only reminder (e.g. a filing deadline).</p>
 
       <label class="field-label">Name</label>
-      <input id="rec-label" class="field-input" placeholder="e.g. Staff salary, IDFC rent, GST filing" style="width:100%; margin-bottom:12px;">
+      <input id="rec-label" class="field-input" placeholder="e.g. Staff salary, Shop rent, Electricity" style="width:100%; margin-bottom:12px;">
 
-      <div id="grp-amount">
-        <label class="field-label">Amount ₹</label>
-        <input id="rec-amount" class="field-input" type="text" inputmode="decimal" oninput="onMoneyInput(this)" placeholder="e.g. 1,70,000" style="width:100%; margin-bottom:4px;">
-        <div class="exp-note" id="rec-computed-note" style="display:none; margin-bottom:12px;">This amount is auto-calculated (5% of last month’s sales) — leave it as is.</div>
-        <div id="rec-amount-spacer" style="height:8px;"></div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:12px; align-items:end;">
+        <div>
+          <label class="field-label">Amount ₹ <span style="color:var(--text3); text-transform:none; letter-spacing:0;">(optional)</span></label>
+          <input id="rec-amount" class="field-input" type="text" inputmode="decimal" oninput="onMoneyInput(this)" placeholder="e.g. 1,70,000" style="width:100%;">
+        </div>
+        <div>
+          <label class="field-label">Repeats</label>
+          <select id="rec-freq" class="field-select" onchange="recSetFreq(this.value)" style="width:100%;">
+            <option value="monthly">Every month</option>
+            <option value="quarterly">Every quarter</option>
+            <option value="yearly">Every year</option>
+            <option value="once">One-off</option>
+          </select>
+        </div>
       </div>
-
-      <div id="grp-category">
-        <label class="field-label">Category (optional)</label>
-        <input id="rec-category" class="field-input" list="rec-cat-list" placeholder="e.g. Salary, Rent" style="width:100%; margin-bottom:12px;">
-        <datalist id="rec-cat-list"></datalist>
-      </div>
-
-      <label class="field-label">Schedule</label>
-      <div class="rec-seg" id="rec-freq-seg">
-        <button type="button" class="on" id="rec-freq-monthly" onclick="recSetFreq('monthly')">Monthly</button>
-        <button type="button" id="rec-freq-quarterly" onclick="recSetFreq('quarterly')">Quarterly</button>
-        <button type="button" id="rec-freq-yearly" onclick="recSetFreq('yearly')">Yearly</button>
-        <button type="button" id="rec-freq-once" onclick="recSetFreq('once')">One-off</button>
-      </div>
+      <div class="exp-note" id="rec-computed-note" style="display:none; margin:-4px 0 12px;">This amount is auto-calculated (5% of last month’s sales) — leave it as is.</div>
 
       <div id="grp-monthly">
         <label class="field-label">Day of month</label>
@@ -1149,17 +1142,7 @@
 
       <button id="rec-add-btn" class="btn" style="width:100%; padding:12px;" onclick="addRecurring()">Add ✓</button>
 
-      <div id="rec-suggest" style="margin-top:16px;"></div>
-      <div id="rec-list" style="margin-top:14px;"></div>
-    </div>
-  </div>
-
-  <!-- Historical data -->
-  <div class="setcard collapsed tint-slate" id="setcard-hist">
-    <div class="setcard-head" onclick="toggleSet('hist')"><span class="setcard-title">Historical Data</span><span class="setcard-chev">▾</span></div>
-    <div class="setcard-body">
-      <p class="exp-note">One-time: load the <b>Mar–Apr 2026</b> cash register and IDFC bank expenses (from the original statement) so the Dashboard shows real numbers. Safe to tap once — it just rewrites the same records if run again.</p>
-      <button class="btn btn-ghost" onclick="importHistorical()">⬇ Load Mar–Apr 2026 historical data</button>
+      <div id="rec-list" style="margin-top:16px;"></div>
     </div>
   </div>
 </div>
@@ -1201,7 +1184,7 @@
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-10-06';
+const APP_VERSION = '2026-07-10-07';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -2031,23 +2014,15 @@ function deleteCategory(kind, i) {
   renderCategoryEditor(kind);
 }
 
-// ─── RECURRING & REMINDERS EDITOR (Settings) ────────────────────────────────
-let _recType = 'expense', _recFreq = 'monthly', _recEditId = null, _recSuggCache = [];
+// ─── SCHEDULED EXPENSES EDITOR (Settings) ───────────────────────────────────
+// Simplified: a bill has a name, an (optional) amount, and when it repeats.
+// No payment/reminder toggle — a blank amount just means a date-only reminder.
+let _recFreq = 'monthly', _recEditId = null;
 function _recId() { return 'rec_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 function _ordSuffix(n) { const s = ['th','st','nd','rd'], v = n % 100; return s[(v - 20) % 10] || s[v] || s[0]; }
-function recSetType(t) {
-  _recType = t;
-  const be = document.getElementById('rec-type-expense'), br = document.getElementById('rec-type-reminder');
-  if (be) be.classList.toggle('on', t === 'expense');
-  if (br) br.classList.toggle('on', t === 'reminder');
-  const isExp = t === 'expense';
-  const ga = document.getElementById('grp-amount'), gc = document.getElementById('grp-category');
-  if (ga) ga.style.display = isExp ? '' : 'none';
-  if (gc) gc.style.display = isExp ? '' : 'none';
-}
 function recSetFreq(f) {
   _recFreq = f;
-  ['monthly','quarterly','yearly','once'].forEach(x => { const b = document.getElementById('rec-freq-' + x); if (b) b.classList.toggle('on', x === f); });
+  const sel = document.getElementById('rec-freq'); if (sel && sel.value !== f) sel.value = f;
   const gm = document.getElementById('grp-monthly'), gy = document.getElementById('grp-yearly'), go = document.getElementById('grp-once');
   if (gm) gm.style.display = f === 'monthly' ? '' : 'none';
   if (gy) gy.style.display = (f === 'yearly' || f === 'quarterly') ? '' : 'none';   // both use month + day
@@ -2066,44 +2041,29 @@ function _recWhenText(r) {
 // Amount label for the list: computed items show their rule, not a frozen number.
 function _recAmountLabel(r) {
   if (r.kind === 'reminder') return '—';
-  if (r.computed === 'gst5') return '5% of last month’s sales';
+  if (r.computed === 'gst5') return '5% of sales';
   return '₹' + Math.round(Number(r.amount) || 0).toLocaleString('en-IN');
 }
 function renderRecurring() {
   const msel = document.getElementById('rec-ymonth');
   if (msel && !msel.options.length) { const MON = ['January','February','March','April','May','June','July','August','September','October','November','December']; msel.innerHTML = MON.map((m,i)=>`<option value="${i+1}">${m}</option>`).join(''); }
-  const dl = document.getElementById('rec-cat-list');
-  if (dl) dl.innerHTML = getCategories('partner').map(c => `<option value="${esc(c)}"></option>`).join('');
-  const sg = document.getElementById('rec-suggest');
-  if (sg) {
-    _recSuggCache = suggestRecurring();
-    sg.innerHTML = _recSuggCache.length
-      ? `<div class="upc-detail-title" style="margin-bottom:8px;">Suggested from your history</div>` + _recSuggCache.map((s,i) => `<div class="rec-sugg"><div class="rec-main"><div class="rec-name">${esc(s.label)}</div><div class="rec-when">Looks monthly · ~₹${Math.round(s.amount).toLocaleString('en-IN')} · around the ${s.day}${_ordSuffix(s.day)} · seen in ${s.months} months</div></div><button class="rec-sugg-add" onclick="applySuggestion(${i})">Add</button></div>`).join('')
-      : '';
-  }
   const el = document.getElementById('rec-list');
   if (!el) return;
   const recs = loadRecurring().slice().sort((a,b) => (Number(b.amount)||0)-(Number(a.amount)||0));
   el.innerHTML = recs.length
-    ? recs.map(r => `<div class="rec-row"><div class="rec-main"><div class="rec-name">${esc(r.label)}${r.kind==='reminder'?'<span class="upc-tag upc-tag-rem" style="margin-left:6px;">reminder</span>':''}</div><div class="rec-when">${_recWhenText(r)}${r.category?' · '+esc(r.category):''}</div></div><div class="rec-amt ${(r.kind==='reminder'||r.computed)?'rec-amt-rem':''}">${_recAmountLabel(r)}</div><button class="rec-act rec-edit" onclick="editRecurring('${r.id}')">Edit</button><button class="rec-act rec-del" onclick="deleteRecurring('${r.id}')">Delete</button></div>`).join('')
-    : '<div class="log-empty">Nothing yet — add a payment or reminder above, or tap a suggestion.</div>';
-}
-function applySuggestion(i) {
-  const s = _recSuggCache[i]; if (!s) return;
-  saveRecurringRec({ id:_recId(), label:s.label, kind:'expense', amount:s.amount, freq:'monthly', day:s.day, month:null, date:null, category:s.category, addedBy:(currentUser?currentUser.name:''), at:new Date().toLocaleString('en-IN') });
-  renderRecurring();
-  if (document.getElementById('panel-dashboard')?.classList.contains('active')) renderDashboard();
+    ? recs.map(r => `<div class="rec-row"><div class="rec-main"><div class="rec-name">${esc(r.label)}${r.kind==='reminder'?'<span class="upc-tag upc-tag-rem" style="margin-left:6px;">reminder</span>':''}</div><div class="rec-when">${_recWhenText(r)}</div></div><div class="rec-amt ${(r.kind==='reminder'||r.computed)?'rec-amt-rem':''}">${_recAmountLabel(r)}</div><button class="rec-act rec-edit" onclick="editRecurring('${r.id}')">Edit</button><button class="rec-act rec-del" onclick="deleteRecurring('${r.id}')">Delete</button></div>`).join('')
+    : '<div class="log-empty">Nothing yet — add your first bill above.</div>';
 }
 function _recResetForm() {
   _recEditId = null;
   const lbl = document.getElementById('rec-label'); if (lbl) lbl.value = '';
   setMoney('rec-amount', '');
-  const c = document.getElementById('rec-category'); if (c) c.value = '';
   const d = document.getElementById('rec-day'); if (d) d.value = '';
   const yd = document.getElementById('rec-yday'); if (yd) yd.value = '';
   const dt = document.getElementById('rec-date'); if (dt) dt.value = '';
+  const am = document.getElementById('rec-amount'); if (am) am.disabled = false;
   const note = document.getElementById('rec-computed-note'); if (note) note.style.display = 'none';
-  recSetType('expense'); recSetFreq('monthly');
+  recSetFreq('monthly');
   const b = document.getElementById('rec-add-btn'); if (b) b.textContent = 'Add ✓';
 }
 function addRecurring() {
@@ -2112,11 +2072,10 @@ function addRecurring() {
   const editing = !!_recEditId;
   const prev = editing ? loadRecurring().find(x => x.id === _recEditId) : null;
   const computed = prev && prev.computed ? prev.computed : null;   // preserve auto-calculated items (e.g. GST)
-  const kind = _recType;
-  const amount = kind === 'expense' ? money('rec-amount') : 0;
-  if (kind === 'expense' && !computed && amount <= 0) { peopleMsg('Enter an amount (or switch to Reminder only)', false); return; }
-  const rec = { id: _recEditId || _recId(), label, kind, amount, freq: _recFreq, day: null, month: null, date: null,
-    category: kind === 'expense' ? (document.getElementById('rec-category').value || '').trim() : '',
+  const amount = money('rec-amount');
+  // A blank amount just means a date-only reminder — no separate toggle needed.
+  const kind = (computed || amount > 0) ? 'expense' : 'reminder';
+  const rec = { id: _recEditId || _recId(), label, kind, amount: kind === 'expense' ? amount : 0, freq: _recFreq, day: null, month: null, date: null,
     addedBy: (currentUser ? currentUser.name : ''), at: new Date().toLocaleString('en-IN') };
   if (computed) rec.computed = computed;
   if (_recFreq === 'once') {
@@ -2129,7 +2088,7 @@ function addRecurring() {
     rec.day = Number(document.getElementById('rec-day').value) || 0;
     if (!rec.day) { peopleMsg('Enter the day of the month', false); return; }
   }
-  if (prev) { rec.addedBy = prev.addedBy || rec.addedBy; rec.editedBy = currentUser ? currentUser.name : ''; }
+  if (prev) { rec.addedBy = prev.addedBy || rec.addedBy; rec.editedBy = currentUser ? currentUser.name : ''; if (prev.category) rec.category = prev.category; }
   saveRecurringRec(rec);
   _recResetForm();
   renderRecurring();
@@ -2140,10 +2099,9 @@ function editRecurring(id) {
   const r = loadRecurring().find(x => x.id === id); if (!r) return;
   _recEditId = id;
   document.getElementById('rec-label').value = r.label || '';
-  recSetType(r.kind === 'reminder' ? 'reminder' : 'expense');
-  if (r.kind === 'expense') setMoney('rec-amount', r.amount || '');
+  setMoney('rec-amount', r.kind === 'reminder' ? '' : (r.amount || ''));
+  const am = document.getElementById('rec-amount'); if (am) am.disabled = !!r.computed;   // GST amount is auto
   const note = document.getElementById('rec-computed-note'); if (note) note.style.display = r.computed ? '' : 'none';
-  const c = document.getElementById('rec-category'); if (c) c.value = r.category || '';
   recSetFreq(r.freq || 'monthly');
   if (r.freq === 'once') { document.getElementById('rec-date').value = r.date || ''; }
   else if (r.freq === 'yearly' || r.freq === 'quarterly') { document.getElementById('rec-ymonth').value = r.month || 1; document.getElementById('rec-yday').value = r.day || 1; }
@@ -2542,7 +2500,10 @@ function submitEntry() {
   const me = currentUser ? currentUser.name : '';
   const editingThis = _editingEntry && _editingEntry.date === date;
   const author = editingThis && _editingEntry.addedBy ? _editingEntry.addedBy : me;
+  const prior = loadEntries().find(e => e.date === date);
   const entryRec = { date, opening, cash, upi, card, totalSales: total, expenses: filledExpenses, totalExpenses, closing, addedBy: author, submittedAt: new Date().toLocaleString('en-IN') };
+  if (prior && prior.openingAt) entryRec.openingAt = prior.openingAt;   // keep when the opening was first added
+  entryRec.closingAt = _nowTime();                                     // when the day was closed/counted
   if (editingThis) { entryRec.editedBy = me; entryRec.editedAt = new Date().toLocaleString('en-IN'); }
   _editingEntry = null;
   saveEntry(entryRec);
@@ -2567,6 +2528,8 @@ function submitEntry() {
 }
 
 // ─── PERSISTENCE (localStorage + Firebase sync) ───────────────────────────────
+// Short clock time like "10:00 AM" / "11:30 PM" for stamping when an action was done.
+function _nowTime() { try { return new Date().toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true }).toUpperCase(); } catch (e) { return ''; } }
 function saveEntry(entry) {
   const entries = JSON.parse(localStorage.getItem('comedor_entries') || '[]');
   const rest = entries.filter(e => e.date !== entry.date);
@@ -2618,7 +2581,8 @@ function saveOpening() {
       closing: opening,            // cash in hand = opening until the day is closed
       partial: true,
       addedBy: base.addedBy || me,
-      submittedAt: base.submittedAt || new Date().toLocaleString('en-IN')
+      submittedAt: base.submittedAt || new Date().toLocaleString('en-IN'),
+      openingAt: base.openingAt || _nowTime()
     };
     if (existing) { rec.editedBy = me; rec.editedAt = new Date().toLocaleString('en-IN'); }
   }
@@ -2928,13 +2892,15 @@ function renderDailyStatus() {
     const closeOverdue = isToday ? mins >= CLOSE_DEADLINE : isPast;
     const oneLine = (done, overdue, doneTxt, pendTxt, overTxt) =>
       done ? row('ds-done', '✓', doneTxt) : overdue ? row('ds-over', '⚠', overTxt) : row('ds-pend', 'ⓘ', pendTxt);
+    // Stamp the clock time the action was recorded, when we have it.
+    const atTime = t => t ? ` <span class="ds-at">· ${t}</span>` : '';
     el.innerHTML =
       oneLine(openingDone, openOverdue,
-        `OPENING CASH ADDED FOR ${when}`,
+        `OPENING CASH ADDED FOR ${when}${atTime(entry && entry.openingAt)}`,
         isToday ? 'OPENING CASH YET TO BE ADDED' : `OPENING CASH YET TO BE ADDED · ${when}`,
         isToday ? 'OPENING CASH NOT ADDED — OVERDUE (12 PM)' : `OPENING CASH NOT ADDED · ${when}`) +
       oneLine(closingDone, closeOverdue,
-        `CLOSING CASH UPDATED FOR ${when}`,
+        `CLOSING CASH UPDATED FOR ${when}${atTime(entry && entry.closingAt)}`,
         isToday ? 'CLOSING CASH YET TO BE UPDATED' : `CLOSING CASH YET TO BE UPDATED · ${when}`,
         isToday ? 'CLOSING CASH NOT UPDATED — OVERDUE (11:45 PM)' : `CLOSING CASH NOT UPDATED · ${when}`);
     return;
@@ -3494,18 +3460,11 @@ function forecastForPeriod(from, to) {
   const schedOcc  = occ.filter(o => o.rec.kind === 'expense');
   const reminders = occ.filter(o => o.rec.kind === 'reminder');
   const scheduled = schedOcc.reduce((s, o) => s + (Number(o.amount) || 0), 0);
-  const rr = _dailyRunRate();
   const remainingDays = pastPeriod ? 0 : Math.max(0, daysInclusive(winFrom, winTo));
-  const projected = pastPeriod ? 0 : rr.rate * remainingDays;
-  const expected = scheduled + projected;
-  // Break the projection down the same way the run-rate window splits by category,
-  // so the "everyday spend" figure shows WHERE it's expected to go.
-  const projByCat = [];
-  if (projected > 0 && rr.total > 0) {
-    Object.keys(rr.byCat).forEach(c => projByCat.push({ cat: c, amt: projected * (rr.byCat[c] / rr.total) }));
-    projByCat.sort((a, b) => b.amt - a.amt);
-  }
-  return { pastPeriod, winFrom, winTo, remainingDays, scheduled, projected, expected, schedOcc, reminders, projByCat, rate: rr.rate };
+  // Only fixed, scheduled commitments are forecast — everyday variable spend
+  // (groceries, ingredients) is need-based, not predictable, so it's left out.
+  const expected = scheduled;
+  return { pastPeriod, winFrom, winTo, remainingDays, scheduled, expected, schedOcc, reminders };
 }
 // Scan expense history for monthly patterns not yet defined as recurring, so we
 // can offer them as one-tap additions. Groups business + partner-paid opex by
@@ -3978,30 +3937,22 @@ function renderPnlBank() {
   const upcItems = [...fc.schedOcc.map(o => ({ date:o.date, label:o.rec.label, amt:Number(o.amount)||0, rem:false })),
                     ...fc.reminders.map(o => ({ date:o.date, label:o.rec.label, amt:0, rem:true }))]
                     .sort((a,b) => a.date.localeCompare(b.date));
-  // Tile split shows a TIMELINE (when it's due) rather than a % share: the
-  // scheduled line points at the soonest payment (+N more if others follow),
-  // the projected line spans the remaining days.
-  const schedTL = fc.schedOcc.length ? goLabel(fc.schedOcc[0].date) + (fc.schedOcc.length > 1 ? ` +${fc.schedOcc.length - 1} more` : '') : '';
-  const projTL = fc.remainingDays <= 1 ? 'today' : `over ${fc.remainingDays} days`;
-  const upcLine = (k, v, tl) => `<div class="tsplit-l">${k} <b>${inr(v)}</b>${tl ? ` <span class="tpct">· ${tl}</span>` : ''}</div>`;
-  const upcSplitHtml = [{ k:'Scheduled', v:fc.scheduled, tl:schedTL }, { k:'Projected', v:fc.projected, tl:projTL }]
-    .filter(p => p.v > 0).sort((a, b) => b.v - a.v).map(p => upcLine(p.k, p.v, p.tl)).join('') || '<div class="tsplit-l">—</div>';
+  // Tile sub: how many payments are due and when the next one lands — no % share,
+  // no projection (everyday spend is need-based, not forecast).
+  const upcNextPay = fc.schedOcc.length ? fc.schedOcc[0] : null;
+  const upcNextAny = upcItems.length ? upcItems[0] : null;
+  const upcSummary = upcNextPay
+    ? `${fc.schedOcc.length} payment${fc.schedOcc.length > 1 ? 's' : ''} · next ${goLabel(upcNextPay.date)}`
+    : (upcNextAny ? `${fc.reminders.length} reminder${fc.reminders.length > 1 ? 's' : ''} · next ${goLabel(upcNextAny.date)}` : '');
   const upcTileSub = fc.pastPeriod
     ? '<div class="tsplit-l" style="color:var(--text3)">Period has ended</div>'
-    : ((fc.scheduled > 0 || fc.projected > 0)
-        ? `${upcSplitHtml}<div class="upc-chip ${upcCovered?'upc-ok':'upc-short'}">${upcCovered ? 'Covered by balance ✓' : 'Short '+inr(upcShort)+' ⚠'}</div>`
+    : (upcItems.length
+        ? `<div class="tsplit-l">${upcSummary}</div>${fc.scheduled > 0 ? `<div class="upc-chip ${upcCovered?'upc-ok':'upc-short'}">${upcCovered ? 'Covered by balance ✓' : 'Short '+inr(upcShort)+' ⚠'}</div>` : ''}`
         : '<div class="tsplit-l" style="color:var(--text3)">Nothing scheduled yet</div>');
-  // Detail = two groups: dated scheduled payments/reminders, then the projected
-  // everyday spend broken out by category (mirrors how scheduled is itemised).
+  // Detail = the dated list of scheduled payments & reminders.
   const upcSchedHtml = upcItems.length
     ? upcItems.map(it => `<div class="upc-row"><span class="upc-date">${dChip(it.date)}<span class="upc-rel">${goLabel(it.date)}</span></span><span class="upc-lbl">${esc(it.label)}${it.rem?'<span class="upc-tag upc-tag-rem">reminder</span>':''}</span><span class="upc-amt ${it.rem?'upc-amt-rem':''}">${it.rem?'—':inr(it.amt)}</span></div>`).join('')
-    : '<div class="upc-empty">No scheduled payments or reminders in this window.</div>';
-  const upcProjHtml = (!fc.pastPeriod && fc.projected > 0)
-    ? `<div class="upc-detail-sub">Projected everyday spend · ~${inr(fc.projected)} over ${fc.remainingDays} day${fc.remainingDays===1?'':'s'} <span class="upc-detail-hint">(recent run-rate)</span></div>`
-      + (fc.projByCat.length
-          ? fc.projByCat.filter(p => p.amt >= 1).map(p => `<div class="upc-row"><span class="upc-lbl">${esc(p.cat)}</span><span class="upc-amt upc-amt-proj">${inr(p.amt)}</span></div>`).join('')
-          : '')
-    : '';
+    : '<div class="upc-empty">No scheduled payments or reminders in this window. Add them in Settings → Scheduled Expenses.</div>';
 
   // Hero P/L: centre the number itself; the ₹ (and any minus) sit just to its
   // left, absolutely positioned, so they don't shift the optical centre.
@@ -4026,7 +3977,6 @@ function renderPnlBank() {
     <div class="card upc-detail" id="upc-detail" style="display:${_upcOpen ? 'block' : 'none'};">
       <div class="upc-detail-title">Upcoming expenses · ${upcWord}</div>
       ${upcSchedHtml}
-      ${upcProjHtml}
     </div>
     <div class="pnl-divider"><span>Capital &amp; investment</span></div>
     <div class="card cap-invest ${_capCollapsed ? 'cap-collapsed' : ''}" id="cap-card">
