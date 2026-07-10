@@ -1193,7 +1193,7 @@
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-10-03';
+const APP_VERSION = '2026-07-10-04';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -1346,21 +1346,44 @@ function initFirebase() {
     upgradeHistoricalIncome();
     seedHistoricalCashBook();
     seedRecurringDefaults();
+    migrateRecurringSalary();
   } catch (e) { console.warn('Firebase init failed:', e); setSyncStatus('offline'); }
 }
 // The restaurant's fixed monthly commitments, derived from the Mar–Jul history:
-// shop rent is a flat ₹1,71,000 every month (~6th); staff salaries run ~₹2,80,000
-// (~13th); staff accommodation rent ₹45,000 (~10th); GST filing lands on the 20th
-// (a reminder — the app already keeps GST out of the P&L). Everyday variable spend
-// (groceries/ingredients/vendors) is intentionally NOT listed here — it flows
-// through the run-rate projection instead. Amounts are starting estimates; edit
-// any of them in Settings → Recurring & Reminders.
+// shop rent is a flat ₹1,71,000 every month (~6th); staff salaries run ~₹3,31,716
+// (~13th) — set to the latest full month (June), since the head-count only grows
+// so that's the best guide for months ahead; staff accommodation rent ₹45,000
+// (~10th); GST filing lands on the 20th (a reminder — the app already keeps GST
+// out of the P&L). Everyday variable spend (groceries/ingredients/vendors) is
+// intentionally NOT listed here — it flows through the run-rate projection
+// instead. Amounts are starting estimates; edit any in Settings → Recurring & Reminders.
 var HIST_RECURRING = [
   { id:'rec_seed_rent',      label:'Shop rent',                kind:'expense',  amount:171000, freq:'monthly', day:6,  month:null, date:null, category:'Rent',       addedBy:'Backfill' },
-  { id:'rec_seed_salary',    label:'Staff salaries',           kind:'expense',  amount:280000, freq:'monthly', day:13, month:null, date:null, category:'Salaries',   addedBy:'Backfill' },
+  { id:'rec_seed_salary',    label:'Staff salaries',           kind:'expense',  amount:331716, freq:'monthly', day:13, month:null, date:null, category:'Salaries',   addedBy:'Backfill' },
   { id:'rec_seed_staffrent', label:'Staff accommodation rent', kind:'expense',  amount:45000,  freq:'monthly', day:10, month:null, date:null, category:'Staff Rent', addedBy:'Backfill' },
   { id:'rec_seed_gst',       label:'GST filing & payment',     kind:'reminder', amount:0,      freq:'monthly', day:20, month:null, date:null, category:'',           addedBy:'Backfill' }
 ];
+// One-time correction for installs already seeded at the earlier ₹2,80,000
+// estimate: bump the salary commitment to the latest-month figure — but ONLY if
+// it's still the untouched default, so a hand-edited amount is never overwritten.
+function migrateRecurringSalary() {
+  var OLD = 280000, TARGET = 331716;
+  if (!_db) {
+    if (localStorage.getItem('comedor_recurring_salaryV2')) return;
+    var list = loadRecurring(), r = list.find(function (x) { return x && x.id === 'rec_seed_salary'; });
+    if (r && Number(r.amount) === OLD) { r.amount = TARGET; localStorage.setItem('comedor_recurring', JSON.stringify(list)); }
+    localStorage.setItem('comedor_recurring_salaryV2', '1');
+    return;
+  }
+  _db.ref('comedor/meta/recurringSalaryV2').once('value').then(function (s) {
+    if (s.exists() && s.val()) return;
+    _db.ref('comedor/recurring/rec_seed_salary').once('value').then(function (sn) {
+      var r = sn.val();
+      if (r && Number(r.amount) === OLD) _db.ref('comedor/recurring/rec_seed_salary/amount').set(TARGET).catch(function () {});
+      _db.ref('comedor/meta/recurringSalaryV2').set(true).catch(function () {});
+    }).catch(function () {});
+  }).catch(function () {});
+}
 // Seed the commitments above ONCE (globally, guarded by a Firebase meta flag so a
 // later delete/edit is never resurrected). New devices just read the synced copy.
 function seedRecurringDefaults() {
