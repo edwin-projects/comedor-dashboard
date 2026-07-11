@@ -167,6 +167,10 @@
   .tsplit-l { font-size: 11px; color: var(--text2); font-family: 'Inter', sans-serif; line-height: 1.55; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tsplit-l b { font-weight: 500; color: var(--text); }
   .tpct { color: var(--text3); font-size: 10px; }
+  /* "Cash not closed" flag on the Available Balance tile */
+  .cash-open-line { margin-top: 5px; }
+  .cash-open-badge { display:inline-block; max-width:100%; box-sizing:border-box; font-size:10px; font-weight:600; letter-spacing:0.1px; padding:2px 8px; border-radius:10px; font-family:'Inter',sans-serif; color:#e0b64d; background:rgba(224,175,77,0.14); border:1px solid rgba(224,175,77,0.30); white-space:normal; line-height:1.35; cursor:pointer; }
+  .cash-open-badge:hover { background:rgba(224,175,77,0.22); }
   /* Upcoming / expected-expenses tile + its drill-down list */
   .tile-upc    { background:linear-gradient(140deg, rgba(176,110,40,0.26) 0%, rgba(224,150,77,0.05) 100%); border-color:rgba(224,150,77,0.34); }
   .tile-upc .card-value { color:#e0a04d; }
@@ -1184,7 +1188,7 @@
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-11-02';
+const APP_VERSION = '2026-07-11-03';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -2836,6 +2840,20 @@ function _fmtDay(iso) {
   return new Date(iso + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
+// Jump from the "Not closed" badge straight to that day in the Cash tab so the
+// closing count can be entered.
+function goCloseCash(dateISO) {
+  showPanel('entry');
+  setTimeout(function () {
+    const d = document.getElementById('entry-date');
+    if (dateISO && d) { d.value = dateISO; }
+    try { hydrateFormForDate(dateISO, true); } catch (e) {}
+    try { checkOpening(); } catch (e) {}
+    const card = document.getElementById('setcard-cashverify') || document.getElementById('entry-date');
+    if (card && card.scrollIntoView) card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, 80);
+}
+
 // ─── OPENING BALANCE VALIDATION ──────────────────────────────────────────────
 function checkOpening() {
   const dateVal   = document.getElementById('entry-date')?.value;
@@ -4023,7 +4041,11 @@ function renderPnlBank() {
   const splitStr = (obj) => Object.entries(obj).filter(kv => kv[1] > 0).sort((a, b) => b[1] - a[1]).map(kv => esc(kv[0]) + ' ' + inr(kv[1])).join(' · ') || '—';
 
   const allCash = loadEntries().slice().sort((a, b) => (a.date||'').localeCompare(b.date||''));
-  const cashBal = allCash.length ? (allCash[allCash.length - 1].closing || 0) : 0;
+  const lastCashEntry = allCash.length ? allCash[allCash.length - 1] : null;
+  const cashBal = lastCashEntry ? (lastCashEntry.closing || 0) : 0;
+  // The cash figure is only a real count once the latest day is closed. While it
+  // is still open (partial), flag it on the tile so the balance isn't trusted blind.
+  const cashOpen = !!(lastCashEntry && lastCashEntry.partial);
   const bankMeta = (function(){ try { return JSON.parse(localStorage.getItem('comedor_bankbal') || 'null'); } catch(e){ return null; } })();
   var bankBal = null;
   if (bankMeta) {
@@ -4106,7 +4128,7 @@ function renderPnlBank() {
       <div class="card-sub">Income ${inr(income)} − expenses ${inr(totalExp)}</div>
     </div>
     <div class="cards2">
-      <div class="card card-click tile-avail" onclick="focusLog('bank')"><div class="card-label">Available Balance</div><div class="card-value">${inr(available)}</div><div class="card-sub">${splitBox([{k:'Bank',v:bankBal||0},{k:'Cash',v:cashBal}], available)}</div></div>
+      <div class="card card-click tile-avail" onclick="focusLog('bank')"><div class="card-label">Available Balance</div><div class="card-value">${inr(available)}</div><div class="card-sub">${splitBox([{k:'Bank',v:bankBal||0},{k:'Cash',v:cashBal}], available)}${cashOpen ? `<div class="cash-open-line"><span class="cash-open-badge" role="button" tabindex="0" title="Cash not closed — enter the closing count for ${lastCashEntry ? dChip(lastCashEntry.date) : ''}" onclick="event.stopPropagation(); goCloseCash('${lastCashEntry ? lastCashEntry.date : ''}')">ⓘ Cash not closed · ${lastCashEntry ? dChip(lastCashEntry.date) : ''}</span></div>` : ''}</div></div>
       <div class="card card-click tile-upc" onclick="toggleUpcoming(event)"><div class="card-label">Upcoming Expenses</div><div class="card-value ${(!fc.pastPeriod && !upcCovered && fc.expected>0)?'upc-neg':''}">${fc.pastPeriod ? '—' : inr(fc.expected)}</div><div class="card-sub">${upcTileSub}</div></div>
     </div>
     <div class="card upc-detail" id="upc-detail" style="display:${_upcOpen ? 'block' : 'none'};">
