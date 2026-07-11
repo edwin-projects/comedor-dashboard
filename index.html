@@ -1184,7 +1184,7 @@
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-11-01';
+const APP_VERSION = '2026-07-11-02';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -2574,6 +2574,8 @@ function submitEntry() {
   const errors = [];
   if (!date)        errors.push('Date is required');
   if (opening <= 0) errors.push('Opening Cash Balance is required');
+  const openPrior = date ? oldestOpenDayBefore(date) : null;
+  if (openPrior) errors.push(`Close ${_fmtDay(openPrior.date)} first — enter its closing cash before submitting a later day.`);
   if (prevEntry && opening !== prevEntry.closing) {
     errors.push('Opening balance does not match the previous day\'s closing — recount your cash and re-enter.');
   }
@@ -2661,6 +2663,8 @@ function saveOpening() {
   const errors  = [];
   if (!date)        errors.push('Date is required');
   if (opening <= 0) errors.push('Opening Cash Balance is required');
+  const openPrev = date ? oldestOpenDayBefore(date) : null;
+  if (openPrev) errors.push(`Close ${_fmtDay(openPrev.date)} first — its closing cash count is still pending. Finish the previous day before starting a new one.`);
   if (errors.length) {
     errBox.innerHTML = errors.map(e => `<div>⚠ ${e}</div>`).join('');
     errBox.style.display = 'block';
@@ -2817,6 +2821,21 @@ function getPreviousEntry(currentDate) {
   return before[0] || null;
 }
 
+// A day is "open" while its real closing cash count is still pending (partial).
+// You must finish the previous day before starting a new one — so the oldest
+// still-open day strictly before `date` blocks entering `date`. Returns that day
+// (oldest first, so the chain is closed in order) or null if the past is clean.
+function oldestOpenDayBefore(date) {
+  if (!date) return null;
+  const open = loadEntries()
+    .filter(e => e.date < date && e.partial)
+    .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  return open[0] || null;
+}
+function _fmtDay(iso) {
+  return new Date(iso + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
 // ─── OPENING BALANCE VALIDATION ──────────────────────────────────────────────
 function checkOpening() {
   const dateVal   = document.getElementById('entry-date')?.value;
@@ -2825,6 +2844,17 @@ function checkOpening() {
   if (!hint) return;
 
   if (!dateVal) { hint.style.display = 'none'; return; }
+
+  // Hard gate: an earlier day was started but never closed. Block this day until
+  // the previous one is counted — otherwise today "verifies" against a projected
+  // closing that was never confirmed.
+  const openPrev = oldestOpenDayBefore(dateVal);
+  if (openPrev) {
+    hint.className = 'opening-hint warn';
+    hint.textContent = `⚠ ${_fmtDay(openPrev.date)} isn't closed yet — enter its closing cash first, then start this day.`;
+    hint.style.display = 'block';
+    return;
+  }
 
   const prev = getPreviousEntry(dateVal);
   if (!prev) {
