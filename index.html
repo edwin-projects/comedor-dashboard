@@ -390,6 +390,12 @@
 .field-label { font-size: 10px; color: var(--text3); display: block; margin-bottom: 5px; font-family: 'Inter', sans-serif; letter-spacing: 1px; text-transform: uppercase; }
 .field-input { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: 10px 14px; font-size: 14px; font-family: 'Inter', sans-serif; outline: none; transition: border-color 0.2s; }
 .field-input:focus { border-color: var(--accent); }
+/* Native date input on iOS/Safari renders its value in a fixed-width pseudo box
+   that can overflow the field and leave a blank gap; normalise it so the value
+   is centred and stays within the box. */
+input[type="date"].field-input { -webkit-appearance: none; appearance: none; }
+input[type="date"].field-input::-webkit-date-and-time-value { text-align: center; margin: 0; padding: 0; }
+input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padding: 0; }
 .field-input, .field-select, .field-input-mono { min-width: 0; }
 .field-input-mono { font-family: 'Inter', sans-serif; font-size: 16px; }
 .field-select { width: 100%; background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 7px; padding: 10px 14px; font-size: 13px; font-family: 'Inter', sans-serif; outline: none; transition: border-color 0.2s; appearance: none; -webkit-appearance: none; cursor: pointer; }
@@ -846,7 +852,7 @@
     <div class="setcard-body">
     <div style="margin-bottom:14px;">
       <label class="field-label">Date</label>
-      <input id="entry-date" type="date" class="field-input" onchange="checkOpening(); hydrateFormForDate(this.value)" onkeydown="return false" onpaste="return false" style="text-align:center; display:block; width:100%; box-sizing:border-box;">
+      <input id="entry-date" type="date" class="field-input" onchange="hydrateFormForDate(this.value, true); checkOpening()" onkeydown="return false" onpaste="return false" style="text-align:center; display:block; width:100%; box-sizing:border-box;">
     </div>
     <div>
       <label class="field-label">Opening Cash Balance ₹ *</label>
@@ -1188,7 +1194,7 @@
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-11-03';
+const APP_VERSION = '2026-07-11-04';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -2799,18 +2805,38 @@ function saveCashExpenses() {
 // On reopening/refreshing, pull the day's saved entry back into the form so the
 // manager sees their opening (and any progress) is still there. Non-destructive:
 // won't overwrite something already typed unless `force` is set.
+// Blank every field in the cash-entry form (used when switching to a day that
+// has no saved entry yet, so the previously viewed day's figures don't linger).
+function clearEntryForm() {
+  setMoney('f-opening', '');
+  setMoney('f-cash', '');
+  setMoney('f-upi', '');
+  setMoney('f-card', '');
+  setMoney('f-closing', '');
+  expenseRows = [{ id: Date.now(), category: '', desc: '', amount: '', saved: false, photo: null }];
+  renderExpenseRows();
+  recalc();
+}
+
 function hydrateFormForDate(date, force) {
   if (!date) return;
   if (!force && _editingEntry && _editingEntry.date !== date) return;
   const entry = loadEntries().find(e => e.date === date);
-  if (!entry) return;
+  if (!entry) {
+    // Explicit date change to a day with nothing saved — start clean rather than
+    // showing whatever day was open before.
+    if (force) { _editingEntry = null; clearEntryForm(); checkOpening(); }
+    return;
+  }
   if (!force && money('f-opening') > 0) return;   // don't clobber in-progress typing
   _editingEntry = entry;
   setMoney('f-opening', entry.opening || '');
   setMoney('f-cash', entry.cash || '');
   setMoney('f-upi', entry.upi || '');
   setMoney('f-card', entry.card || '');
-  if (!entry.partial) setMoney('f-closing', entry.closing || '');   // partial: manager counts real cash at night
+  // Show the real cash count only once the day is closed; while it's still open
+  // (partial) the closing hasn't been counted, so leave that field blank.
+  setMoney('f-closing', entry.partial ? '' : (entry.closing || ''));
   expenseRows = (entry.expenses && entry.expenses.length)
     ? entry.expenses.map(x => ({ id: Date.now() + Math.random(), category: x.category, desc: x.desc, amount: x.amount, saved: true, photo: x.photo || null }))
     : [{ id: Date.now(), category: '', desc: '', amount: '', saved: false, photo: null }];
