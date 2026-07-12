@@ -573,9 +573,12 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 .cat-add { display:flex; gap:8px; margin-bottom:14px; }
 .cat-add .field-input { flex:1; min-width:0; }
 .cat-add .btn { flex-shrink:0; padding:0 16px; }
-.cat-row { display:flex; align-items:center; gap:10px; padding:9px 2px; border-bottom:1px solid var(--border); }
+.cat-row { display:flex; align-items:center; gap:6px; padding:10px 2px; border-bottom:1px solid var(--border); }
 .cat-row:last-child { border-bottom:none; }
-.cat-row .cat-name { flex:1; min-width:0; font-size:13.5px; color:var(--text); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cat-row .cat-name { flex:1 1 auto; min-width:64px; font-size:11px; color:var(--text); line-height:1.3; overflow-wrap:anywhere; }
+.cat-master { flex:0 0 116px; max-width:116px; height:28px; background:var(--surface2); border:1px solid var(--border); color:var(--text2); border-radius:7px; padding:0 4px; font-size:10px; font-family:'Inter',sans-serif; letter-spacing:0.1px; }
+.cat-master:focus { outline:none; border-color:var(--accent2); }
+.cat-row .ibtn { width:29px; height:29px; }
 .cat-row .cat-act { flex-shrink:0; background:none; border:none; cursor:pointer; font-size:11.5px; font-family:'Inter',sans-serif; padding:5px 8px; border-radius:6px; }
 .cat-row .cat-edit { color:var(--accent2); }
 .cat-row .cat-del { color:var(--red); }
@@ -1188,9 +1191,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
             <input id="cat-new-staff" class="field-input" placeholder="New staff category" onkeydown="if(event.key==='Enter'){event.preventDefault();addCategory('staff');}">
             <button class="btn" id="cat-add-staff-btn" onclick="addCategory('staff')">Add ✓</button>
           </div>
-          <div id="cat-list-staff" onclick="catListClick(event,'staff')"></div>
-          <div class="catg-new"><button onclick="addMaster()">＋ New master category</button></div>
-        </div>
+          <div id="cat-list-staff" onclick="catListClick(event,'staff')"></div>        </div>
       </div>
 
       <div class="subcard collapsed" id="subcat-partner">
@@ -1200,9 +1201,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
             <input id="cat-new-partner" class="field-input" placeholder="New partner category" onkeydown="if(event.key==='Enter'){event.preventDefault();addCategory('partner');}">
             <button class="btn" id="cat-add-partner-btn" onclick="addCategory('partner')">Add ✓</button>
           </div>
-          <div id="cat-list-partner" onclick="catListClick(event,'partner')"></div>
-          <div class="catg-new"><button onclick="addMaster()">＋ New master category</button></div>
-        </div>
+          <div id="cat-list-partner" onclick="catListClick(event,'partner')"></div>        </div>
       </div>
     </div>
   </div>
@@ -1293,7 +1292,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-12-15';
+const APP_VERSION = '2026-07-12-16';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -2265,46 +2264,45 @@ const IC_FOLDER = '<svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h6a
 const IC_TRASH  = '<svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/></svg>';
 
 function renderCategories() { renderCategoryEditor('staff'); renderCategoryEditor('partner'); }
+// Flat list: one row per category — name · master-category dropdown · rename · delete.
 function renderCategoryEditor(kind) {
   const el = document.getElementById('cat-list-' + kind);
   if (!el) return;
   const cats = getCategories(kind);
   const masters = loadMasters();
-  const byMaster = {}; masters.forEach(m => { byMaster[m.name] = []; });
-  cats.forEach(c => { const m = masterOf(c); (byMaster[m] = byMaster[m] || []).push(c); });
-  el.innerHTML = masters.map(m => {
-    const tags = byMaster[m.name] || [];
-    const canDel = m.name !== MISC_MASTER;
-    const rows = tags.map(c => `<div class="cat-row">
-      <span class="cat-name">${esc(c)}</span>
-      <button class="ibtn" title="Rename" data-act="edit" data-name="${esc(c)}">${IC_PENCIL}</button>
-      <button class="ibtn move" title="Move to another group" data-act="move" data-name="${esc(c)}">${IC_FOLDER}</button>
-      <button class="ibtn del" title="Delete" data-act="del" data-name="${esc(c)}">${IC_TRASH}</button>
-    </div>`).join('') || '<div class="catg-empty">No tags here yet</div>';
-    return `<div class="catg">
-      <div class="catg-head">
-        <span class="catg-ic">${m.icon}</span>
-        <span class="catg-name">${esc(m.name)}</span>
-        <span class="catg-count">${tags.length}</span>
-        <button class="ibtn" title="Rename group" data-act="mrename" data-master="${esc(m.name)}">${IC_PENCIL}</button>
-        ${canDel ? `<button class="ibtn del" title="Delete group" data-act="mdelete" data-master="${esc(m.name)}">${IC_TRASH}</button>` : ''}
-      </div>${rows}</div>`;
-  }).join('');
+  const optsFor = cur => masters.map(x => `<option value="${esc(x.name)}"${x.name === cur ? ' selected' : ''}>${esc(x.icon + ' ' + x.name)}</option>`).join('') + '<option value="__new__">＋ New group…</option>';
+  el.innerHTML = cats.map(c => `<div class="cat-row">
+    <span class="cat-name">${esc(c)}</span>
+    <select class="cat-master" title="Master category" data-name="${esc(c)}" onchange="onMasterChange(this,'${kind}')">${optsFor(masterOf(c))}</select>
+    <button class="ibtn" title="Rename" data-act="edit" data-name="${esc(c)}">${IC_PENCIL}</button>
+    <button class="ibtn del" title="Delete" data-act="del" data-name="${esc(c)}">${IC_TRASH}</button>
+  </div>`).join('') || '<div class="log-empty">No categories yet — add one above.</div>';
   const badge = document.getElementById('subcat-count-' + kind);
   if (badge) badge.textContent = cats.length;
 }
-// Delegated clicks from the grouped editor (avoids inline-JS escaping issues).
+// Set a category's master from its row dropdown (or make a new master inline).
+function onMasterChange(sel, kind) {
+  const name = sel.getAttribute('data-name');
+  let target = sel.value;
+  if (target === '__new__') {
+    const nm = prompt('New master category name');
+    if (!nm || !nm.trim()) { renderCategoryEditor(kind); return; }
+    target = nm.trim().toUpperCase();
+    const ms = loadMasters();
+    if (!ms.some(m => m.name === target)) { ms.push({ name: target, icon: '🏷️' }); saveMasters(ms); }
+  }
+  assignMaster(name, target);
+  renderCategoryEditor(kind);
+  if (document.getElementById('panel-dashboard')?.classList.contains('active')) { try { renderExpenseCats(); } catch (e) {} }
+}
+// Delegated rename/delete clicks (avoids inline-JS escaping issues with tag names).
 function catListClick(ev, kind) {
   const btn = ev.target.closest('button[data-act]');
   if (!btn) return;
   const act = btn.getAttribute('data-act');
   const name = btn.getAttribute('data-name');
-  const master = btn.getAttribute('data-master');
   if (act === 'edit') editCategory(kind, name);
-  else if (act === 'move') moveCategory(kind, name);
   else if (act === 'del') deleteCategory(kind, name);
-  else if (act === 'mrename') renameMaster(master);
-  else if (act === 'mdelete') deleteMaster(master);
 }
 function addCategory(kind) {
   const inp = document.getElementById('cat-new-' + kind);
