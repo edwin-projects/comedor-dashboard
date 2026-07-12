@@ -160,13 +160,16 @@
   .tile-exp    { background:linear-gradient(140deg, rgba(192,58,43,0.28) 0%, rgba(232,114,106,0.05) 100%); border-color:rgba(232,114,106,0.36); }
   .tile-avail  { background:linear-gradient(140deg, rgba(37,99,178,0.28) 0%, rgba(77,157,224,0.05) 100%); border-color:rgba(77,157,224,0.36); }
   .tile-disc   { background:linear-gradient(140deg, rgba(178,138,38,0.30) 0%, rgba(201,160,64,0.05) 100%); border-color:rgba(201,160,64,0.38); }
-  .tile-income .card-value, .tile-exp .card-value { font-size:30px; }
+  .tile-income .card-value, .tile-exp .card-value, .tile-avail .card-value, .tile-upc .card-value { font-size:30px; }
   .tile-avail .card-value { color:#4d9de0; }
   .tile-disc .card-value { color:var(--accent2); }
   .card-sub { font-size: 11px; color: var(--text3); margin-top: 5px; font-family: 'Inter', sans-serif; overflow: hidden; }
-  .tsplit-l { font-size: 11px; color: var(--text2); font-family: 'Inter', sans-serif; line-height: 1.55; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  /* Tile sub-lines: label left, figure right — aligned like the Partner Capital rows. */
+  .tsplit-l { display: flex; justify-content: space-between; align-items: baseline; gap: 7px; font-size: 11px; color: var(--text2); font-family: 'Inter', sans-serif; line-height: 1.7; overflow: hidden; }
+  .tsplit-k { letter-spacing: 0.2px; text-transform: uppercase; white-space: nowrap; }
+  .tsplit-r { flex-shrink: 0; white-space: nowrap; font-variant-numeric: tabular-nums lining-nums; }
   .tsplit-l b { font-weight: 500; color: var(--text); }
-  .tpct { color: var(--text3); font-size: 10px; }
+  .tpct { color: var(--text3); font-size: 0.88em; }
   /* "Cash not closed" flag on the Available Balance tile */
   .cash-open-line { margin-top: 5px; }
   .cash-open-badge { display:inline-block; max-width:100%; box-sizing:border-box; font-size:10px; font-weight:600; letter-spacing:0.1px; padding:2px 8px; border-radius:10px; font-family:'Inter',sans-serif; color:#e0b64d; background:rgba(224,175,77,0.14); border:1px solid rgba(224,175,77,0.30); white-space:normal; line-height:1.35; cursor:pointer; }
@@ -311,7 +314,7 @@
     .card { padding: 12px 13px; border-radius: 9px; }
     .card-label { font-size: 9.5px; letter-spacing: 0.4px; margin-bottom: 4px; }
     .card-value { font-size: 19px; }
-    .tile-income .card-value, .tile-exp .card-value { font-size: 23px; }
+    .tile-income .card-value, .tile-exp .card-value, .tile-avail .card-value, .tile-upc .card-value { font-size: 23px; }
     .card-sub { font-size: 9.5px; margin-top: 3px; }
     .content { padding: 16px; }
     .header { padding: 13px 15px; gap: 8px 10px; }
@@ -1232,7 +1235,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-12-09';
+const APP_VERSION = '2026-07-12-10';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -4090,6 +4093,15 @@ function fitSplitLines(root) {
     const overflows = () => Array.from(lines).some(l => l.scrollWidth - l.clientWidth > 1);
     while (s > 7 && overflows() && guard < 40) { s -= 0.5; lines.forEach(l => l.style.fontSize = s + 'px'); guard++; }
   });
+  // Unify note size across the four headline tiles: every tile's sub-lines share
+  // the smallest size any one of them needed, so they all read at one size.
+  const grpRoot = (root.querySelectorAll ? root : document);
+  const tileLines = grpRoot.querySelectorAll('#pnl-summary .cards2 .card-sub .tsplit-l');
+  if (tileLines.length) {
+    let minS = 11;
+    tileLines.forEach(l => { const v = parseFloat(l.style.fontSize) || 11; if (v < minS) minS = v; });
+    tileLines.forEach(l => { l.style.fontSize = minS + 'px'; });
+  }
 }
 let _fitTimer = null;
 window.addEventListener('resize', () => {
@@ -4169,7 +4181,7 @@ function renderPnlBank() {
   const pctOf = (v, t) => t ? ` <span class="tpct">(${(v / t * 100).toFixed(1)}%)</span>` : '';
   const splitBox = (parts, total) => parts.filter(p => (Number(p.v) || 0) > 0)
     .sort((a, b) => (Number(b.v) || 0) - (Number(a.v) || 0))
-    .map(p => `<div class="tsplit-l"${p.c ? ` style="color:${p.c}"` : ''}>${esc(p.k)} <b>${inr(p.v)}</b>${pctOf(p.v, total)}</div>`).join('') || '<div class="tsplit-l">—</div>';
+    .map(p => `<div class="tsplit-l"${p.c ? ` style="color:${p.c}"` : ''}><span class="tsplit-k">${esc(p.k)}</span><span class="tsplit-r"><b>${inr(p.v)}</b>${pctOf(p.v, total)}</span></div>`).join('') || '<div class="tsplit-l">—</div>';
   const discPct = income ? ` <span class="tpct">(${(discount / income * 100).toFixed(1)}% of sales)</span>` : '';
 
   // ── Upcoming-expenses forecast for the selected period ──
@@ -4221,8 +4233,8 @@ function renderPnlBank() {
   const sEl = document.getElementById('pnl-summary');
   if (sEl) sEl.innerHTML = `
     <div class="cards2">
-      <div class="card card-click tile-income" onclick="focusLog('sales')"><div class="card-label">Income (Sales)</div><div class="card-value green">${inr(income)}</div><div class="card-sub">${regTot ? splitBox([{k:'UPI/Card',v:incNon},{k:'Cash',v:incCash}], income) : ''}<div class="tsplit-l" style="color:var(--text3);">Comps &amp; discounts <b>${inr(discount)}</b>${discount > 0 ? discPct : ''}</div>${estFromRegister ? `<div class="tsplit-l" style="color:var(--text3);margin-top:2px;">From End-of-Day Sales · Pet Pooja not uploaded yet</div>` : ''}</div></div>
-      <div class="card card-click tile-exp" onclick="focusLog('expcat')"><div class="card-label">Expenses</div><div class="card-value red">${inr(totalExp)}</div><div class="card-sub">${splitBox([{k:'IDFC',v:idfcExp},{k:'Direct',v:directExp},{k:'Cash',v:cashExp}], totalExp)}</div></div>
+      <div class="card card-click tile-income" onclick="focusLog('sales')"><div class="card-label">Income (Sales)</div><div class="card-value green">${inr(income)}</div><div class="card-sub">${regTot ? splitBox([{k:'UPI/Card',v:incNon},{k:'Cash',v:incCash}], income) : ''}<div class="tsplit-l" style="color:var(--text3);"><span class="tsplit-k">Comp &amp; Disc</span><span class="tsplit-r"><b>${inr(discount)}</b>${discount > 0 ? discPct : ''}</span></div></div></div>
+      <div class="card card-click tile-exp" onclick="focusLog('expcat')"><div class="card-label">Expenses</div><div class="card-value red">${inr(totalExp)}</div><div class="card-sub">${splitBox([{k:'IDFC',v:idfcExp},{k:'Partner Direct',v:directExp},{k:'Cash',v:cashExp}], totalExp)}</div></div>
     </div>
     <div class="pnl-hero ${net >= 0 ? 'hero-pos' : 'hero-neg'}">
       <div class="card-label">Net Profit / Loss</div>
