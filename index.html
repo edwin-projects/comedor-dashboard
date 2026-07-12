@@ -579,6 +579,19 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 .cat-master { flex:0 0 116px; max-width:116px; height:28px; background:var(--surface2); border:1px solid var(--border); color:var(--text2); border-radius:7px; padding:0 4px; font-size:10px; font-family:'Inter',sans-serif; letter-spacing:0.1px; }
 .cat-master:focus { outline:none; border-color:var(--accent2); }
 .cat-row .ibtn { width:29px; height:29px; }
+/* Column headings above each category list */
+.cat-hdr { display:flex; align-items:center; gap:6px; padding:2px 2px 7px; border-bottom:1px solid var(--border); }
+.cat-hdr-name { flex:1 1 auto; min-width:64px; font-size:9.5px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--text3); }
+.cat-hdr-group { flex:0 0 116px; font-size:9.5px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--text3); }
+/* Copy-between-lists button */
+.catcopy-btn { display:block; width:100%; margin:2px 0 12px; background:none; border:1px dashed var(--border); color:var(--text2); border-radius:8px; padding:9px; font-size:11.5px; font-family:'Inter',sans-serif; letter-spacing:0.2px; cursor:pointer; }
+.catcopy-btn:hover { border-color:var(--accent2); color:var(--accent2); }
+/* Master-groups manager rows */
+.mrow { display:flex; align-items:center; gap:9px; padding:10px 2px; border-bottom:1px solid var(--border); }
+.mrow:last-child { border-bottom:none; }
+.mrow-ic { font-size:15px; line-height:1; flex-shrink:0; }
+.mrow-name { flex:1; min-width:0; font-size:12px; color:var(--text); letter-spacing:0.3px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mrow-count { flex-shrink:0; font-size:10px; color:var(--text3); background:var(--surface); border:1px solid var(--border); border-radius:9px; padding:1px 7px; }
 .cat-row .cat-act { flex-shrink:0; background:none; border:none; cursor:pointer; font-size:11.5px; font-family:'Inter',sans-serif; padding:5px 8px; border-radius:6px; }
 .cat-row .cat-edit { color:var(--accent2); }
 .cat-row .cat-del { color:var(--red); }
@@ -1182,7 +1195,19 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
   <div class="setcard collapsed tint-gold" id="setcard-cats">
     <div class="setcard-head" onclick="toggleSet('cats')"><span class="setcard-title">Expense Categories</span><span class="setcard-chev">▾</span></div>
     <div class="setcard-body">
-      <p class="exp-note">Two separate lists. <b>Staff categories</b> show in the <b>Cash</b> tab; <b>Partner categories</b> show in the <b>Bank</b> tab. Edit each independently — changes sync to every device. Tap a list to open it.</p>
+      <p class="exp-note">Two separate lists. <b>Staff categories</b> show in the <b>Cash</b> tab; <b>Partner categories</b> show in the <b>Bank</b> tab. Each category rolls up to a <b>group</b> (shared by both lists). Changes sync to every device. Tap a list to open it.</p>
+
+      <div class="subcard collapsed" id="subcat-groups">
+        <div class="subcard-head" onclick="toggleSubcat('groups')"><span class="subcard-title">Master groups</span><span class="subcard-count" id="master-count">0</span><span class="subcard-chev">▾</span></div>
+        <div class="subcard-body">
+          <p class="exp-note" style="margin-bottom:10px;">The buckets your categories roll up to on the dashboard — shared by both lists. Rename or remove a group here; each category picks its group from the dropdown in the lists below.</p>
+          <div id="master-list" onclick="masterListClick(event)"></div>
+          <div class="cat-add" style="margin-top:12px;">
+            <input id="master-new" class="field-input" placeholder="New group name" onkeydown="if(event.key==='Enter'){event.preventDefault();addMasterFromInput();}">
+            <button class="btn" id="master-add-btn" onclick="addMasterFromInput()">Add ✓</button>
+          </div>
+        </div>
+      </div>
 
       <div class="subcard collapsed" id="subcat-staff">
         <div class="subcard-head" onclick="toggleSubcat('staff')"><span class="subcard-title">Staff categories · Cash tab</span><span class="subcard-count" id="subcat-count-staff">0</span><span class="subcard-chev">▾</span></div>
@@ -1191,7 +1216,10 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
             <input id="cat-new-staff" class="field-input" placeholder="New staff category" onkeydown="if(event.key==='Enter'){event.preventDefault();addCategory('staff');}">
             <button class="btn" id="cat-add-staff-btn" onclick="addCategory('staff')">Add ✓</button>
           </div>
-          <div id="cat-list-staff" onclick="catListClick(event,'staff')"></div>        </div>
+          <button class="catcopy-btn" onclick="copyCatsBetween('partner','staff')">⇄ Copy Partner categories &amp; groups into this list</button>
+          <div class="cat-hdr"><span class="cat-hdr-name">Category</span><span class="cat-hdr-group">Group</span></div>
+          <div id="cat-list-staff" onclick="catListClick(event,'staff')"></div>
+        </div>
       </div>
 
       <div class="subcard collapsed" id="subcat-partner">
@@ -1201,7 +1229,10 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
             <input id="cat-new-partner" class="field-input" placeholder="New partner category" onkeydown="if(event.key==='Enter'){event.preventDefault();addCategory('partner');}">
             <button class="btn" id="cat-add-partner-btn" onclick="addCategory('partner')">Add ✓</button>
           </div>
-          <div id="cat-list-partner" onclick="catListClick(event,'partner')"></div>        </div>
+          <button class="catcopy-btn" onclick="copyCatsBetween('staff','partner')">⇄ Copy Staff categories &amp; groups into this list</button>
+          <div class="cat-hdr"><span class="cat-hdr-name">Category</span><span class="cat-hdr-group">Group</span></div>
+          <div id="cat-list-partner" onclick="catListClick(event,'partner')"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -1292,7 +1323,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-12-16';
+const APP_VERSION = '2026-07-12-17';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -2263,7 +2294,59 @@ const IC_PENCIL = '<svg viewBox="0 0 24 24"><path d="M4 20h4L18.5 9.5a2 2 0 0 0-
 const IC_FOLDER = '<svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
 const IC_TRASH  = '<svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/></svg>';
 
-function renderCategories() { renderCategoryEditor('staff'); renderCategoryEditor('partner'); }
+function renderCategories() { renderMastersEditor(); renderCategoryEditor('staff'); renderCategoryEditor('partner'); }
+// Shared "Master groups" manager — rename / delete / add the buckets.
+function renderMastersEditor() {
+  const el = document.getElementById('master-list');
+  if (!el) return;
+  const masters = loadMasters();
+  const counts = {};
+  ['staff', 'partner'].forEach(k => getCategories(k).forEach(c => { const m = masterOf(c); counts[m] = (counts[m] || 0) + 1; }));
+  el.innerHTML = masters.map(m => {
+    const canDel = m.name !== MISC_MASTER;
+    return `<div class="mrow">
+      <span class="mrow-ic">${m.icon}</span>
+      <span class="mrow-name">${esc(m.name)}</span>
+      <span class="mrow-count">${counts[m.name] || 0}</span>
+      <button class="ibtn" title="Rename group" data-mact="rename" data-master="${esc(m.name)}">${IC_PENCIL}</button>
+      ${canDel ? `<button class="ibtn del" title="Delete group" data-mact="delete" data-master="${esc(m.name)}">${IC_TRASH}</button>` : '<span style="width:29px;flex-shrink:0;"></span>'}
+    </div>`;
+  }).join('');
+  const badge = document.getElementById('master-count');
+  if (badge) badge.textContent = masters.length;
+}
+function masterListClick(ev) {
+  const btn = ev.target.closest('button[data-mact]');
+  if (!btn) return;
+  const act = btn.getAttribute('data-mact'), master = btn.getAttribute('data-master');
+  if (act === 'rename') renameMaster(master);
+  else if (act === 'delete') deleteMaster(master);
+}
+function addMasterFromInput() {
+  const inp = document.getElementById('master-new');
+  const name = (inp.value || '').trim();
+  if (!name) return;
+  const ms = loadMasters();
+  if (ms.some(m => m.name === name.toUpperCase())) { peopleMsg('“' + name + '” already exists', false); return; }
+  ms.push({ name: name.toUpperCase(), icon: '🏷️' });
+  saveMasters(ms);
+  inp.value = '';
+  renderCategories();
+  btnFlash('master-add-btn', 'Adding…', 'Added ✓', 'Add ✓');
+}
+// Copy one list's categories (and their groups, via the shared map) into the other.
+function copyCatsBetween(from, to) {
+  const src = getCategories(from), dst = getCategories(to);
+  const merged = dst.slice();
+  let added = 0;
+  src.forEach(c => { if (!merged.some(x => x.toUpperCase() === c.toUpperCase())) { merged.push(c); added++; } });
+  const label = from.charAt(0).toUpperCase() + from.slice(1);
+  if (!added) { peopleMsg('All ' + label + ' categories are already in this list', true); return; }
+  if (!confirm('Copy ' + added + ' categor' + (added === 1 ? 'y' : 'ies') + ' from the ' + label + ' list into this one? Their groups come along, and nothing here is removed.')) return;
+  saveCategories(to, merged);   // the tag→group map is shared, so groups carry automatically
+  renderCategories();
+  peopleMsg(added + ' categor' + (added === 1 ? 'y' : 'ies') + ' copied', true);
+}
 // Flat list: one row per category — name · master-category dropdown · rename · delete.
 function renderCategoryEditor(kind) {
   const el = document.getElementById('cat-list-' + kind);
