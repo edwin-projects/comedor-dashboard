@@ -38,17 +38,19 @@
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #0A0A0B; --surface: #141416; --surface2: #1C1C1F; --border: #2C2C31;
-      --accent: #FFFFFF; --accent2: #CFCFCF; --green: #6FD69A; --red: #E8726A;
-      --text: #F3EFE7; --text2: #A6A29A; --text3: #6E6A63;
+      /* Atelier Noir — warm charcoal, brass, muted sage/clay */
+      --bg: #14110C; --surface: #1C1813; --surface2: #242019; --border: #322A1B;
+      --accent: #F0E6D2; --accent2: #C9A15A; --green: #93BB8C; --red: #CE8E7C;
+      --text: #F2E9D8; --text2: #B7AB95; --text3: #847A63;
       --cat-platos-c: #D9A066; --cat-bebidas-c: #C9A040; --cat-antojitos-c: #DBBB63;
       --cat-postres-c: #E0857A; --cat-vegano-c: #8FB89A; --cat-acompana-c: #A6A29A;
     }
   }
   :root[data-theme="dark"] {
-    --bg: #0A0A0B; --surface: #141416; --surface2: #1C1C1F; --border: #2C2C31;
-    --accent: #FFFFFF; --accent2: #CFCFCF; --green: #6FD69A; --red: #E8726A;
-    --text: #F3EFE7; --text2: #A6A29A; --text3: #6E6A63;
+    /* Atelier Noir — warm charcoal, brass, muted sage/clay */
+    --bg: #14110C; --surface: #1C1813; --surface2: #242019; --border: #322A1B;
+    --accent: #F0E6D2; --accent2: #C9A15A; --green: #93BB8C; --red: #CE8E7C;
+    --text: #F2E9D8; --text2: #B7AB95; --text3: #847A63;
     --cat-platos-c: #D9A066; --cat-bebidas-c: #C9A040; --cat-antojitos-c: #DBBB63;
     --cat-postres-c: #E0857A; --cat-vegano-c: #8FB89A; --cat-acompana-c: #A6A29A;
   }
@@ -127,7 +129,7 @@
   .cap-invest.cap-collapsed .cap-chev { transform:rotate(-90deg); }
   .cap-invest.cap-collapsed .cap-body { display:none; }
   .cap-body { padding-top:2px; }
-  .cap-total-val { font-family:'Inter',sans-serif; font-weight:400; font-size:26px; letter-spacing:-0.3px; font-variant-numeric:lining-nums tabular-nums; }
+  .cap-total-val { font-family:'Inter',sans-serif; font-weight:400; font-size:26px; letter-spacing:-0.3px; font-variant-numeric:lining-nums tabular-nums; color:#4d9de0; }
   .cap-total-split { font-size:11px; color:var(--text3); font-family:'Inter',sans-serif; margin-top:8px; }
   .cap-total-split .tsplit-l { font-size:14px; line-height:1.5; }
   .cap-total-split .tsplit-l b { font-weight:600; }
@@ -175,14 +177,27 @@
   .tpct { color: var(--text3); font-size: 0.88em; }
   /* Warning notes pinned to the tile bottom (so the two tiles' notes line up). */
   .tile-warn { margin-top: auto; padding-top: 8px; display: flex; align-items: center; gap: 5px; font-family: 'Inter', sans-serif; font-size: 10px; font-weight: 500; letter-spacing: 0.2px; line-height: 1.3; white-space: nowrap; }
-  .tile-warn.warn-amber { color:#e0b64d; cursor:pointer; }
-  .tile-warn.warn-amber:hover { color:#ecc76e; }
-  .tile-warn.warn-red { color:#e8726a; }
-  .tile-warn.warn-ok  { color:#6fd69a; }
+  .tile-warn.warn-amber { color:var(--accent2); cursor:pointer; }
+  .tile-warn.warn-amber:hover { color:var(--text); }
+  .tile-warn.warn-red { color:var(--red); }
+  .tile-warn.warn-ok  { color:var(--green); }
   /* Upcoming / expected-expenses tile + its drill-down list */
   .tile-upc    { background:linear-gradient(140deg, rgba(176,110,40,0.26) 0%, rgba(224,150,77,0.05) 100%); border-color:rgba(224,150,77,0.34); }
   .tile-upc .card-value { color:#e0a04d; }
   .tile-upc .card-value.upc-neg { color:var(--red); }
+  /* ── Atelier Noir (dark): flat cards + brass hairlines instead of neon glows;
+     colour lives only in the figure. One focal tint on the Net P/L hero. ── */
+  :root[data-theme="dark"] .tile-income,
+  :root[data-theme="dark"] .tile-exp,
+  :root[data-theme="dark"] .tile-avail,
+  :root[data-theme="dark"] .tile-disc,
+  :root[data-theme="dark"] .tile-upc { background: var(--surface); border-color: var(--border); }
+  :root[data-theme="dark"] .pnl-hero.hero-pos { background: linear-gradient(150deg, rgba(201,161,90,0.11), rgba(201,161,90,0.02)); border-color: rgba(201,161,90,0.34); }
+  :root[data-theme="dark"] .pnl-hero.hero-neg { background: linear-gradient(150deg, rgba(206,142,124,0.12), transparent); border-color: rgba(206,142,124,0.30); }
+  :root[data-theme="dark"] .tile-avail .card-value { color: var(--text); }
+  :root[data-theme="dark"] .cap-total-val { color: var(--accent2); }
+  :root[data-theme="dark"] .tile-upc .card-value { color: var(--accent2); }
+  :root[data-theme="dark"] .tile-upc .card-value.upc-neg { color: var(--red); }
   .upc-detail { margin-top:-2px; }
   .upc-detail-title { font-size:11px; text-transform:uppercase; letter-spacing:1.6px; color:var(--text3); margin-bottom:4px; }
   .upc-detail-note { font-size:11px; color:var(--text3); margin-bottom:10px; }
@@ -1237,7 +1252,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-12-11';
+const APP_VERSION = '2026-07-12-12';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -4276,7 +4291,7 @@ function renderPnlBank() {
       <div class="cap-total" onclick="toggleCapCard()">
         <span class="card-label">Partner Capital</span>
         <span class="cap-total-right">
-          <span class="cap-total-val" style="color:#4d9de0;">${inr(capital)}</span>
+          <span class="cap-total-val">${inr(capital)}</span>
           <span class="cap-chev">▾</span>
         </span>
       </div>
