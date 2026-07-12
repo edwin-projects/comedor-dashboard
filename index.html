@@ -580,6 +580,38 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 .cat-row .cat-edit { color:var(--accent2); }
 .cat-row .cat-del { color:var(--red); }
 .cat-row .cat-act:hover { background:var(--surface2); }
+/* Grouped category editor (master → tags) with icon actions */
+.catg { margin-bottom:16px; }
+.catg-head { display:flex; align-items:center; gap:9px; padding:9px 2px; border-bottom:1px solid var(--border); }
+.catg-ic { font-size:15px; line-height:1; flex-shrink:0; }
+.catg-name { flex:1; min-width:0; font-size:11px; font-weight:700; letter-spacing:1.2px; text-transform:uppercase; color:var(--text2); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.catg-count { flex-shrink:0; font-size:10px; color:var(--text3); background:var(--surface); border:1px solid var(--border); border-radius:9px; padding:1px 7px; }
+.catg-empty { font-size:11px; color:var(--text3); padding:8px 2px; font-style:italic; }
+.ibtn { flex-shrink:0; width:30px; height:30px; border-radius:7px; border:1px solid var(--border); background:transparent; display:inline-grid; place-items:center; cursor:pointer; padding:0; }
+.ibtn:hover { background:var(--surface2); }
+.ibtn svg { width:15px; height:15px; stroke:var(--text3); fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+.ibtn.move svg { stroke:var(--accent2); }
+.ibtn.del svg { stroke:var(--red); }
+.catg-new { display:flex; justify-content:center; margin-top:2px; }
+.catg-new button { background:none; border:1px dashed var(--border); color:var(--text2); border-radius:8px; padding:8px 14px; font-size:11.5px; font-family:'Inter',sans-serif; letter-spacing:0.3px; cursor:pointer; }
+.catg-new button:hover { border-color:var(--accent2); color:var(--accent2); }
+/* Dashboard master-category accordion */
+.mcat { border-bottom:1px solid var(--border); }
+.mcat:last-child { border-bottom:none; }
+.mcat-head { display:flex; align-items:center; gap:10px; padding:12px 12px; cursor:pointer; user-select:none; transition:background 0.15s; }
+.mcat-head:hover { background:var(--surface2); }
+.mcat-ic { width:26px; height:26px; border-radius:7px; display:grid; place-items:center; background:rgba(201,161,90,0.10); border:1px solid var(--border); font-size:13px; flex-shrink:0; }
+.mcat-name { flex:1; font-size:12.5px; font-weight:600; letter-spacing:0.3px; color:var(--text); min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.mcat-share { font-size:10.5px; color:var(--text3); font-variant-numeric:tabular-nums; flex-shrink:0; }
+.mcat-val { font-size:13px; color:var(--red); font-variant-numeric:tabular-nums; white-space:nowrap; flex-shrink:0; }
+.mcat-chev { width:12px; text-align:center; color:var(--text3); font-size:11px; transition:transform 0.2s; flex-shrink:0; }
+.mcat.open .mcat-chev { transform:rotate(90deg); }
+.mcat-body { display:none; padding:2px 12px 12px 48px; }
+.mcat.open .mcat-body { display:block; }
+.mcat-sub { display:flex; align-items:baseline; gap:10px; padding:6px 0; border-top:1px dashed var(--border); }
+.mcat-sub:first-child { border-top:none; }
+.mcat-sub .sname { flex:1; font-size:11.5px; text-transform:uppercase; letter-spacing:0.3px; color:var(--text2); min-width:0; }
+.mcat-sub .sval { font-size:11.5px; color:var(--text2); font-variant-numeric:tabular-nums; white-space:nowrap; }
 /* People — mobile-friendly card list */
 .person-list { display:flex; flex-direction:column; gap:10px; }
 .person-card { border:1px solid var(--border); border-radius:11px; background:var(--surface); padding:14px 15px; }
@@ -1156,7 +1188,8 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
             <input id="cat-new-staff" class="field-input" placeholder="New staff category" onkeydown="if(event.key==='Enter'){event.preventDefault();addCategory('staff');}">
             <button class="btn" id="cat-add-staff-btn" onclick="addCategory('staff')">Add ✓</button>
           </div>
-          <div id="cat-list-staff"></div>
+          <div id="cat-list-staff" onclick="catListClick(event,'staff')"></div>
+          <div class="catg-new"><button onclick="addMaster()">＋ New master category</button></div>
         </div>
       </div>
 
@@ -1167,7 +1200,8 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
             <input id="cat-new-partner" class="field-input" placeholder="New partner category" onkeydown="if(event.key==='Enter'){event.preventDefault();addCategory('partner');}">
             <button class="btn" id="cat-add-partner-btn" onclick="addCategory('partner')">Add ✓</button>
           </div>
-          <div id="cat-list-partner"></div>
+          <div id="cat-list-partner" onclick="catListClick(event,'partner')"></div>
+          <div class="catg-new"><button onclick="addMaster()">＋ New master category</button></div>
         </div>
       </div>
     </div>
@@ -1259,7 +1293,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-12-14';
+const APP_VERSION = '2026-07-12-15';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -1397,6 +1431,19 @@ function initFirebase() {
       const list = Array.isArray(val) ? val : (val && typeof val === 'object' ? Object.values(val) : null);
       if (list && list.length) localStorage.setItem('comedor_expcats', JSON.stringify(list));
     }, onErr('expense_categories'));
+
+    // Master categories + tag→master map — the grouping layer, synced live.
+    _db.ref('comedor/category_masters').on('value', snap => {
+      const v = snap.exists() ? snap.val() : null;
+      const list = Array.isArray(v) ? v : (v && typeof v === 'object' ? Object.values(v) : null);
+      if (list && list.length) localStorage.setItem('comedor_catmasters', JSON.stringify(list));
+      refreshCatUI();
+    }, onErr('category_masters'));
+    _db.ref('comedor/category_map').on('value', snap => {
+      const v = snap.exists() ? snap.val() : null;
+      if (v && typeof v === 'object' && !Array.isArray(v)) localStorage.setItem('comedor_catmap', JSON.stringify(v));
+      refreshCatUI();
+    }, onErr('category_map'));
 
     _db.ref('comedor/income').on('value', snap => {
       localStorage.setItem('comedor_income', JSON.stringify(snap.exists() ? Object.values(snap.val()) : []));
@@ -2139,18 +2186,125 @@ function saveCategories(kind, list) {
   else { renderExpenseRows(); }
   if (document.getElementById('panel-people') && document.getElementById('panel-people').classList.contains('active')) renderCategories();
 }
+// ─── MASTER CATEGORIES (grouping layer over the flat tag lists) ──────────────
+// Each detailed tag maps to ONE master category, shared across both lists.
+// Entries keep their granular `category`; the master is derived here, so no
+// history is ever re-tagged. Masters + the tag→master map sync like the lists.
+const DEFAULT_MASTERS = [
+  { name:'RAW MATERIAL', icon:'🥬' },
+  { name:'GROCERIES & QUICK-COMMERCE', icon:'🛒' },
+  { name:'RENT', icon:'🏠' },
+  { name:'SALARIES & STAFF', icon:'👥' },
+  { name:'UTILITIES', icon:'⚡' },
+  { name:'UPKEEP & MAINTENANCE', icon:'🧹' },
+  { name:'MARKETING & AMBIANCE', icon:'🌸' },
+  { name:'STATUTORY & ADMIN', icon:'📋' },
+  { name:'MISCELLANEOUS', icon:'🗂️' }
+];
+const MISC_MASTER = 'MISCELLANEOUS';
+const DEFAULT_CATMAP = {};
+[
+  ['GROCERIES & QUICK-COMMERCE', ['BLINKIT','SWIGGY INSTAMART','BIG BASKET','ZEPTO','AMAZON','GROCERY STORE EXPENSES']],
+  ['RAW MATERIAL', ['HYPERPURE','ICE CUBES','GREEN LEAF VEGGIES','VEGETABLES','GREENS','ATLAS YBARRA','CHENAB','CROWN EDIBLES','BOLILLO SPETTACOLARE']],
+  ['RENT', ['RENT','RESTAURANT RENT','SHOP RENT']],
+  ['SALARIES & STAFF', ['SALARIES','SALARY','STAFF ADVANCE','STAFF OT','STAFF MEDICINE','STAFF BIRTHDAY CAKES','TRAVEL ALLOWANCE']],
+  ['UTILITIES', ['ELECTRICITY BILL','ELECTRICITY','WATER CANS','CYLINDERS','GAS']],
+  ['UPKEEP & MAINTENANCE', ['HOUSE KEEPING','PEST CONTROL','DRAINAGE CLEANING','BBMP GARBAGE','PLUMBING MATERIALS','HARDWARE','EQUIPMENTS / MAHESH DISTRIBUTORS','URBAN COMPANY','PORTER']],
+  ['MARKETING & AMBIANCE', ['FLOWERS','PRINTOUTS']],
+  ['STATUTORY & ADMIN', ['GST']],
+  ['MISCELLANEOUS', ['MISCELLANEOUS','TRANSGENDER']]
+].forEach(pair => pair[1].forEach(t => { DEFAULT_CATMAP[t] = pair[0]; }));
+
+function loadMasters() {
+  try { const m = JSON.parse(localStorage.getItem('comedor_catmasters') || 'null');
+    if (Array.isArray(m) && m.length) {
+      const out = m.map(x => ({ name: String((x && x.name) || '').trim().toUpperCase(), icon: (x && x.icon) || '🏷️' })).filter(x => x.name);
+      if (!out.some(x => x.name === MISC_MASTER)) out.push({ name: MISC_MASTER, icon: '🗂️' });
+      return out;
+    } } catch (e) {}
+  return DEFAULT_MASTERS.map(x => ({ name: x.name, icon: x.icon }));
+}
+function loadCatMap() {
+  let saved = {};
+  try { const m = JSON.parse(localStorage.getItem('comedor_catmap') || 'null'); if (m && typeof m === 'object' && !Array.isArray(m)) saved = m; } catch (e) {}
+  return Object.assign({}, DEFAULT_CATMAP, saved);
+}
+function masterOf(tag) {
+  const t = String(tag == null ? '' : tag).trim().toUpperCase();
+  const masters = loadMasters();
+  const m = loadCatMap()[t];
+  if (m && masters.some(x => x.name === m)) return m;
+  return MISC_MASTER;
+}
+function iconOf(masterName) {
+  const m = loadMasters().find(x => x.name === String(masterName || '').toUpperCase());
+  return m ? m.icon : '🏷️';
+}
+function saveMasters(list) {
+  const clean = [];
+  (list || []).forEach(x => { const name = String((x && x.name) || '').trim().toUpperCase(); if (name && !clean.some(c => c.name === name)) clean.push({ name, icon: (x && x.icon) || '🏷️' }); });
+  if (!clean.some(c => c.name === MISC_MASTER)) clean.push({ name: MISC_MASTER, icon: '🗂️' });
+  localStorage.setItem('comedor_catmasters', JSON.stringify(clean));
+  if (_db) _db.ref('comedor/category_masters').set(clean).catch(syncWriteErr);
+}
+function saveCatMap(map) {
+  const clean = {};
+  Object.keys(map || {}).forEach(k => { const t = String(k).trim().toUpperCase(); const m = String(map[k] || '').trim().toUpperCase(); if (t && m) clean[t] = m; });
+  localStorage.setItem('comedor_catmap', JSON.stringify(clean));
+  if (_db) _db.ref('comedor/category_map').set(clean).catch(syncWriteErr);
+}
+function assignMaster(tag, master) { const map = loadCatMap(); map[String(tag).trim().toUpperCase()] = String(master).trim().toUpperCase(); saveCatMap(map); }
+// Re-render category UI wherever it is currently visible.
+function refreshCatUI() {
+  if (document.getElementById('panel-people')?.classList.contains('active')) renderCategories();
+  if (document.getElementById('panel-dashboard')?.classList.contains('active')) { try { renderExpenseCats(); } catch (e) {} }
+}
+
+const IC_PENCIL = '<svg viewBox="0 0 24 24"><path d="M4 20h4L18.5 9.5a2 2 0 0 0-2.8-2.8L5 17v3z"/><path d="M13.5 6.5l3 3"/></svg>';
+const IC_FOLDER = '<svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>';
+const IC_TRASH  = '<svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V5h6v2M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12"/></svg>';
+
 function renderCategories() { renderCategoryEditor('staff'); renderCategoryEditor('partner'); }
 function renderCategoryEditor(kind) {
   const el = document.getElementById('cat-list-' + kind);
   if (!el) return;
   const cats = getCategories(kind);
-  el.innerHTML = cats.map((c, i) => `<div class="cat-row">
-    <span class="cat-name">${esc(c)}</span>
-    <button class="cat-act cat-edit" onclick="editCategory('${kind}',${i})">Rename</button>
-    <button class="cat-act cat-del" onclick="deleteCategory('${kind}',${i})">Delete</button>
-  </div>`).join('') || '<div class="log-empty">No categories yet — add one above.</div>';
+  const masters = loadMasters();
+  const byMaster = {}; masters.forEach(m => { byMaster[m.name] = []; });
+  cats.forEach(c => { const m = masterOf(c); (byMaster[m] = byMaster[m] || []).push(c); });
+  el.innerHTML = masters.map(m => {
+    const tags = byMaster[m.name] || [];
+    const canDel = m.name !== MISC_MASTER;
+    const rows = tags.map(c => `<div class="cat-row">
+      <span class="cat-name">${esc(c)}</span>
+      <button class="ibtn" title="Rename" data-act="edit" data-name="${esc(c)}">${IC_PENCIL}</button>
+      <button class="ibtn move" title="Move to another group" data-act="move" data-name="${esc(c)}">${IC_FOLDER}</button>
+      <button class="ibtn del" title="Delete" data-act="del" data-name="${esc(c)}">${IC_TRASH}</button>
+    </div>`).join('') || '<div class="catg-empty">No tags here yet</div>';
+    return `<div class="catg">
+      <div class="catg-head">
+        <span class="catg-ic">${m.icon}</span>
+        <span class="catg-name">${esc(m.name)}</span>
+        <span class="catg-count">${tags.length}</span>
+        <button class="ibtn" title="Rename group" data-act="mrename" data-master="${esc(m.name)}">${IC_PENCIL}</button>
+        ${canDel ? `<button class="ibtn del" title="Delete group" data-act="mdelete" data-master="${esc(m.name)}">${IC_TRASH}</button>` : ''}
+      </div>${rows}</div>`;
+  }).join('');
   const badge = document.getElementById('subcat-count-' + kind);
   if (badge) badge.textContent = cats.length;
+}
+// Delegated clicks from the grouped editor (avoids inline-JS escaping issues).
+function catListClick(ev, kind) {
+  const btn = ev.target.closest('button[data-act]');
+  if (!btn) return;
+  const act = btn.getAttribute('data-act');
+  const name = btn.getAttribute('data-name');
+  const master = btn.getAttribute('data-master');
+  if (act === 'edit') editCategory(kind, name);
+  else if (act === 'move') moveCategory(kind, name);
+  else if (act === 'del') deleteCategory(kind, name);
+  else if (act === 'mrename') renameMaster(master);
+  else if (act === 'mdelete') deleteMaster(master);
 }
 function addCategory(kind) {
   const inp = document.getElementById('cat-new-' + kind);
@@ -2159,30 +2313,85 @@ function addCategory(kind) {
   const cats = getCategories(kind);
   if (cats.some(c => c.toLowerCase() === name.toLowerCase())) { peopleMsg('“' + name + '” already exists', false); return; }
   cats.push(name);
-  saveCategories(kind, cats);
+  saveCategories(kind, cats);   // new tag lands in Miscellaneous until moved
   inp.value = '';
   renderCategoryEditor(kind);
   btnFlash('cat-add-' + kind + '-btn', 'Adding…', 'Added ✓', 'Add ✓');
 }
-function editCategory(kind, i) {
+function editCategory(kind, oldName) {
   const cats = getCategories(kind);
-  if (i < 0 || i >= cats.length) return;
-  const next = prompt('Rename category', cats[i]);
+  const i = cats.indexOf(oldName);
+  if (i < 0) return;
+  const next = prompt('Rename tag', cats[i]);
   if (next == null) return;
   const name = next.trim();
-  if (!name) return;
+  if (!name || name.toUpperCase() === oldName.toUpperCase()) { if (name && name !== cats[i]) { cats[i] = name.toUpperCase(); saveCategories(kind, cats); } return; }
   if (cats.some((c, j) => j !== i && c.toLowerCase() === name.toLowerCase())) { peopleMsg('“' + name + '” already exists', false); return; }
+  // Carry the tag's master assignment across the rename.
+  const map = loadCatMap(); const upOld = oldName.toUpperCase(), upNew = name.toUpperCase();
+  if (map[upOld]) { map[upNew] = map[upOld]; delete map[upOld]; saveCatMap(map); }
   cats[i] = name;
   saveCategories(kind, cats);
-  renderCategoryEditor(kind);
 }
-function deleteCategory(kind, i) {
+function deleteCategory(kind, name) {
   const cats = getCategories(kind);
-  if (i < 0 || i >= cats.length) return;
-  if (!confirm('Remove category “' + cats[i] + '”? Existing entries keep their label; it just won\'t appear in the picker.')) return;
+  const i = cats.indexOf(name);
+  if (i < 0) return;
+  if (!confirm('Remove tag “' + cats[i] + '”? Existing entries keep their label; it just won\'t appear in the picker.')) return;
   cats.splice(i, 1);
   saveCategories(kind, cats);
-  renderCategoryEditor(kind);
+}
+function moveCategory(kind, name) {
+  const masters = loadMasters();
+  const list = masters.map((m, i) => (i + 1) + '. ' + m.name).join('\n');
+  const ans = prompt('Move “' + name + '” to which group?\n\n' + list + '\n\n0. ＋ New group…', String((masters.findIndex(m => m.name === masterOf(name)) + 1) || 1));
+  if (ans == null) return;
+  const n = parseInt(ans, 10);
+  let target;
+  if (n === 0) { const nm = prompt('New group name'); if (!nm || !nm.trim()) return; target = nm.trim().toUpperCase(); const ms = loadMasters(); if (!ms.some(m => m.name === target)) { ms.push({ name: target, icon: '🏷️' }); saveMasters(ms); } }
+  else if (n >= 1 && n <= masters.length) target = masters[n - 1].name;
+  else return;
+  assignMaster(name, target);
+  renderCategories();
+  refreshCatUI();
+}
+function addMaster() {
+  const nm = prompt('New master category name');
+  if (nm == null) return;
+  const name = nm.trim().toUpperCase();
+  if (!name) return;
+  const ms = loadMasters();
+  if (ms.some(m => m.name === name)) { peopleMsg('“' + name + '” already exists', false); return; }
+  ms.push({ name, icon: '🏷️' });
+  saveMasters(ms);
+  renderCategories();
+}
+function renameMaster(oldName) {
+  const ms = loadMasters();
+  const i = ms.findIndex(m => m.name === String(oldName).toUpperCase());
+  if (i < 0) return;
+  if (ms[i].name === MISC_MASTER) { peopleMsg('The Miscellaneous group can’t be renamed', false); return; }
+  const next = prompt('Rename group', ms[i].name);
+  if (next == null) return;
+  const name = next.trim().toUpperCase();
+  if (!name || name === ms[i].name) return;
+  if (ms.some((m, j) => j !== i && m.name === name)) { peopleMsg('“' + name + '” already exists', false); return; }
+  const from = ms[i].name; ms[i].name = name;
+  saveMasters(ms);
+  const map = loadCatMap(); Object.keys(map).forEach(t => { if (map[t] === from) map[t] = name; }); saveCatMap(map);
+  renderCategories();
+  refreshCatUI();
+}
+function deleteMaster(name) {
+  const up = String(name).toUpperCase();
+  if (up === MISC_MASTER) return;
+  const ms = loadMasters();
+  if (!ms.some(m => m.name === up)) return;
+  if (!confirm('Delete the “' + up + '” group? Its tags move to Miscellaneous — no entries are affected.')) return;
+  const map = loadCatMap(); Object.keys(map).forEach(t => { if (map[t] === up) map[t] = MISC_MASTER; }); saveCatMap(map);
+  saveMasters(ms.filter(m => m.name !== up));
+  renderCategories();
+  refreshCatUI();
 }
 
 // ─── SCHEDULED EXPENSES EDITOR (Settings) ───────────────────────────────────
@@ -3264,14 +3473,43 @@ function renderExpenseCats() {
   getBankInRange().forEach(b => { if (b.capital || b.payout || isGstEntry(b)) return; add(b.category, b.amount); });
   ledgerRows().forEach(x => { if (x.bucket !== 'O' || x.date < range.from || x.date > range.to) return; add(x.category, x.amount); });
 
-  const entries = Object.entries(cats).filter(e => e[1] > 0.5).sort((a, b) => b[1] - a[1]);
+  const entries = Object.entries(cats).filter(e => e[1] > 0.5);
   const total = entries.reduce((s, e) => s + e[1], 0);
   const cnt = document.getElementById('count-expcat');
   if (cnt) cnt.textContent = total > 0 ? ('₹' + Math.round(total).toLocaleString('en-IN')) : '—';
   const el = document.getElementById('expcat-wrap');
   if (!el) return;
   if (!entries.length) { el.innerHTML = '<div class="log-empty">No expenses in this period yet.</div>'; return; }
-  el.innerHTML = `<table><thead><tr><th>Category</th><th class="num">Spent ₹</th><th class="num">Share</th></tr></thead><tbody>${entries.map(e => `<tr><td>${esc(e[0])}</td><td class="num red-text">₹${Math.round(e[1]).toLocaleString('en-IN')}</td><td class="num" style="color:var(--text2);">${(e[1] / total * 100).toFixed(0)}%</td></tr>`).join('')}</tbody></table>`;
+  // Roll the detailed tags up to their master category; the accordion opens one
+  // master at a time to show the tag-level breakdown underneath.
+  const groups = {};
+  entries.forEach(([tag, amt]) => {
+    const m = masterOf(tag);
+    (groups[m] = groups[m] || { total: 0, subs: [] });
+    groups[m].total += amt;
+    groups[m].subs.push([tag, amt]);
+  });
+  const ordered = Object.entries(groups).sort((a, b) => b[1].total - a[1].total);
+  el.innerHTML = '<div class="mcat-acc">' + ordered.map(([name, g], i) => {
+    const subs = g.subs.sort((a, b) => b[1] - a[1]);
+    return `<div class="mcat${i === 0 ? ' open' : ''}">
+      <div class="mcat-head" onclick="toggleMcat(this)">
+        <span class="mcat-ic">${iconOf(name)}</span>
+        <span class="mcat-name">${esc(name)}</span>
+        <span class="mcat-share">${(g.total / total * 100).toFixed(0)}%</span>
+        <span class="mcat-val">₹${Math.round(g.total).toLocaleString('en-IN')}</span>
+        <span class="mcat-chev">▸</span>
+      </div>
+      <div class="mcat-body">${subs.map(s => `<div class="mcat-sub"><span class="sname">${esc(s[0])}</span><span class="sval">₹${Math.round(s[1]).toLocaleString('en-IN')}</span></div>`).join('')}</div>
+    </div>`;
+  }).join('') + '</div>';
+}
+// Accordion: expand one master category at a time in "Expenses by category".
+function toggleMcat(head) {
+  const row = head.parentElement;
+  const wasOpen = row.classList.contains('open');
+  row.parentElement.querySelectorAll('.mcat').forEach(x => x.classList.remove('open'));
+  if (!wasOpen) row.classList.add('open');
 }
 
 function sortEntries(list, sort) {
