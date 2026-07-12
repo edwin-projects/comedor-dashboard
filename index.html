@@ -238,6 +238,7 @@
   /* Bank-expense source: IDFC current account vs partner's own bank (direct) */
   .src-idfc   { background: rgba(77,157,224,0.16);  color:#7db8e8; }
   .src-direct { background: rgba(212,175,55,0.18);  color:#caa63a; }
+  .src-payout { background: rgba(190,120,220,0.18); color:#c79ae0; }
 
   /* BAR CHART */
   .bar-chart { margin-top: 8px; }
@@ -1014,6 +1015,42 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
     </div>
   </div>
 
+  <!-- Partner Money Out: drawings (withdraw capital) & profit distribution -->
+  <div class="setcard collapsed tint-slate" id="setcard-payout">
+    <div class="setcard-head" onclick="toggleSet('payout')"><span class="setcard-title">Partner Money Out</span><span class="setcard-chev">▾</span></div>
+    <div class="setcard-body">
+      <div style="margin-bottom:12px;"><label class="field-label">Type</label>
+        <select id="po-kind" class="field-select dest-highlight" onchange="onPayoutKindChange()">
+          <option value="drawing" selected>DRAWING — WITHDRAW CAPITAL</option>
+          <option value="profit">PROFIT SHARE — DISTRIBUTE PROFIT</option>
+        </select>
+      </div>
+      <p class="exp-note" id="po-note">A partner taking money <b>out</b> of the IDFC account to their personal account. This is <b>not an expense</b>: it lowers the bank balance and reduces that partner's <b>capital account</b>. It never touches the P&amp;L.</p>
+      <div id="po-form-msg" style="display:none; border-radius:7px; padding:10px 12px; font-size:12.5px; margin-bottom:12px;"></div>
+      <div style="margin-bottom:12px;"><label class="field-label">Date</label><input id="po-date" type="date" class="field-input" style="width:100%; box-sizing:border-box; -webkit-appearance:none; appearance:none; text-align:center;"></div>
+      <div style="margin-bottom:12px;"><label class="field-label">Amount ₹</label><input id="po-amount" type="text" inputmode="decimal" class="field-input field-input-mono" placeholder="0" style="width:100%; box-sizing:border-box; text-align:center;" oninput="onMoneyInput(this)"></div>
+      <div style="margin-bottom:12px;"><label class="field-label">Partner</label>
+        <select id="po-by" class="field-select"></select>
+      </div>
+      <div style="margin-bottom:4px;"><label class="field-label">Note (optional)</label><input id="po-desc" class="field-input" placeholder="e.g. Personal withdrawal"></div>
+      <button id="po-submit-btn" class="btn" style="width:100%; margin-top:14px; padding:13px; font-size:15px;" onclick="submitPayout()">Record Money Out ✓</button>
+    </div>
+  </div>
+
+  <!-- Year-end after-tax profit → feeds Retained Profit in the equity section -->
+  <div class="setcard collapsed tint-green" id="setcard-yearprofit">
+    <div class="setcard-head" onclick="toggleSet('yearprofit')"><span class="setcard-title">Year-End Profit (after tax)</span><span class="setcard-chev">▾</span></div>
+    <div class="setcard-body">
+      <p class="exp-note">Enter the <b>final after-tax profit</b> for a financial year (your accountant's figure). This builds <b>Retained Profit</b> in the equity section, which profit distributions draw down. The app's own P&amp;L stays a running estimate.</p>
+      <div id="yp-form-msg" style="display:none; border-radius:7px; padding:10px 12px; font-size:12.5px; margin-bottom:12px;"></div>
+      <div style="margin-bottom:12px;"><label class="field-label">Financial year</label>
+        <select id="yp-fy" class="field-select" onchange="onYpFyChange()"></select>
+      </div>
+      <div style="margin-bottom:4px;"><label class="field-label">After-tax profit ₹</label><input id="yp-amount" type="text" inputmode="decimal" class="field-input field-input-mono" placeholder="0" style="width:100%; box-sizing:border-box; text-align:center;" oninput="onMoneyInput(this)"></div>
+      <button id="yp-submit-btn" class="btn" style="width:100%; margin-top:14px; padding:13px; font-size:15px;" onclick="submitYearProfit()">Save Year Profit ✓</button>
+    </div>
+  </div>
+
   <div class="setcard collapsed tint-slate" id="setcard-statement" style="display:none;">
     <div class="setcard-head" onclick="toggleSet('statement')"><span class="setcard-title">Weekly Statement Upload</span><span class="setcard-chev">▾</span></div>
     <div class="setcard-body">
@@ -1197,7 +1234,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-12-04';
+const APP_VERSION = '2026-07-12-05';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -1308,6 +1345,12 @@ function initFirebase() {
       else localStorage.removeItem('comedor_bankbal');
       renderActivePanel();
     }, onErr('bankBalance'));
+
+    _db.ref('comedor/meta/fyProfit').on('value', snap => {
+      if (snap.exists()) localStorage.setItem('comedor_fyprofit', JSON.stringify(snap.val()));
+      else localStorage.removeItem('comedor_fyprofit');
+      renderActivePanel();
+    }, onErr('fyProfit'));
 
     _db.ref('comedor/users').on('value', snap => {
       if (snap.exists()) localStorage.setItem('comedor_users', JSON.stringify(Object.values(snap.val())));
@@ -3199,7 +3242,7 @@ function renderExpenseCats() {
   const cats = {};
   const add = (c, v) => { c = (c && String(c).trim()) || 'Uncategorised'; cats[c] = (cats[c] || 0) + (Number(v) || 0); };
   getDashEntries().forEach(e => (e.expenses || []).forEach(x => add(x.category, parseFloat(x.amount) || 0)));
-  getBankInRange().forEach(b => { if (b.capital || isGstEntry(b)) return; add(b.category, b.amount); });
+  getBankInRange().forEach(b => { if (b.capital || b.payout || isGstEntry(b)) return; add(b.category, b.amount); });
   ledgerRows().forEach(x => { if (x.bucket !== 'O' || x.date < range.from || x.date > range.to) return; add(x.category, x.amount); });
 
   const entries = Object.entries(cats).filter(e => e[1] > 0.5).sort((a, b) => b[1] - a[1]);
@@ -4084,7 +4127,7 @@ function renderPnlBank() {
   //             capital); combines app-entered direct entries with the historical
   //             partner-paid ledger (bucket O) imported from before the app.
   //  · Cash   — spent from the daily cash drawer.
-  const idfcExp = bank.filter(b => !b.capital && !b.direct && !isGstEntry(b)).reduce((s, b) => s + (Number(b.amount) || 0), 0);
+  const idfcExp = bank.filter(b => !b.capital && !b.direct && !b.payout && !isGstEntry(b)).reduce((s, b) => s + (Number(b.amount) || 0), 0);
   const directBankExp = bank.filter(b => b.direct).reduce((s, b) => s + (Number(b.amount) || 0), 0);
   const gstPaid = bank.filter(isGstEntry).reduce((s, b) => s + (Number(b.amount) || 0), 0);
   const ledgerOpex = ledgerOpexInRange(range.from, range.to);   // historical partner-paid opex (pre-app ledger import)
@@ -4092,14 +4135,27 @@ function renderPnlBank() {
   const totalExp = cashExp + idfcExp + directExp;
   const net = income - totalExp;
 
-  // Capital Infused (equity) and Setup/Capex are CUMULATIVE (balance-sheet items),
-  // not period flows, and never touch the P&L or the available bank balance.
-  const capBy = {};   // capital contributed per partner, all time (incl. partner-direct spend)
-  loadBankEntries().filter(b => b.capital || b.direct).forEach(b => { const k = b.partner || b.addedBy || '—'; capBy[k] = (capBy[k] || 0) + (Number(b.amount) || 0); });
+  // EQUITY (cumulative balance-sheet items — never touch the P&L or bank-vs-period flows):
+  //  · Partner capital accounts = Introduced (infusions + direct spend + ledger capital)
+  //    − Drawings (capital withdrawn).  Profit distributions do NOT reduce this.
+  //  · Retained profit = after-tax profit entered per FY − profit distributions.
+  const introBy = {};
+  loadBankEntries().filter(b => b.capital || b.direct).forEach(b => { const k = b.partner || b.addedBy || '—'; introBy[k] = (introBy[k] || 0) + (Number(b.amount) || 0); });
   const capL = ledgerCapitalBy();
-  if (capL.Edwin)   capBy['Edwin']   = (capBy['Edwin']   || 0) + capL.Edwin;
-  if (capL.Prathvi) capBy['Prathvi'] = (capBy['Prathvi'] || 0) + capL.Prathvi;
-  const capital = Object.values(capBy).reduce((s, v) => s + v, 0);
+  if (capL.Edwin)   introBy['Edwin']   = (introBy['Edwin']   || 0) + capL.Edwin;
+  if (capL.Prathvi) introBy['Prathvi'] = (introBy['Prathvi'] || 0) + capL.Prathvi;
+  const drawBy = {};
+  loadBankEntries().filter(b => b.payout && b.kind === 'drawing').forEach(b => { const k = b.partner || b.addedBy || '—'; drawBy[k] = (drawBy[k] || 0) + (Number(b.amount) || 0); });
+  const netCapBy = {};
+  Object.keys(introBy).forEach(k => { netCapBy[k] = (introBy[k] || 0) - (drawBy[k] || 0); });
+  Object.keys(drawBy).forEach(k => { if (!(k in netCapBy)) netCapBy[k] = -(drawBy[k] || 0); });
+  const capIntroduced = Object.values(introBy).reduce((s, v) => s + v, 0);
+  const capDrawn = Object.values(drawBy).reduce((s, v) => s + v, 0);
+  const capital = capIntroduced - capDrawn;          // net partner capital
+  const retAccum = accumulatedProfit();
+  const retDist  = distributedTotal();
+  const retUndist = retAccum - retDist;              // undistributed retained profit
+  const totalEquity = capital + retUndist;
   const capexC = ledgerSumBy('C');   // pure capex (assets/build-out)
   const setupS = ledgerSumBy('S');   // pre-opening setup opex
   const opexO  = ledgerSumBy('O');   // operating spend, in the P&L
@@ -4114,29 +4170,9 @@ function renderPnlBank() {
   // The cash figure is only a real count once the latest day is closed. While it
   // is still open (partial), flag it on the tile so the balance isn't trusted blind.
   const cashOpen = !!(lastCashEntry && lastCashEntry.partial);
-  const bankMeta = (function(){ try { return JSON.parse(localStorage.getItem('comedor_bankbal') || 'null'); } catch(e){ return null; } })();
-  var bankBal = null;
-  if (bankMeta) {
-    var baseISO = bankMeta.asOfISO || null;
-    bankBal = Number(bankMeta.amount) || 0;
-    loadBankEntries().forEach(function (bb) {
-      if (bb.direct) return;                        // partner paid a vendor directly — never moved through IDFC
-      if (baseISO && bb.date <= baseISO) return;   // already reflected in the statement balance
-      bankBal += (bb.capital ? 1 : -1) * (Number(bb.amount) || 0);
-    });
-    // Digital (UPI/Card) sales settle into the bank, so add them to the balance
-    // for every day AFTER the statement date (days on/before are already baked
-    // into the base). Cash sales are NOT added here — they already live in the
-    // cash balance (the day's closing count), so adding them would double-count.
-    // Source: the manager's daily UPI+Card. (Pet Pooja's item-wise report carries
-    // no payment-mode split, so the register's figures are used — the agreed
-    // fallback; if a report ever gives a UPI/Card split, prefer that.)
-    loadEntries().forEach(function (e) {
-      if (!e || !e.date) return;
-      if (baseISO && e.date <= baseISO) return;
-      bankBal += (Number(e.upi) || 0) + (Number(e.card) || 0);
-    });
-  }
+  // IDFC balance from the last statement + capital/expenses/payouts + digital
+  // sales after it (shared with money-out guardrails, so they never drift).
+  const bankBal = computeBankBalance();
   const inr = n => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN');
   const available = (bankBal || 0) + cashBal;
   // Cash vs non-cash split of sales. Pet Pooja gross carries no pay-mode, so we
@@ -4196,6 +4232,15 @@ function renderPnlBank() {
   const netParts = inr(net).match(/^(\D*)(.*)$/);
   const heroNet = `<span class="cv-fig"><span class="cv-pre">${netParts[1]}</span>${netParts[2]}</span>`;
 
+  // Equity breakdown: net partner capital (introduced − drawings) + retained profit.
+  // Plain per-partner list (incl. any negative/overdrawn account) — a % share of a
+  // net total is misleading once a partner is negative, so no percentages here.
+  const capSplitStr = Object.entries(netCapBy).sort((a, b) => b[1] - a[1]).map(([k, v]) => `${esc(k)} ${inr(v)}`).join(' · ') || '—';
+  const eqRows = `
+    <div class="cap-row"><div class="cap-left"><span class="cap-k">Partner capital · net</span><span class="cap-s">${capSplitStr}</span></div><span class="cap-v">${inr(capital)}</span></div>
+    ${capDrawn > 0 ? `<div class="tsplit-l" style="color:var(--text3);margin:-2px 0 6px 2px;">Introduced ${inr(capIntroduced)} − drawings ${inr(capDrawn)}</div>` : ''}
+    ${(retAccum !== 0 || retDist !== 0) ? `<div class="cap-row"><div class="cap-left"><span class="cap-k">Retained profit · after tax</span><span class="cap-s">Accumulated ${inr(retAccum)}${retDist > 0 ? ` − distributed ${inr(retDist)}` : ''}</span></div><span class="cap-v">${inr(retUndist)}</span></div>` : ''}`;
+
   const sEl = document.getElementById('pnl-summary');
   if (sEl) sEl.innerHTML = `
     <div class="cards2">
@@ -4215,18 +4260,19 @@ function renderPnlBank() {
       <div class="upc-detail-title">Upcoming expenses · ${upcWord}</div>
       ${upcSchedHtml}
     </div>
-    <div class="pnl-divider"><span>Capital &amp; investment</span></div>
+    <div class="pnl-divider"><span>Capital &amp; equity</span></div>
     <div class="card cap-invest ${_capCollapsed ? 'cap-collapsed' : ''}" id="cap-card">
       <div class="cap-total" onclick="toggleCapCard()">
-        <span class="card-label">Total Capital Infused</span>
+        <span class="card-label">Partner Equity</span>
         <span class="cap-total-right">
-          <span class="cap-total-val" style="color:#4d9de0;">${inr(capital)}</span>
+          <span class="cap-total-val" style="color:#4d9de0;">${inr(totalEquity)}</span>
           <span class="cap-chev">▾</span>
         </span>
       </div>
       <div class="cap-body">
-        <div class="cap-total-split">${splitBox([{k:'Edwin',v:capBy['Edwin']||0},{k:'Prathvi',v:capBy['Prathvi']||0}], capital)}</div>
         <div class="cap-rows">
+          ${eqRows}
+          <div class="tsplit-l" style="color:var(--text3);text-transform:uppercase;letter-spacing:0.6px;margin:8px 0 2px 2px;font-size:9px;">Where the capital went</div>
           ${capRows.map(row => `
           <div class="cap-row" onclick="event.stopPropagation();focusLog('ledger',{type:'${row.type}'})">
             <div class="cap-left"><span class="cap-k">${esc(row.k)}</span><span class="cap-s">${splitBox(row.parts, row.v)}</span></div>
@@ -4301,6 +4347,27 @@ function editBankExpense(id) {
   showPanel('bankexp');
   _editingBankId = id;
   const when = new Date((b.date||'') + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+
+  if (b.payout) {
+    // Route drawings / profit distributions to the "Partner Money Out" form.
+    payoutPartnerOptions();
+    const kindSel = document.getElementById('po-kind'); if (kindSel) kindSel.value = b.kind || 'drawing';
+    onPayoutKindChange();
+    const pc = document.getElementById('setcard-payout'); if (pc) pc.classList.remove('collapsed');
+    document.getElementById('po-date').value = b.date || '';
+    setMoney('po-amount', b.amount || '');
+    const psel = document.getElementById('po-by');
+    const pwho = b.partner || b.addedBy || '';
+    if (pwho && !Array.from(psel.options).some(o => o.value === pwho)) { const o = document.createElement('option'); o.value = pwho; o.textContent = pwho; psel.appendChild(o); }
+    if (pwho) psel.value = pwho;
+    document.getElementById('po-desc').value = b.desc || '';
+    const pb = document.getElementById('po-submit-btn'); if (pb) pb.textContent = 'Save changes ✓';
+    const pm = document.getElementById('po-form-msg');
+    pm.innerHTML = `Editing ${b.kind === 'profit' ? 'profit share' : 'drawing'} from ${when}. <a onclick="cancelPayoutEdit()" style="color:var(--red);text-decoration:underline;cursor:pointer;margin-left:6px;">Cancel</a>`;
+    pm.style.cssText = 'display:block;border-radius:7px;padding:10px 12px;font-size:12.5px;margin-bottom:12px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);';
+    document.getElementById('po-date').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
 
   if (b.capital || b.direct) {
     // Route capital + partner-direct entries to the "Partner Money In" form.
@@ -4441,6 +4508,133 @@ function saveBankExpense(entry) {
   if (_db) _db.ref('comedor/bank_expenses/' + entry.id).set(entry).catch(syncWriteErr);
 }
 
+// ─── PARTNER MONEY OUT (drawings & profit distribution) + retained profit ─────
+// A payout is a bank entry {payout:true, kind:'drawing'|'profit', partner}. Both
+// lower the IDFC balance and are NEVER a P&L expense. A drawing reduces that
+// partner's capital account; a profit share draws down Retained Profit.
+function loadFyProfit() { try { return JSON.parse(localStorage.getItem('comedor_fyprofit') || '{}') || {}; } catch (e) { return {}; } }
+function saveFyProfitLocal(o) { localStorage.setItem('comedor_fyprofit', JSON.stringify(o || {})); }
+// Financial years from the first FY (2025-26) to the current one (FY starts April).
+function fyOptionsList() {
+  const now = new Date();
+  const curStart = (now.getMonth() >= 3) ? now.getFullYear() : now.getFullYear() - 1;
+  const out = [];
+  for (let y = 2025; y <= curStart; y++) out.push(y + '-' + String((y + 1) % 100).padStart(2, '0'));
+  return out.length ? out : ['2025-26'];
+}
+function accumulatedProfit() { return Object.values(loadFyProfit()).reduce((s, v) => s + (Number(v) || 0), 0); }
+function distributedTotal() { return loadBankEntries().filter(b => b.payout && b.kind === 'profit').reduce((s, b) => s + (Number(b.amount) || 0), 0); }
+function retainedProfit() { return accumulatedProfit() - distributedTotal(); }
+
+// Current IDFC balance = statement base + capital in − expenses/payouts out
+// (dated after the statement) + digital sales settled after it. Partner-direct
+// spend never touched the account, so it's skipped. Same maths as the
+// Available-Balance tile — shared so guardrails and the tile never drift.
+function computeBankBalance() {
+  var meta; try { meta = JSON.parse(localStorage.getItem('comedor_bankbal') || 'null'); } catch (e) { meta = null; }
+  if (!meta) return null;
+  var baseISO = meta.asOfISO || null;
+  var bal = Number(meta.amount) || 0;
+  loadBankEntries().forEach(function (bb) {
+    if (bb.direct) return;
+    if (baseISO && bb.date <= baseISO) return;
+    bal += (bb.capital ? 1 : -1) * (Number(bb.amount) || 0);
+  });
+  loadEntries().forEach(function (e) {
+    if (!e || !e.date) return;
+    if (baseISO && e.date <= baseISO) return;
+    bal += (Number(e.upi) || 0) + (Number(e.card) || 0);
+  });
+  return bal;
+}
+
+function payoutPartnerOptions() {
+  const sel = document.getElementById('po-by'); if (!sel) return;
+  const partners = getUsers().filter(u => u.active !== false && roleCaps(u.role).people).map(u => u.name);
+  const keep = sel.value;
+  sel.innerHTML = partners.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  const me = currentUser && currentUser.name;
+  if (me && partners.includes(me)) sel.value = me;
+  else if (keep && partners.includes(keep)) sel.value = keep;
+}
+function onPayoutKindChange() {
+  const isProfit = ((document.getElementById('po-kind') || {}).value || 'drawing') === 'profit';
+  const note = document.getElementById('po-note');
+  if (note) note.innerHTML = isProfit
+    ? 'Distributing the business\'s <b>after-tax profit</b> to a partner. It lowers the bank balance and draws down <b>Retained Profit</b> — it does <b>not</b> touch their contributed capital or the P&amp;L.'
+    : 'A partner taking money <b>out</b> of the IDFC account to their personal account. This is <b>not an expense</b>: it lowers the bank balance and reduces that partner\'s <b>capital account</b>. It never touches the P&amp;L.';
+  const btn = document.getElementById('po-submit-btn'); if (btn && !_editingBankId) btn.textContent = 'Record Money Out ✓';
+}
+function fyOptionsFill() {
+  const sel = document.getElementById('yp-fy'); if (!sel) return;
+  const keep = sel.value;
+  sel.innerHTML = fyOptionsList().map(fy => `<option value="${fy}">FY ${fy}</option>`).join('');
+  if (keep) sel.value = keep; else if (sel.options.length) sel.selectedIndex = sel.options.length - 1;
+  onYpFyChange();
+}
+function onYpFyChange() {
+  const fy = (document.getElementById('yp-fy') || {}).value;
+  const p = loadFyProfit();
+  setMoney('yp-amount', (fy && p[fy]) ? p[fy] : '');
+}
+
+function submitPayout() {
+  const kind   = ((document.getElementById('po-kind') || {}).value || 'drawing');
+  const date   = document.getElementById('po-date').value;
+  const amount = money('po-amount');
+  const by     = document.getElementById('po-by').value;
+  const note   = document.getElementById('po-desc').value.trim();
+  const msg    = document.getElementById('po-form-msg');
+  const showErr = t => { msg.textContent = '⚠ ' + t; msg.style.cssText = 'display:block;border-radius:7px;padding:10px 12px;font-size:12.5px;margin-bottom:12px;background:rgba(224,82,82,0.1);border:1px solid rgba(224,82,82,0.3);color:var(--red);'; };
+  if (!date)       return showErr('Date is required');
+  if (amount <= 0) return showErr('Amount is required');
+  if (!by)         return showErr('Pick the partner');
+
+  // Guardrails — warn (with an option to proceed), never hard-block.
+  const _g = n => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN');
+  const bankNow = computeBankBalance();
+  let warn = '';
+  if (bankNow != null && amount > bankNow) warn = `This is more than the current bank balance (${_g(bankNow)}).`;
+  if (kind === 'profit') { const und = retainedProfit(); if (amount > und) warn = (warn ? warn + ' ' : '') + `This exceeds undistributed retained profit (${_g(und)}).`; }
+  if (warn && !confirm(warn + '\n\nRecord anyway?')) return;
+
+  const me = currentUser ? currentUser.name : '';
+  const editing = (_editingBankId ? loadBankEntries().find(x => x.id === _editingBankId) : null);
+  const useEdit = editing && editing.payout;
+  const fields = { date, amount, partner: by, kind, desc: note, payout: true, capital: false, direct: false };
+  const entry = useEdit
+    ? Object.assign({}, editing, fields, { editedBy: me, editedAt: new Date().toLocaleString('en-IN') })
+    : Object.assign({ id: 'p' + Date.now() + Math.floor(Math.random() * 1000), addedBy: me, at: new Date().toLocaleString('en-IN') }, fields);
+  saveBankExpense(entry);
+
+  msg.style.display = 'none';
+  btnFlash('po-submit-btn', 'Saving…', useEdit ? 'Saved ✓' : 'Recorded ✓', 'Record Money Out ✓');
+  _editingBankId = null;
+  document.getElementById('po-amount').value = '';
+  document.getElementById('po-desc').value = '';
+  renderBankList();
+  if (document.getElementById('panel-dashboard').classList.contains('active')) renderDashboard();
+}
+function cancelPayoutEdit() {
+  _editingBankId = null;
+  document.getElementById('po-amount').value = '';
+  document.getElementById('po-desc').value = '';
+  const m = document.getElementById('po-form-msg'); if (m) m.style.display = 'none';
+  const btn = document.getElementById('po-submit-btn'); if (btn) btn.textContent = 'Record Money Out ✓';
+}
+function submitYearProfit() {
+  const fy = (document.getElementById('yp-fy') || {}).value;
+  const amount = money('yp-amount');
+  const msg = document.getElementById('yp-form-msg');
+  const showErr = t => { msg.textContent = '⚠ ' + t; msg.style.cssText = 'display:block;border-radius:7px;padding:10px 12px;font-size:12.5px;margin-bottom:12px;background:rgba(224,82,82,0.1);border:1px solid rgba(224,82,82,0.3);color:var(--red);'; };
+  if (!fy) return showErr('Pick a financial year');
+  const obj = loadFyProfit(); obj[fy] = amount; saveFyProfitLocal(obj);
+  if (_db) _db.ref('comedor/meta/fyProfit').set(obj).catch(syncWriteErr);
+  msg.style.display = 'none';
+  btnFlash('yp-submit-btn', 'Saving…', 'Saved ✓', 'Save Year Profit ✓');
+  if (document.getElementById('panel-dashboard').classList.contains('active')) renderDashboard();
+}
+
 function deleteBankExpense(id) {
   if (!confirm('Delete this bank entry?')) return;
   const list = loadBankEntries().filter(b => b.id !== id);
@@ -4453,9 +4647,12 @@ function deleteBankExpense(id) {
 function renderBankList() {
   bankCatOptions();
   capPartnerOptions();
+  payoutPartnerOptions();
+  fyOptionsFill();
   const today = new Date().toISOString().split('T')[0];
   const bd = document.getElementById('be-date'); if (bd && !bd.value) bd.value = today;
   const cd = document.getElementById('cap-date'); if (cd && !cd.value) cd.value = today;
+  const pd = document.getElementById('po-date'); if (pd && !pd.value) pd.value = today;
   renderBankRecent();
   if (document.getElementById('panel-dashboard').classList.contains('active')) renderDashboard();
 }
@@ -4465,6 +4662,7 @@ function renderBankList() {
 // Capital infusions and GST carry their own labels, so they get no source badge.
 function bankSrcBadge(b) {
   if (!b || b.capital || isGstEntry(b)) return '';
+  if (b.payout) return `<span class="cat-badge src-payout">${b.kind === 'profit' ? 'PROFIT SHARE' : 'DRAWING'} · ${esc(b.partner || b.addedBy || '—')}</span>`;
   return b.direct
     ? `<span class="cat-badge src-direct">DIRECT · ${esc(b.partner || b.addedBy || '—')}</span>`
     : '<span class="cat-badge src-idfc">IDFC</span>';
@@ -4483,6 +4681,7 @@ function renderBankRecent() {
   if (!mine.length) { wrap.innerHTML = '<div class="log-empty">No bank entries yet. Ones you add appear here to edit or delete.</div>'; return; }
   const who = b => (b.partner || b.addedBy || 'partner');
   const typeLabel = b => b.capital ? ('Capital in · ' + who(b))
+    : b.payout ? (b.kind === 'profit' ? 'Profit share' : 'Drawing')
     : b.direct ? (b.category || '—')
     : isGstEntry(b) ? 'GST' : (b.category || '—');
   const thead = `<tr><th style="width:52px;">Date</th><th>Type</th><th class="num" style="width:74px;">₹</th><th style="width:96px;"></th></tr>`;
@@ -4986,12 +5185,14 @@ function bankCard(b) {
   const d = new Date(b.date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
   const cap = !!b.capital;
   const dir = !!b.direct;
+  const pay = !!b.payout;
   const gst = isGstEntry(b);
-  const title = cap ? 'Capital infusion' : gst ? 'GST paid' : (b.category || 'Uncategorised');
+  const title = cap ? 'Capital infusion' : pay ? (b.kind === 'profit' ? 'Profit share' : 'Drawing') : gst ? 'GST paid' : (b.category || 'Uncategorised');
   const catChip = cap ? '<span class="cat-badge cat-vegano">Capital in</span>'
+    : pay ? bankSrcBadge(b)
     : gst ? '<span class="cat-badge" style="background:rgba(126,200,227,0.16);color:#7ec8e3;">GST</span>'
     : `<span class="cat-badge cat-antojitos">${esc(b.category || '—')}</span>${bankSrcBadge(b)}`;
-  const whoChip = (cap || dir)
+  const whoChip = (cap || dir || pay)
     ? `<span class="cat-badge cat-vegano">by ${esc(b.partner || b.addedBy || '—')}</span>`
     : `<span class="cat-badge cat-acompana">${esc(b.addedBy || '—')}${b.editedBy ? ' ✎' : ''}</span>`;
   const acts = canEditBank(b.addedBy)
@@ -5023,8 +5224,8 @@ function renderBankRich(p) {
 
   let list = src.filter(b => {
     if (st.by !== 'all' && (b.addedBy || '—') !== st.by) return false;
-    if (st.type === 'expense' && (b.capital || b.direct || isGstEntry(b))) return false;
-    if (st.type === 'capital' && !b.capital && !b.direct) return false;
+    if (st.type === 'expense' && (b.capital || b.direct || b.payout || isGstEntry(b))) return false;
+    if (st.type === 'capital' && !b.capital && !b.direct && !b.payout) return false;
     if (st.type === 'gst' && !isGstEntry(b)) return false;
     if (st.cat !== 'all' && (b.category || '') !== st.cat) return false;
     if (st.search) {
@@ -5035,10 +5236,10 @@ function renderBankRich(p) {
   });
   list = sortBank(list, st.sort);
 
-  const spent = list.filter(b => !b.capital && !b.direct).reduce((s, b) => s + (Number(b.amount)||0), 0);
+  const spent = list.filter(b => !b.capital && !b.direct && !b.payout).reduce((s, b) => s + (Number(b.amount)||0), 0);
   const sm = document.getElementById(p + '-summary');
   if (sm) sm.innerHTML = `${list.length} ${list.length === 1 ? 'entry' : 'entries'} · <b>₹${spent.toLocaleString('en-IN')}</b>`;
-  if (p === 'dbank') { const srcSpent = src.filter(b => !b.capital && !b.direct).reduce((s, b) => s + (Number(b.amount)||0), 0); const cb = document.getElementById('count-bank'); if (cb) cb.textContent = '₹' + srcSpent.toLocaleString('en-IN'); }
+  if (p === 'dbank') { const srcSpent = src.filter(b => !b.capital && !b.direct && !b.payout).reduce((s, b) => s + (Number(b.amount)||0), 0); const cb = document.getElementById('count-bank'); if (cb) cb.textContent = '₹' + srcSpent.toLocaleString('en-IN'); }
 
   const el = document.getElementById(p + '-list');
   if (el) el.innerHTML = list.length ? bankAccordion(list) : '<div class="log-empty">No entries match these filters.</div>';
@@ -5048,11 +5249,12 @@ function renderBankRich(p) {
 function bankAccordion(list) {
   const inr = n => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN');
   const d = iso => new Date(iso + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short' });
-  const mapped = list.map(b => Object.assign({}, b, { _cat: b.capital ? 'Capital in' : (isGstEntry(b) ? 'GST' : (b.category || 'Uncategorised')) }));
+  const payCat = b => (b.kind === 'profit' ? 'Profit share' : 'Drawing');
+  const mapped = list.map(b => Object.assign({}, b, { _cat: b.capital ? 'Capital in' : b.payout ? payCat(b) : (isGstEntry(b) ? 'GST' : (b.category || 'Uncategorised')) }));
   const row = b => {
     const cap = !!b.capital, gst = isGstEntry(b);
-    const title = (b.desc && b.desc !== 'Capital infusion') ? b.desc : (cap ? 'Capital infusion' : gst ? 'GST paid' : (b.category || '—'));
-    const tag = b.direct ? ' <span style="color:#caa63a;font-size:10px;">partner-paid</span>' : '';
+    const title = (b.desc && b.desc !== 'Capital infusion') ? b.desc : (cap ? 'Capital infusion' : b.payout ? payCat(b) : gst ? 'GST paid' : (b.category || '—'));
+    const tag = b.payout ? ' <span style="color:#c79ae0;font-size:10px;">money out</span>' : b.direct ? ' <span style="color:#caa63a;font-size:10px;">partner-paid</span>' : '';
     const acts = canEditBank(b.addedBy) ? ` <button class="cat-act cat-edit" style="padding:1px 6px;" onclick="editBankExpense('${b.id}')">Edit</button> <button class="cat-act cat-del" style="padding:1px 6px;" onclick="deleteBankExpense('${b.id}')">Delete</button>` : '';
     return `<tr><td>${d(b.date)} · ${esc(title)}${tag} <span style="color:var(--text3);">${esc(b.partner || b.addedBy || '—')}</span></td><td class="num ${cap ? 'green-text' : 'red-text'}">${cap ? '+' : '–'}${inr(b.amount)}${acts}</td></tr>`;
   };
