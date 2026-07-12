@@ -1323,7 +1323,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-12-20';
+const APP_VERSION = '2026-07-12-21';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -1477,6 +1477,13 @@ function initFirebase() {
       if (v && typeof v === 'object' && !Array.isArray(v)) localStorage.setItem('comedor_catmap', JSON.stringify(v));
       refreshCatUI();
     }, onErr('category_map'));
+    _db.ref('comedor/category_masters_deleted').on('value', snap => {
+      if (_catSyncGuarded()) return;
+      const v = snap.exists() ? snap.val() : null;
+      const list = Array.isArray(v) ? v : (v && typeof v === 'object' ? Object.values(v) : []);
+      localStorage.setItem('comedor_catmasters_deleted', JSON.stringify(list));
+      refreshCatUI();
+    }, onErr('category_masters_deleted'));
 
     _db.ref('comedor/income').on('value', snap => {
       localStorage.setItem('comedor_income', JSON.stringify(snap.exists() ? Object.values(snap.val()) : []));
@@ -2254,14 +2261,34 @@ const DEFAULT_CATMAP = {};
   ['MISCELLANEOUS', ['MISCELLANEOUS','TRANSGENDER']]
 ].forEach(pair => pair[1].forEach(t => { DEFAULT_CATMAP[t] = pair[0]; }));
 
+// Tombstones: names of groups the user deleted. Kept so a deleted DEFAULT group
+// can never be resurrected by a fallback-to-defaults or a stale sync echo.
+function loadDeletedMasters() {
+  try { const d = JSON.parse(localStorage.getItem('comedor_catmasters_deleted') || 'null'); if (Array.isArray(d)) return d.map(x => String(x).trim().toUpperCase()).filter(Boolean); } catch (e) {}
+  return [];
+}
+function saveDeletedMasters(list) {
+  const clean = [];
+  (list || []).forEach(x => { const n = String(x).trim().toUpperCase(); if (n && n !== MISC_MASTER && clean.indexOf(n) < 0) clean.push(n); });
+  _markCatWrite();
+  localStorage.setItem('comedor_catmasters_deleted', JSON.stringify(clean));
+  if (_db) _db.ref('comedor/category_masters_deleted').set(clean).catch(syncWriteErr);
+}
+function _untombstoneMaster(name) {
+  const up = String(name).trim().toUpperCase();
+  const del = loadDeletedMasters();
+  if (del.indexOf(up) >= 0) saveDeletedMasters(del.filter(x => x !== up));
+}
 function loadMasters() {
+  let base;
   try { const m = JSON.parse(localStorage.getItem('comedor_catmasters') || 'null');
-    if (Array.isArray(m) && m.length) {
-      const out = m.map(x => ({ name: String((x && x.name) || '').trim().toUpperCase(), icon: (x && x.icon) || '🏷️' })).filter(x => x.name);
-      if (!out.some(x => x.name === MISC_MASTER)) out.push({ name: MISC_MASTER, icon: '🗂️' });
-      return out;
-    } } catch (e) {}
-  return DEFAULT_MASTERS.map(x => ({ name: x.name, icon: x.icon }));
+    if (Array.isArray(m) && m.length) base = m.map(x => ({ name: String((x && x.name) || '').trim().toUpperCase(), icon: (x && x.icon) || '🏷️' })).filter(x => x.name);
+  } catch (e) {}
+  if (!base) base = DEFAULT_MASTERS.map(x => ({ name: x.name, icon: x.icon }));
+  const deleted = loadDeletedMasters();
+  const out = base.filter(x => deleted.indexOf(x.name) < 0);
+  if (!out.some(x => x.name === MISC_MASTER)) out.push({ name: MISC_MASTER, icon: '🗂️' });
+  return out;
 }
 function loadCatMap() {
   let saved = {};
@@ -2398,6 +2425,7 @@ function onMasterChange(sel, kind) {
     const nm = prompt('New master category name');
     if (!nm || !nm.trim()) { renderCategoryEditor(kind); return; }
     target = nm.trim().toUpperCase();
+    _untombstoneMaster(target);
     const ms = loadMasters();
     if (!ms.some(m => m.name === target)) { ms.push({ name: target, icon: '🏷️' }); saveMasters(ms); }
   }
@@ -2530,6 +2558,7 @@ function addMaster() {
   if (!name) return;
   const ms = loadMasters();
   if (ms.some(m => m.name === name)) { peopleMsg('“' + name + '” already exists', false); return; }
+  _untombstoneMaster(name);
   ms.push({ name, icon: '🏷️' });
   saveMasters(ms);
   renderCategories();
@@ -2545,6 +2574,7 @@ function renameMaster(oldName) {
   if (!name || name === ms[i].name) return;
   if (ms.some((m, j) => j !== i && m.name === name)) { peopleMsg('“' + name + '” already exists', false); return; }
   const from = ms[i].name; ms[i].name = name;
+  _untombstoneMaster(name);
   saveMasters(ms);
   const map = loadCatMap(); Object.keys(map).forEach(t => { if (map[t] === from) map[t] = name; }); saveCatMap(map);
   renderCategories();
@@ -2557,6 +2587,7 @@ function deleteMaster(name) {
   if (!ms.some(m => m.name === up)) return;
   if (!confirm('Delete the “' + up + '” group? Its tags move to Miscellaneous — no entries are affected.')) return;
   const map = loadCatMap(); Object.keys(map).forEach(t => { if (map[t] === up) map[t] = MISC_MASTER; }); saveCatMap(map);
+  const del = loadDeletedMasters(); if (del.indexOf(up) < 0) del.push(up); saveDeletedMasters(del);   // tombstone so it can't come back
   saveMasters(ms.filter(m => m.name !== up));
   renderCategories();
   refreshCatUI();
@@ -4181,7 +4212,7 @@ function suggestRecurring() {
 // Day-1 setup & capital ledger (Wolfpack Ventures Ledger, 6 Jul 2026). Row = [date, INR, 'E'|'P', bucket 'C'apex|'S'etup(pre-open)|'O'perating, category]
 var LEDGER_OPEN='2026-03-05';
 var HIST_LEDGER=[["2026-07-06",118658.0,"P","O","Grocery"],
-["2026-06-13",170000.0,"E","O","Salary"],
+["2026-06-13",170000.0,"E","I","Capital infusion · Edwin (covered June salary)"],
 ["2026-06-11",45000.0,"E","O","Staff Rent"],
 ["2025-11-24",24190.0,"E","C","Equipments"],
 ["2026-04-20",216161.0,"P","O","Grocery"],
@@ -5490,7 +5521,7 @@ function rerenderLog(p) { if (p === 'dcash') renderCashTable(); else if (p === '
 
 // ─── SETUP & CAPITAL LEDGER (browsable table of the day-1 ledger) ─────────────
 function ledgerRows() {
-  const label = { C: 'Capex', S: 'Setup', O: 'Operating' };
+  const label = { C: 'Capex', S: 'Setup', O: 'Operating', I: 'Capital' };
   return loadLedger().map(function (r) {
     const who = r[2] === 'E' ? 'Edwin' : 'Prathvi';
     return { date: r[0], amount: r[1], by: who, addedBy: who, capex: r[3] !== 'O', bucket: r[3], bucketLabel: label[r[3]] || '—', category: r[4] };
@@ -5499,7 +5530,7 @@ function ledgerRows() {
 function ledgerCard(x) {
   const inr = n => '₹' + Number(n || 0).toLocaleString('en-IN');
   const d = new Date(x.date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
-  const chipStyle = { Capex: 'background:rgba(212,175,55,0.16);color:var(--accent);', Setup: 'background:rgba(126,200,227,0.16);color:#7ec8e3;', Operating: 'background:rgba(224,82,82,0.14);color:var(--red);' }[x.bucketLabel] || '';
+  const chipStyle = { Capex: 'background:rgba(212,175,55,0.16);color:var(--accent);', Setup: 'background:rgba(126,200,227,0.16);color:#7ec8e3;', Operating: 'background:rgba(224,82,82,0.14);color:var(--red);', Capital: 'background:rgba(143,190,147,0.16);color:var(--green);' }[x.bucketLabel] || '';
   const typeChip = `<span class="cat-badge" style="${chipStyle}">${x.bucketLabel}</span>`;
   return `<div class="txn-card">
     <div class="txn-row1"><div class="txn-title">${esc(x.category || '—')}</div><div class="txn-amt red-text">–${inr(x.amount)}</div></div>
