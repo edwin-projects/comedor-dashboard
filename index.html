@@ -1323,7 +1323,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-12-22';
+const APP_VERSION = '2026-07-12-23';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -5281,10 +5281,18 @@ function isoAdd(iso, days) { const d = new Date(iso + 'T00:00:00Z'); d.setUTCDat
 function daysInclusive(a, b) { return Math.round((new Date(b + 'T00:00:00Z') - new Date(a + 'T00:00:00Z')) / 86400000) + 1; }
 // Which report "owns" each day — earliest report wins overlaps, so nothing double-counts.
 function incomeDayOwner() {
-  const recs = loadIncome().slice().sort((a, b) => (a.from||'').localeCompare(b.from||''));
+  // Most-granular report wins each day: a per-day report beats a month/quarter
+  // report that overlaps it, so accurate daily figures aren't overridden by a
+  // coarse period estimate. Earliest report is the tiebreak. Still one owner per
+  // day, so overlapping re-uploads never double-count.
+  const recs = loadIncome().slice().filter(r => r.from && r.to).sort((a, b) => {
+    const sa = daysInclusive(a.from, a.to), sb = daysInclusive(b.from, b.to);
+    if (sa !== sb) return sa - sb;
+    return (a.from || '').localeCompare(b.from || '');
+  });
   const owner = {};
   // guard caps the loop (~11 years) so a malformed date can never hang the app.
-  recs.forEach(r => { if (!r.from || !r.to) return; let g = 0; for (let d = r.from; d <= r.to && g < 4000; d = isoAdd(d, 1), g++) if (owner[d] === undefined) owner[d] = r.id; });
+  recs.forEach(r => { let g = 0; for (let d = r.from; d <= r.to && g < 4000; d = isoAdd(d, 1), g++) if (owner[d] === undefined) owner[d] = r.id; });
   return owner;
 }
 function incomeFieldInRange(from, to, field) {
@@ -6233,14 +6241,25 @@ function seedHistoricalCashBook(){
   // Income = exact per-day Pet Pooja records (net of discount, matching Pet
   // Pooja's own "Total Sales"). Versioned so a data correction re-seeds once:
   // v3 = net-of-discount gross (earlier seed used gross-of-discount).
+  // v4 = re-run the purge: v3's fire-and-forget removes could fail (offline)
+  //      while the version flag still set, leaving the coarse Apr–Jun estimate
+  //      in place and overriding the accurate daily figures.
   _db.ref('comedor/meta/incomeSeedVersion').once('value').then(function(s){
-    if(s.val()===3)return;
+    if(s.val()===4)return;
     ['pp_2026-07-01_2026-07-07','pp_2026-07-01_2026-07-06','pp_2026-03-05_2026-04-25','pp_2026-04-01_2026-06-30'].forEach(function(id){
       _db.ref('comedor/income/'+id).remove().catch(function(){});
     });
     HIST_INCOME_DAILY.forEach(function(r){ _db.ref('comedor/income/'+r.id).set(r).catch(function(){}); });
-    _db.ref('comedor/meta/incomeSeedVersion').set(3).catch(function(){});
+    _db.ref('comedor/meta/incomeSeedVersion').set(4).catch(function(){});
   }).catch(function(){});
+  // Belt-and-suspenders: also drop the coarse estimates from the local mirror so
+  // this device is correct immediately, even before the Firebase purge round-trips.
+  try {
+    var _coarse = { 'pp_2026-03-05_2026-04-25':1, 'pp_2026-04-01_2026-06-30':1, 'pp_2026-07-01_2026-07-07':1, 'pp_2026-07-01_2026-07-06':1 };
+    var _inc = JSON.parse(localStorage.getItem('comedor_income') || '[]');
+    var _clean = _inc.filter(function(r){ return !_coarse[r && r.id]; });
+    if (_clean.length !== _inc.length) localStorage.setItem('comedor_income', JSON.stringify(_clean));
+  } catch(e){}
 }
 function importHistorical() {
   if (!confirm('Load the Mar\u2013Jun 2026 IDFC bank expenses (from both statements) and the 30 Jun closing balance? Safe to run again \u2014 it replaces the previous backfill cleanly.')) return;

@@ -50,6 +50,8 @@ the second layer. Do not remove either.
 8. **Income = Pet Pooja.** Sales/income come from uploaded Pet Pooja item-wise reports
    (`comedor/income` records with a period + gross + category breakdown), NOT the daily cash
    register (which is for cash reconciliation and undercounts delivery). Overlapping report
-   periods are deduped by day — the earliest report owns overlap days — so re-uploads never
-   double-count. P&L income for a dashboard period = each report's gross spread evenly across
-   its days, summed over the period.
+   periods are deduped by day — the **most granular (shortest-span) report owns overlap days**,
+   earliest as tiebreak — so a per-day report always beats a coarse month/quarter estimate that
+   overlaps it, and re-uploads never double-count. P&L income for a dashboard period = each
+   report's gross spread evenly across its days, summed over the period. (Pet Pooja's item-wise
+   "Gross Sales" already includes 5% GST and matches its "Total Sales" headline.)
