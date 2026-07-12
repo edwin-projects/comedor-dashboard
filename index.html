@@ -1323,7 +1323,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-12-17';
+const APP_VERSION = '2026-07-12-18';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -2235,13 +2235,13 @@ const MISC_MASTER = 'MISCELLANEOUS';
 const DEFAULT_CATMAP = {};
 [
   ['GROCERIES & QUICK-COMMERCE', ['BLINKIT','SWIGGY INSTAMART','BIG BASKET','ZEPTO','AMAZON','GROCERY STORE EXPENSES']],
-  ['RAW MATERIAL', ['HYPERPURE','ICE CUBES','GREEN LEAF VEGGIES','VEGETABLES','GREENS','ATLAS YBARRA','CHENAB','CROWN EDIBLES','BOLILLO SPETTACOLARE']],
-  ['RENT', ['RENT','RESTAURANT RENT','SHOP RENT']],
-  ['SALARIES & STAFF', ['SALARIES','SALARY','STAFF ADVANCE','STAFF OT','STAFF MEDICINE','STAFF BIRTHDAY CAKES','TRAVEL ALLOWANCE']],
-  ['UTILITIES', ['ELECTRICITY BILL','ELECTRICITY','WATER CANS','CYLINDERS','GAS']],
-  ['UPKEEP & MAINTENANCE', ['HOUSE KEEPING','PEST CONTROL','DRAINAGE CLEANING','BBMP GARBAGE','PLUMBING MATERIALS','HARDWARE','EQUIPMENTS / MAHESH DISTRIBUTORS','URBAN COMPANY','PORTER']],
-  ['MARKETING & AMBIANCE', ['FLOWERS','PRINTOUTS']],
-  ['STATUTORY & ADMIN', ['GST']],
+  ['RAW MATERIAL', ['HYPERPURE','ICE CUBES','GREEN LEAF VEGGIES','VEGETABLES','GREENS','ATLAS YBARRA','CHENAB','CROWN EDIBLES','BOLILLO SPETTACOLARE','GROCERY','INGREDIENTS','VENDOR / OTHER','VENDOR/OTHER','VENDOR','DAIRY','MEAT','FISH','FRUITS','SPICES']],
+  ['RENT', ['RENT','RESTAURANT RENT','SHOP RENT','STAFF RENT']],
+  ['SALARIES & STAFF', ['SALARIES','SALARY','STAFF ADVANCE','STAFF OT','STAFF MEDICINE','STAFF BIRTHDAY CAKES','TRAVEL ALLOWANCE','STAFF WELFARE','STAFF FOOD']],
+  ['UTILITIES', ['ELECTRICITY BILL','ELECTRICITY','WATER CANS','CYLINDERS','GAS','UTILITIES','WATER','INTERNET','WIFI','DIESEL','FUEL']],
+  ['UPKEEP & MAINTENANCE', ['HOUSE KEEPING','PEST CONTROL','DRAINAGE CLEANING','BBMP GARBAGE','PLUMBING MATERIALS','HARDWARE','EQUIPMENTS / MAHESH DISTRIBUTORS','URBAN COMPANY','PORTER','EQUIPMENT','EQUIPMENTS','MAINTENANCE','REPAIRS','REPAIR']],
+  ['MARKETING & AMBIANCE', ['FLOWERS','PRINTOUTS','MARKETING','ADVERTISING','PRINTING']],
+  ['STATUTORY & ADMIN', ['GST','COMPLIANCE','LICENSE','LICENCE','ACCOUNTING','CA FEES','LEGAL','TAX']],
   ['MISCELLANEOUS', ['MISCELLANEOUS','TRANSGENDER']]
 ].forEach(pair => pair[1].forEach(t => { DEFAULT_CATMAP[t] = pair[0]; }));
 
@@ -2284,6 +2284,22 @@ function saveCatMap(map) {
   if (_db) _db.ref('comedor/category_map').set(clean).catch(syncWriteErr);
 }
 function assignMaster(tag, master) { const map = loadCatMap(); map[String(tag).trim().toUpperCase()] = String(master).trim().toUpperCase(); saveCatMap(map); }
+// Every category that actually appears in spend for this list's domain — even
+// ones never added to the curated list (imported / ledger). Surfacing them in
+// the editor means nothing can hide, unmappable, inside Miscellaneous.
+function categoriesInUse(kind) {
+  const seen = {}, out = [];
+  const add = c => { c = String(c == null ? '' : c).trim().toUpperCase(); if (c && !seen[c]) { seen[c] = 1; out.push(c); } };
+  if (kind === 'partner') {
+    try { loadBankEntries().forEach(b => { if (!b.capital && !b.payout) add(b.category); }); } catch (e) {}
+    try { ledgerRows().forEach(x => { if (x.bucket === 'O') add(x.category); }); } catch (e) {}
+  } else {
+    try { loadEntries().forEach(e => (e.expenses || []).forEach(x => add(x.category))); } catch (e) {}
+  }
+  return out;
+}
+// Curated list + everything in use, deduped & sorted — what the editor shows.
+function editorCategories(kind) { return _sortCats(getCategories(kind).concat(categoriesInUse(kind))); }
 // Re-render category UI wherever it is currently visible.
 function refreshCatUI() {
   if (document.getElementById('panel-people')?.classList.contains('active')) renderCategories();
@@ -2301,7 +2317,7 @@ function renderMastersEditor() {
   if (!el) return;
   const masters = loadMasters();
   const counts = {};
-  ['staff', 'partner'].forEach(k => getCategories(k).forEach(c => { const m = masterOf(c); counts[m] = (counts[m] || 0) + 1; }));
+  ['staff', 'partner'].forEach(k => editorCategories(k).forEach(c => { const m = masterOf(c); counts[m] = (counts[m] || 0) + 1; }));
   el.innerHTML = masters.map(m => {
     const canDel = m.name !== MISC_MASTER;
     return `<div class="mrow">
@@ -2351,7 +2367,7 @@ function copyCatsBetween(from, to) {
 function renderCategoryEditor(kind) {
   const el = document.getElementById('cat-list-' + kind);
   if (!el) return;
-  const cats = getCategories(kind);
+  const cats = editorCategories(kind);   // curated list + everything actually used
   const masters = loadMasters();
   const optsFor = cur => masters.map(x => `<option value="${esc(x.name)}"${x.name === cur ? ' selected' : ''}>${esc(x.icon + ' ' + x.name)}</option>`).join('') + '<option value="__new__">＋ New group…</option>';
   el.innerHTML = cats.map(c => `<div class="cat-row">
