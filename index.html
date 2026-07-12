@@ -100,9 +100,9 @@
   /* Manager's daily cash-action status (dashboard) */
   .daily-status { display:flex; flex-direction:column; gap:5px; margin-bottom:14px; }
   .daily-status:empty { display:none; }
-  .ds-row { display:flex; align-items:center; gap:7px; padding:6px 10px; border-radius:7px; border:1px solid; font-family:'Inter',sans-serif; font-size:9.5px; font-weight:600; letter-spacing:0.4px; text-transform:uppercase; line-height:1.2; white-space:nowrap; overflow:hidden; }
+  .ds-row { display:flex; align-items:center; gap:6px; padding:5px 9px; border-radius:7px; border:1px solid; font-family:'Inter',sans-serif; font-size:8px; font-weight:600; letter-spacing:0.3px; text-transform:uppercase; line-height:1.2; white-space:nowrap; overflow:hidden; }
   .ds-row .ds-tx { min-width:0; overflow:hidden; text-overflow:ellipsis; }
-  .ds-ic { font-size:11px; line-height:1; flex-shrink:0; width:13px; text-align:center; }
+  .ds-ic { font-size:9.5px; line-height:1; flex-shrink:0; width:12px; text-align:center; }
   .ds-at { opacity:0.75; font-weight:600; }
   .ds-done { color:var(--green); background:rgba(111,214,154,0.08); border-color:rgba(111,214,154,0.30); }
   .ds-pend { color:#C9A040; background:rgba(201,160,64,0.09); border-color:rgba(201,160,64,0.32); }
@@ -1194,7 +1194,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-11-05';
+const APP_VERSION = '2026-07-12-01';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -3058,6 +3058,7 @@ function renderDailyStatus() {
     const date = from;
     const entry = loadEntries().find(e => e.date === date);
     const openingDone = !!(entry && Number(entry.opening) > 0);
+    const salesDone   = !!(entry && Number(entry.totalSales) > 0);   // end-of-day sales entered
     const closingDone = !!(entry && !entry.partial);     // real cash count submitted
     const isToday = date === todayISO;
     const isPast  = date < todayISO;
@@ -3067,6 +3068,7 @@ function renderDailyStatus() {
     const when = isToday ? 'TODAY' : dShort(date);
     // Overdue = today past its deadline, or any past day still left undone.
     const openOverdue  = isToday ? mins >= OPEN_DEADLINE  : isPast;
+    const salesOverdue = isToday ? mins >= CLOSE_DEADLINE : isPast;   // sales are end-of-day
     const closeOverdue = isToday ? mins >= CLOSE_DEADLINE : isPast;
     const oneLine = (done, overdue, doneTxt, pendTxt, overTxt) =>
       done ? row('ds-done', '✓', doneTxt) : overdue ? row('ds-over', '⚠', overTxt) : row('ds-pend', 'ⓘ', pendTxt);
@@ -3077,6 +3079,10 @@ function renderDailyStatus() {
         `OPENING CASH ADDED FOR ${when}${atTime(entry && entry.openingAt)}`,
         isToday ? 'OPENING CASH YET TO BE ADDED' : `OPENING CASH YET TO BE ADDED · ${when}`,
         isToday ? 'OPENING CASH NOT ADDED — OVERDUE (12 PM)' : `OPENING CASH NOT ADDED · ${when}`) +
+      oneLine(salesDone, salesOverdue,
+        `END-OF-DAY SALES ADDED FOR ${when}`,
+        isToday ? 'END-OF-DAY SALES YET TO BE ADDED' : `END-OF-DAY SALES YET TO BE ADDED · ${when}`,
+        isToday ? 'END-OF-DAY SALES NOT ADDED — OVERDUE (11:45 PM)' : `END-OF-DAY SALES NOT ADDED · ${when}`) +
       oneLine(closingDone, closeOverdue,
         `CLOSING CASH UPDATED FOR ${when}${atTime(entry && entry.closingAt)}`,
         isToday ? 'CLOSING CASH YET TO BE UPDATED' : `CLOSING CASH YET TO BE UPDATED · ${when}`,
@@ -3090,16 +3096,21 @@ function renderDailyStatus() {
   const inRange = loadEntries().filter(e => e.date && e.date >= from && e.date <= to);
   const opened  = inRange.filter(e => Number(e.opening) > 0);
   const nOpen = opened.length;
+  const nSalesPend = opened.filter(e => !(Number(e.totalSales) > 0)).length;   // opened days with no sales yet
   const nPend = opened.filter(e => e.partial).length;
   const days = n => (n === 1 ? '1 DAY' : n + ' DAYS');
   if (nOpen === 0) {
     el.innerHTML =
       row('ds-pend', 'ⓘ', 'NO OPENING CASH RECORDED THIS PERIOD') +
+      row('ds-pend', 'ⓘ', 'NO END-OF-DAY SALES RECORDED THIS PERIOD') +
       row('ds-pend', 'ⓘ', 'NO CLOSING CASH RECORDED THIS PERIOD');
     return;
   }
   el.innerHTML =
     row('ds-done', '✓', `OPENING CASH RECORDED · ${days(nOpen)}`) +
+    (nSalesPend === 0
+      ? row('ds-done', '✓', `END-OF-DAY SALES RECORDED · ${days(nOpen)}`)
+      : row('ds-over', '⚠', `END-OF-DAY SALES PENDING · ${nSalesPend} OF ${days(nOpen)}`)) +
     (nPend === 0
       ? row('ds-done', '✓', `CLOSING CASH COMPLETE · ${days(nOpen)}`)
       : row('ds-over', '⚠', `CLOSING CASH PENDING · ${nPend} OF ${days(nOpen)}`));
