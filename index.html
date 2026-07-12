@@ -1194,7 +1194,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-12-01';
+const APP_VERSION = '2026-07-12-02';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -2610,7 +2610,8 @@ function submitEntry() {
   const author = editingThis && _editingEntry.addedBy ? _editingEntry.addedBy : me;
   const prior = loadEntries().find(e => e.date === date);
   const entryRec = { date, opening, cash, upi, card, totalSales: total, expenses: filledExpenses, totalExpenses, closing, addedBy: author, submittedAt: new Date().toLocaleString('en-IN') };
-  if (prior && prior.openingAt) entryRec.openingAt = prior.openingAt;   // keep when the opening was first added
+  entryRec.openingAt = (prior && prior.openingAt) || _nowTime();       // keep when the opening was first added
+  entryRec.salesAt   = (prior && prior.salesAt) || _nowTime();         // when the day's sales were recorded
   entryRec.closingAt = _nowTime();                                     // when the day was closed/counted
   if (editingThis) { entryRec.editedBy = me; entryRec.editedAt = new Date().toLocaleString('en-IN'); }
   _editingEntry = null;
@@ -2638,6 +2639,16 @@ function submitEntry() {
 // ─── PERSISTENCE (localStorage + Firebase sync) ───────────────────────────────
 // Short clock time like "10:00 AM" / "11:30 PM" for stamping when an action was done.
 function _nowTime() { try { return new Date().toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true }).toUpperCase(); } catch (e) { return ''; } }
+// Pull a short clock time ("11:53 PM") out of a stored date-time string like
+// "11/7/2026, 11:53:47 pm" — a fallback "recorded at" stamp for older entries
+// saved before per-step (opening/sales) timestamps were tracked.
+function _shortTime(dtStr) {
+  if (!dtStr || typeof dtStr !== 'string') return '';
+  const m = dtStr.match(/(\d{1,2}):(\d{2})(?::\d{2})?\s*([APap]\.?[Mm]\.?)?/);
+  if (!m) return '';
+  const ap = (m[3] || '').replace(/\./g, '').toUpperCase();
+  return m[1] + ':' + m[2] + (ap ? ' ' + ap : '');
+}
 function saveEntry(entry) {
   if (entry && Array.isArray(entry.expenses)) {
     entry = Object.assign({}, entry, { expenses: entry.expenses.map(x => {
@@ -2702,6 +2713,7 @@ function saveOpening() {
       submittedAt: base.submittedAt || new Date().toLocaleString('en-IN'),
       openingAt: base.openingAt || _nowTime()
     };
+    if (base.salesAt) rec.salesAt = base.salesAt;   // preserve the sales stamp if already recorded
     if (existing) { rec.editedBy = me; rec.editedAt = new Date().toLocaleString('en-IN'); }
   }
   saveEntry(rec);
@@ -2746,7 +2758,9 @@ function saveSales() {
       closing: opening + cash - totalExpenses,   // projected cash in hand until the real count
       partial: true,
       addedBy: base.addedBy || me,
-      submittedAt: base.submittedAt || new Date().toLocaleString('en-IN')
+      submittedAt: base.submittedAt || new Date().toLocaleString('en-IN'),
+      openingAt: base.openingAt || _nowTime(),   // keep the opening stamp (don't drop it)
+      salesAt: base.salesAt || _nowTime()        // stamp when the day's sales were recorded
     };
     if (existing) { rec.editedBy = me; rec.editedAt = new Date().toLocaleString('en-IN'); }
   }
@@ -2791,8 +2805,10 @@ function saveCashExpenses() {
       closing: opening + cash - totalExpenses,   // projected cash in hand until the real count
       partial: true,
       addedBy: base.addedBy || me,
-      submittedAt: base.submittedAt || new Date().toLocaleString('en-IN')
+      submittedAt: base.submittedAt || new Date().toLocaleString('en-IN'),
+      openingAt: base.openingAt || _nowTime()    // keep the opening stamp (don't drop it)
     };
+    if (base.salesAt) rec.salesAt = base.salesAt;   // preserve the sales stamp if already recorded
     if (existing) { rec.editedBy = me; rec.editedAt = new Date().toLocaleString('en-IN'); }
   }
   saveEntry(rec);
@@ -3074,13 +3090,17 @@ function renderDailyStatus() {
       done ? row('ds-done', '✓', doneTxt) : overdue ? row('ds-over', '⚠', overTxt) : row('ds-pend', 'ⓘ', pendTxt);
     // Stamp the clock time the action was recorded, when we have it.
     const atTime = t => t ? ` <span class="ds-at">· ${t}</span>` : '';
+    // Older entries may lack a per-step stamp — fall back to the record's
+    // creation time so the "added" line still shows roughly when it was recorded.
+    const openStamp  = entry && (entry.openingAt || _shortTime(entry.submittedAt));
+    const salesStamp = entry && (entry.salesAt   || _shortTime(entry.submittedAt));
     el.innerHTML =
       oneLine(openingDone, openOverdue,
-        `OPENING CASH ADDED FOR ${when}${atTime(entry && entry.openingAt)}`,
+        `OPENING CASH ADDED FOR ${when}${atTime(openStamp)}`,
         isToday ? 'OPENING CASH YET TO BE ADDED' : `OPENING CASH YET TO BE ADDED · ${when}`,
         isToday ? 'OPENING CASH NOT ADDED — OVERDUE (12 PM)' : `OPENING CASH NOT ADDED · ${when}`) +
       oneLine(salesDone, salesOverdue,
-        `END-OF-DAY SALES ADDED FOR ${when}`,
+        `END-OF-DAY SALES ADDED FOR ${when}${atTime(salesStamp)}`,
         isToday ? 'END-OF-DAY SALES YET TO BE ADDED' : `END-OF-DAY SALES YET TO BE ADDED · ${when}`,
         isToday ? 'END-OF-DAY SALES NOT ADDED — OVERDUE (11:45 PM)' : `END-OF-DAY SALES NOT ADDED · ${when}`) +
       oneLine(closingDone, closeOverdue,
