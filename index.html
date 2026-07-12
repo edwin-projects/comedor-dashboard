@@ -239,11 +239,13 @@
   .src-idfc   { background: rgba(77,157,224,0.16);  color:#7db8e8; }
   .src-direct { background: rgba(212,175,55,0.18);  color:#caa63a; }
   .src-payout { background: rgba(190,120,220,0.18); color:#c79ae0; }
-  /* Partner-capital card: three clean line items, no per-partner splits */
-  .eq3 { display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:8px 0; border-bottom:1px solid var(--border); font-family:'Inter',sans-serif; }
-  .eq3:last-child { border-bottom:none; }
+  /* Partner-capital card: main lines carry a per-partner split; ledger lines are plain totals */
+  .eqblock { border-bottom:1px solid var(--border); padding:7px 0; }
+  .eqblock:last-child { border-bottom:none; }
+  .eq3 { display:flex; justify-content:space-between; align-items:baseline; gap:12px; font-family:'Inter',sans-serif; }
   .eq3-k { font-size:12px; color:var(--text2); }
   .eq3-v { font-size:14px; color:var(--text); font-variant-numeric:tabular-nums lining-nums; white-space:nowrap; }
+  .eq3-sub { font-size:10.5px; color:var(--text3); margin-top:3px; line-height:1.35; font-variant-numeric:tabular-nums lining-nums; }
   .eq3-net .eq3-k, .eq3-net .eq3-v { font-weight:600; color:var(--text); }
 
   /* BAR CHART */
@@ -1226,7 +1228,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-12-06';
+const APP_VERSION = '2026-07-12-07';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -4122,14 +4124,23 @@ function renderPnlBank() {
   const net = income - totalExp;
 
   // PARTNER CAPITAL (cumulative balance-sheet item — never touches the P&L):
-  //   Infused capital (infusions + partner-direct spend + day-1 ledger capital)
-  //   − Withdrawals (money a partner has taken out) = Net capital. Totals only —
-  //   the per-partner split isn't shown (it's noise at this scale).
+  //   Infused (infusions + partner-direct spend + day-1 ledger capital) − Withdrawals
+  //   = Net. Split by partner, case-normalised so a title-case ledger name and an
+  //   uppercased bank name for the same person merge into one.
+  const _ck = s => String(s || '—').trim().toUpperCase();
+  const introBy = {}, drawBy = {};
+  loadBankEntries().filter(b => b.capital || b.direct).forEach(b => { const k = _ck(b.partner || b.addedBy); introBy[k] = (introBy[k] || 0) + (Number(b.amount) || 0); });
   const capL = ledgerCapitalBy();
-  const capIntroduced = loadBankEntries().filter(b => b.capital || b.direct).reduce((s, b) => s + (Number(b.amount) || 0), 0)
-                      + (Number(capL.Edwin) || 0) + (Number(capL.Prathvi) || 0);
-  const capDrawn = totalDrawings();
+  Object.keys(capL).forEach(k => { if (capL[k]) { const kk = _ck(k); introBy[kk] = (introBy[kk] || 0) + Number(capL[k]); } });
+  loadBankEntries().filter(b => b.payout).forEach(b => { const k = _ck(b.partner || b.addedBy); drawBy[k] = (drawBy[k] || 0) + (Number(b.amount) || 0); });
+  const netBy = {};
+  new Set(Object.keys(introBy).concat(Object.keys(drawBy))).forEach(k => { netBy[k] = (introBy[k] || 0) - (drawBy[k] || 0); });
+  const capIntroduced = Object.values(introBy).reduce((s, v) => s + v, 0);
+  const capDrawn = Object.values(drawBy).reduce((s, v) => s + v, 0);
   const capital = capIntroduced - capDrawn;          // net partner capital
+  // Day-1 ledger breakdown of where the capital went — shown as plain totals.
+  const capexC = ledgerSumBy('C'), setupS = ledgerSumBy('S'), opexO = ledgerSumBy('O');
+  const tC = capexC.Edwin + capexC.Prathvi, tS = setupS.Edwin + setupS.Prathvi, tO = opexO.Edwin + opexO.Prathvi;
 
   const allCash = loadEntries().slice().sort((a, b) => (a.date||'').localeCompare(b.date||''));
   const lastCashEntry = allCash.length ? allCash[allCash.length - 1] : null;
@@ -4193,6 +4204,15 @@ function renderPnlBank() {
   const netParts = inr(net).match(/^(\D*)(.*)$/);
   const heroNet = `<span class="cv-fig"><span class="cv-pre">${netParts[1]}</span>${netParts[2]}</span>`;
 
+  // Per-partner split "EDWIN ₹.. · PRATHVI ₹.." + who's ahead by how much.
+  const capSplitLine = map => {
+    const e = Object.entries(map).filter(kv => Math.abs(kv[1]) > 0.5).sort((a, b) => b[1] - a[1]);
+    if (!e.length) return '';
+    let s = e.map(([k, v]) => `${esc(k)} ${inr(v)}`).join(' · ');
+    if (e.length >= 2) { const d = e[0][1] - e[1][1]; if (d > 0.5) s += ` · ${esc(e[0][0])} ahead ${inr(d)}`; }
+    return s;
+  };
+
   const sEl = document.getElementById('pnl-summary');
   if (sEl) sEl.innerHTML = `
     <div class="cards2">
@@ -4222,9 +4242,12 @@ function renderPnlBank() {
         </span>
       </div>
       <div class="cap-body">
-        <div class="eq3"><span class="eq3-k">Infused capital</span><span class="eq3-v">${inr(capIntroduced)}</span></div>
-        <div class="eq3"><span class="eq3-k">Withdrawals</span><span class="eq3-v ${capDrawn > 0 ? 'red-text' : ''}">${capDrawn > 0 ? '−' + inr(capDrawn) : inr(0)}</span></div>
-        <div class="eq3 eq3-net"><span class="eq3-k">Net capital</span><span class="eq3-v">${inr(capital)}</span></div>
+        <div class="eqblock"><div class="eq3"><span class="eq3-k">Infused capital</span><span class="eq3-v">${inr(capIntroduced)}</span></div><div class="eq3-sub">${capSplitLine(introBy)}</div></div>
+        <div class="eqblock"><div class="eq3"><span class="eq3-k">Withdrawals</span><span class="eq3-v ${capDrawn > 0 ? 'red-text' : ''}">${capDrawn > 0 ? '−' + inr(capDrawn) : inr(0)}</span></div>${capDrawn > 0 ? `<div class="eq3-sub">${capSplitLine(drawBy)}</div>` : ''}</div>
+        <div class="eqblock eq3-net"><div class="eq3"><span class="eq3-k">Net capital</span><span class="eq3-v">${inr(capital)}</span></div><div class="eq3-sub">${capSplitLine(netBy)}</div></div>
+        <div class="eqblock" style="margin-top:5px;"><div class="eq3"><span class="eq3-k">Capex · assets &amp; build-out</span><span class="eq3-v">${inr(tC)}</span></div></div>
+        <div class="eqblock"><div class="eq3"><span class="eq3-k">Operating spend</span><span class="eq3-v">${inr(tO)}</span></div></div>
+        <div class="eqblock"><div class="eq3"><span class="eq3-k">Setup · pre-opening costs</span><span class="eq3-v">${inr(tS)}</span></div></div>
       </div>
     </div>`;
 
