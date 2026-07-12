@@ -1197,7 +1197,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-12-03';
+const APP_VERSION = '2026-07-12-04';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -4078,10 +4078,18 @@ function renderPnlBank() {
   const discount = Math.round(incomeFieldInRange(range.from, range.to, 'discount'));
   const cashExp  = cashEntries.reduce((s, e) => s + (e.totalExpenses || 0), 0);
   const bank = getBankInRange();
-  const bankExp = bank.filter(b => !b.capital && !isGstEntry(b)).reduce((s, b) => s + (Number(b.amount) || 0), 0);
+  // Operating spend by source, kept separate for a clean P&L:
+  //  · IDFC   — paid from the IDFC current account (reduces the bank balance)
+  //  · Direct — a partner paid a vendor from their OWN bank (also adds to their
+  //             capital); combines app-entered direct entries with the historical
+  //             partner-paid ledger (bucket O) imported from before the app.
+  //  · Cash   — spent from the daily cash drawer.
+  const idfcExp = bank.filter(b => !b.capital && !b.direct && !isGstEntry(b)).reduce((s, b) => s + (Number(b.amount) || 0), 0);
+  const directBankExp = bank.filter(b => b.direct).reduce((s, b) => s + (Number(b.amount) || 0), 0);
   const gstPaid = bank.filter(isGstEntry).reduce((s, b) => s + (Number(b.amount) || 0), 0);
-  const ledgerOpex = ledgerOpexInRange(range.from, range.to);   // partner-paid opex (post-opening) in this period
-  const totalExp = cashExp + bankExp + ledgerOpex;
+  const ledgerOpex = ledgerOpexInRange(range.from, range.to);   // historical partner-paid opex (pre-app ledger import)
+  const directExp = directBankExp + ledgerOpex;                 // ALL partner-direct operating spend
+  const totalExp = cashExp + idfcExp + directExp;
   const net = income - totalExp;
 
   // Capital Infused (equity) and Setup/Capex are CUMULATIVE (balance-sheet items),
@@ -4192,7 +4200,7 @@ function renderPnlBank() {
   if (sEl) sEl.innerHTML = `
     <div class="cards2">
       <div class="card card-click tile-income" onclick="focusLog('sales')"><div class="card-label">Income (Sales)</div><div class="card-value green">${inr(income)}</div><div class="card-sub">${regTot ? splitBox([{k:'UPI/Card',v:incNon},{k:'Cash',v:incCash}], income) : ''}<div class="tsplit-l" style="color:var(--text3);">Comps &amp; discounts <b>${inr(discount)}</b>${discount > 0 ? discPct : ''}</div>${estFromRegister ? `<div class="tsplit-l" style="color:var(--text3);margin-top:2px;">From End-of-Day Sales · Pet Pooja not uploaded yet</div>` : ''}</div></div>
-      <div class="card card-click tile-exp" onclick="focusLog('expcat')"><div class="card-label">Expenses</div><div class="card-value red">${inr(totalExp)}</div><div class="card-sub">${splitBox([{k:'Bank',v:bankExp},{k:'Cash',v:cashExp},{k:'Direct',v:ledgerOpex}], totalExp)}</div></div>
+      <div class="card card-click tile-exp" onclick="focusLog('expcat')"><div class="card-label">Expenses</div><div class="card-value red">${inr(totalExp)}</div><div class="card-sub">${splitBox([{k:'IDFC',v:idfcExp},{k:'Direct',v:directExp},{k:'Cash',v:cashExp}], totalExp)}</div></div>
     </div>
     <div class="pnl-hero ${net >= 0 ? 'hero-pos' : 'hero-neg'}">
       <div class="card-label">Net Profit / Loss</div>
