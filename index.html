@@ -1323,7 +1323,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-12-21';
+const APP_VERSION = '2026-07-12-22';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -2233,7 +2233,6 @@ function saveCategories(kind, list) {
 // history is ever re-tagged. Masters + the tag→master map sync like the lists.
 const DEFAULT_MASTERS = [
   { name:'RAW MATERIAL', icon:'🥬' },
-  { name:'GROCERIES & QUICK-COMMERCE', icon:'🛒' },
   { name:'RENT', icon:'🏠' },
   { name:'SALARIES & STAFF', icon:'👥' },
   { name:'UTILITIES', icon:'⚡' },
@@ -2243,6 +2242,9 @@ const DEFAULT_MASTERS = [
   { name:'MISCELLANEOUS', icon:'🗂️' }
 ];
 const MISC_MASTER = 'MISCELLANEOUS';
+// Groups retired for good — always filtered out of the master list, even if an
+// old saved/synced copy still contains them. (Their tags fall to their default.)
+const RETIRED_MASTERS = ['GROCERIES & QUICK-COMMERCE'];
 // After a local category/master/map write, ignore incoming Firebase echoes for a
 // few seconds so a stale server snapshot can't resurrect a just-deleted group.
 let _catSyncGuardUntil = 0;
@@ -2250,8 +2252,7 @@ function _markCatWrite() { try { _catSyncGuardUntil = Date.now() + 6000; } catch
 function _catSyncGuarded() { try { return Date.now() < _catSyncGuardUntil; } catch (e) { return false; } }
 const DEFAULT_CATMAP = {};
 [
-  ['GROCERIES & QUICK-COMMERCE', ['BLINKIT','SWIGGY INSTAMART','BIG BASKET','ZEPTO','AMAZON','GROCERY STORE EXPENSES']],
-  ['RAW MATERIAL', ['HYPERPURE','ICE CUBES','GREEN LEAF VEGGIES','VEGETABLES','GREENS','ATLAS YBARRA','CHENAB','CROWN EDIBLES','BOLILLO SPETTACOLARE','GROCERY','INGREDIENTS','VENDOR / OTHER','VENDOR/OTHER','VENDOR','DAIRY','MEAT','FISH','FRUITS','SPICES']],
+  ['RAW MATERIAL', ['HYPERPURE','ICE CUBES','GREEN LEAF VEGGIES','VEGETABLES','GREENS','ATLAS YBARRA','CHENAB','CROWN EDIBLES','BOLILLO SPETTACOLARE','GROCERY','INGREDIENTS','VENDOR / OTHER','VENDOR/OTHER','VENDOR','DAIRY','MEAT','FISH','FRUITS','SPICES','BLINKIT','SWIGGY INSTAMART','BIG BASKET','ZEPTO','AMAZON','GROCERY STORE EXPENSES']],
   ['RENT', ['RENT','RESTAURANT RENT','SHOP RENT','STAFF RENT']],
   ['SALARIES & STAFF', ['SALARIES','SALARY','STAFF ADVANCE','STAFF OT','STAFF MEDICINE','STAFF BIRTHDAY CAKES','TRAVEL ALLOWANCE','STAFF WELFARE','STAFF FOOD']],
   ['UTILITIES', ['ELECTRICITY BILL','ELECTRICITY','WATER CANS','CYLINDERS','GAS','UTILITIES','WATER','INTERNET','WIFI','DIESEL','FUEL']],
@@ -2286,7 +2287,7 @@ function loadMasters() {
   } catch (e) {}
   if (!base) base = DEFAULT_MASTERS.map(x => ({ name: x.name, icon: x.icon }));
   const deleted = loadDeletedMasters();
-  const out = base.filter(x => deleted.indexOf(x.name) < 0);
+  const out = base.filter(x => deleted.indexOf(x.name) < 0 && RETIRED_MASTERS.indexOf(x.name) < 0);
   if (!out.some(x => x.name === MISC_MASTER)) out.push({ name: MISC_MASTER, icon: '🗂️' });
   return out;
 }
@@ -2298,7 +2299,9 @@ function loadCatMap() {
 function masterOf(tag) {
   const t = String(tag == null ? '' : tag).trim().toUpperCase();
   const masters = loadMasters();
-  const m = loadCatMap()[t];
+  let m = loadCatMap()[t];
+  // A tag still pointing at a retired group falls back to its built-in default.
+  if (m && RETIRED_MASTERS.indexOf(m) >= 0) m = DEFAULT_CATMAP[t] || null;
   if (m && masters.some(x => x.name === m)) return m;
   return MISC_MASTER;
 }
