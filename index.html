@@ -235,6 +235,9 @@
   .cat-postres  { background: rgba(185,50,42,0.14);   color: var(--cat-postres-c); }
   .cat-vegano   { background: rgba(45,160,100,0.14);  color: var(--cat-vegano-c); }
   .cat-acompana { background: rgba(90,110,90,0.14);   color: var(--cat-acompana-c); }
+  /* Bank-expense source: IDFC current account vs partner's own bank (direct) */
+  .src-idfc   { background: rgba(77,157,224,0.16);  color:#7db8e8; }
+  .src-direct { background: rgba(212,175,55,0.18);  color:#caa63a; }
 
   /* BAR CHART */
   .bar-chart { margin-top: 8px; }
@@ -1194,7 +1197,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-12-02';
+const APP_VERSION = '2026-07-12-03';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -4449,6 +4452,16 @@ function renderBankList() {
   if (document.getElementById('panel-dashboard').classList.contains('active')) renderDashboard();
 }
 
+// Source badge for a bank expense: money that left the IDFC current account vs a
+// partner paying a vendor DIRECTLY from their own bank (their infused capital).
+// Capital infusions and GST carry their own labels, so they get no source badge.
+function bankSrcBadge(b) {
+  if (!b || b.capital || isGstEntry(b)) return '';
+  return b.direct
+    ? `<span class="cat-badge src-direct">DIRECT · ${esc(b.partner || b.addedBy || '—')}</span>`
+    : '<span class="cat-badge src-idfc">IDFC</span>';
+}
+
 // Recent bank entries (expense · capital · partner-direct) the current user can
 // edit or delete, shown right on the Bank tab — parity with the Cash tab's list.
 function renderBankRecent() {
@@ -4462,7 +4475,7 @@ function renderBankRecent() {
   if (!mine.length) { wrap.innerHTML = '<div class="log-empty">No bank entries yet. Ones you add appear here to edit or delete.</div>'; return; }
   const who = b => (b.partner || b.addedBy || 'partner');
   const typeLabel = b => b.capital ? ('Capital in · ' + who(b))
-    : b.direct ? ((b.category || '—') + ' · paid by ' + who(b))
+    : b.direct ? (b.category || '—')
     : isGstEntry(b) ? 'GST' : (b.category || '—');
   const thead = `<tr><th style="width:52px;">Date</th><th>Type</th><th class="num" style="width:74px;">₹</th><th style="width:96px;"></th></tr>`;
   const rowFn = b => {
@@ -4474,7 +4487,7 @@ function renderBankRecent() {
     const sub = parts.join(' · ');
     return `<tr>
       <td style="white-space:nowrap;">${d}</td>
-      <td style="font-size:12px;word-break:break-word;">${esc(typeLabel(b))}${sub ? `<div style="color:var(--text3);font-size:11px;">${sub}</div>` : ''}</td>
+      <td style="font-size:12px;word-break:break-word;">${esc(typeLabel(b))} ${bankSrcBadge(b)}${sub ? `<div style="color:var(--text3);font-size:11px;">${sub}</div>` : ''}</td>
       <td class="num ${pos ? 'green-text' : 'red-text'}" style="white-space:nowrap;">${pos ? '+' : '–'}${inr(b.amount)}</td>
       <td style="padding-left:4px;padding-right:6px;"><div style="display:flex;gap:5px;justify-content:flex-end;"><button class="cat-act cat-edit" style="padding:3px 7px;font-size:11px;" onclick="editBankExpense('${b.id}')">Edit</button><button class="cat-act cat-del" style="padding:3px 7px;font-size:11px;" onclick="deleteBankExpense('${b.id}')">Del</button></div></td>
     </tr>`;
@@ -4967,10 +4980,9 @@ function bankCard(b) {
   const dir = !!b.direct;
   const gst = isGstEntry(b);
   const title = cap ? 'Capital infusion' : gst ? 'GST paid' : (b.category || 'Uncategorised');
-  const dirChip = '<span class="cat-badge" style="background:rgba(212,175,55,0.18);color:#caa63a;">Partner-paid</span>';
   const catChip = cap ? '<span class="cat-badge cat-vegano">Capital in</span>'
     : gst ? '<span class="cat-badge" style="background:rgba(126,200,227,0.16);color:#7ec8e3;">GST</span>'
-    : `<span class="cat-badge cat-antojitos">${esc(b.category || '—')}</span>${dir ? dirChip : ''}`;
+    : `<span class="cat-badge cat-antojitos">${esc(b.category || '—')}</span>${bankSrcBadge(b)}`;
   const whoChip = (cap || dir)
     ? `<span class="cat-badge cat-vegano">by ${esc(b.partner || b.addedBy || '—')}</span>`
     : `<span class="cat-badge cat-acompana">${esc(b.addedBy || '—')}${b.editedBy ? ' ✎' : ''}</span>`;
