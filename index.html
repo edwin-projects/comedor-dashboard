@@ -1323,7 +1323,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-12-18';
+const APP_VERSION = '2026-07-12-19';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -1445,6 +1445,7 @@ function initFirebase() {
     // Two independent category lists: staff (Cash) and partner (Bank).
     ['staff', 'partner'].forEach(kind => {
       _db.ref(_catRef(kind)).on('value', snap => {
+        if (_catSyncGuarded()) return;
         const val = snap.exists() ? snap.val() : null;
         const list = Array.isArray(val) ? val : (val && typeof val === 'object' ? Object.values(val) : null);
         if (list && list.length) localStorage.setItem(_catKey(kind), JSON.stringify(list));
@@ -1464,12 +1465,14 @@ function initFirebase() {
 
     // Master categories + tag→master map — the grouping layer, synced live.
     _db.ref('comedor/category_masters').on('value', snap => {
+      if (_catSyncGuarded()) return;   // a local edit just happened — don't let a stale echo undo it
       const v = snap.exists() ? snap.val() : null;
       const list = Array.isArray(v) ? v : (v && typeof v === 'object' ? Object.values(v) : null);
       if (list && list.length) localStorage.setItem('comedor_catmasters', JSON.stringify(list));
       refreshCatUI();
     }, onErr('category_masters'));
     _db.ref('comedor/category_map').on('value', snap => {
+      if (_catSyncGuarded()) return;
       const v = snap.exists() ? snap.val() : null;
       if (v && typeof v === 'object' && !Array.isArray(v)) localStorage.setItem('comedor_catmap', JSON.stringify(v));
       refreshCatUI();
@@ -2209,6 +2212,7 @@ function getCategories(kind) {
 function saveCategories(kind, list) {
   const clean = [];
   (list || []).forEach(c => { c = String(c || '').trim().toUpperCase(); if (c && !clean.some(x => x === c)) clean.push(c); });
+  _markCatWrite();
   localStorage.setItem(_catKey(kind), JSON.stringify(clean));
   if (_db) _db.ref(_catRef(kind)).set(clean).catch(syncWriteErr);
   // Refresh only the pickers that use this list.
@@ -2232,6 +2236,11 @@ const DEFAULT_MASTERS = [
   { name:'MISCELLANEOUS', icon:'🗂️' }
 ];
 const MISC_MASTER = 'MISCELLANEOUS';
+// After a local category/master/map write, ignore incoming Firebase echoes for a
+// few seconds so a stale server snapshot can't resurrect a just-deleted group.
+let _catSyncGuardUntil = 0;
+function _markCatWrite() { try { _catSyncGuardUntil = Date.now() + 6000; } catch (e) {} }
+function _catSyncGuarded() { try { return Date.now() < _catSyncGuardUntil; } catch (e) { return false; } }
 const DEFAULT_CATMAP = {};
 [
   ['GROCERIES & QUICK-COMMERCE', ['BLINKIT','SWIGGY INSTAMART','BIG BASKET','ZEPTO','AMAZON','GROCERY STORE EXPENSES']],
@@ -2274,12 +2283,14 @@ function saveMasters(list) {
   const clean = [];
   (list || []).forEach(x => { const name = String((x && x.name) || '').trim().toUpperCase(); if (name && !clean.some(c => c.name === name)) clean.push({ name, icon: (x && x.icon) || '🏷️' }); });
   if (!clean.some(c => c.name === MISC_MASTER)) clean.push({ name: MISC_MASTER, icon: '🗂️' });
+  _markCatWrite();
   localStorage.setItem('comedor_catmasters', JSON.stringify(clean));
   if (_db) _db.ref('comedor/category_masters').set(clean).catch(syncWriteErr);
 }
 function saveCatMap(map) {
   const clean = {};
   Object.keys(map || {}).forEach(k => { const t = String(k).trim().toUpperCase(); const m = String(map[k] || '').trim().toUpperCase(); if (t && m) clean[t] = m; });
+  _markCatWrite();
   localStorage.setItem('comedor_catmap', JSON.stringify(clean));
   if (_db) _db.ref('comedor/category_map').set(clean).catch(syncWriteErr);
 }
@@ -2415,28 +2426,88 @@ function addCategory(kind) {
   renderCategoryEditor(kind);
   btnFlash('cat-add-' + kind + '-btn', 'Adding…', 'Added ✓', 'Add ✓');
 }
+// How many real expense entries carry this category (bank + cash + ledger).
+function countCategoryInData(up) {
+  let n = 0;
+  try { loadBankEntries().forEach(b => { if (String(b.category || '').toUpperCase() === up) n++; }); } catch (e) {}
+  try { loadEntries().forEach(e => (e.expenses || []).forEach(x => { if (String(x.category || '').toUpperCase() === up) n++; })); } catch (e) {}
+  try { if (typeof HIST_LEDGER !== 'undefined') HIST_LEDGER.forEach(r => { if (String(r[4] || '').toUpperCase() === up) n++; }); } catch (e) {}
+  return n;
+}
+// Rewrite the category on every real entry oldUp → newName (this is how a rename
+// or merge actually moves the money, not just the picker label). Returns count.
+function renameCategoryInData(oldUp, newName) {
+  let n = 0;
+  try {
+    const bank = loadBankEntries(); let ch = false;
+    bank.forEach(b => { if (String(b.category || '').toUpperCase() === oldUp) { b.category = newName; ch = true; n++; if (_db && b.id) _db.ref('comedor/bank_expenses/' + b.id).update({ category: newName }).catch(function () {}); } });
+    if (ch) localStorage.setItem('comedor_bank', JSON.stringify(bank));
+  } catch (e) {}
+  try {
+    const entries = loadEntries(); let ch = false;
+    entries.forEach(e => {
+      let ech = false;
+      (e.expenses || []).forEach(x => { if (String(x.category || '').toUpperCase() === oldUp) { x.category = newName; ech = true; n++; } });
+      if (ech) { ch = true; if (_db && e.date) _db.ref('comedor/entries/' + e.date.replace(/-/g, '_') + '/expenses').set(e.expenses).catch(function () {}); }
+    });
+    if (ch) localStorage.setItem('comedor_entries', JSON.stringify(entries));
+  } catch (e) {}
+  // Historical ledger is source-baked; update the in-session copy so this view is
+  // consistent now (it re-derives from source on reload, where these stay fixed).
+  try { if (typeof HIST_LEDGER !== 'undefined') HIST_LEDGER.forEach(r => { if (String(r[4] || '').toUpperCase() === oldUp) r[4] = newName; }); } catch (e) {}
+  return n;
+}
+// Rename works on any category that appears in data — even ones never in the
+// curated list — and renaming to an existing name MERGES them.
 function editCategory(kind, oldName) {
-  const cats = getCategories(kind);
-  const i = cats.indexOf(oldName);
-  if (i < 0) return;
-  const next = prompt('Rename tag', cats[i]);
+  const oldUp = String(oldName).toUpperCase();
+  const next = prompt('Rename category (rename to an existing one to merge them)', oldName);
   if (next == null) return;
-  const name = next.trim();
-  if (!name || name.toUpperCase() === oldName.toUpperCase()) { if (name && name !== cats[i]) { cats[i] = name.toUpperCase(); saveCategories(kind, cats); } return; }
-  if (cats.some((c, j) => j !== i && c.toLowerCase() === name.toLowerCase())) { peopleMsg('“' + name + '” already exists', false); return; }
-  // Carry the tag's master assignment across the rename.
-  const map = loadCatMap(); const upOld = oldName.toUpperCase(), upNew = name.toUpperCase();
-  if (map[upOld]) { map[upNew] = map[upOld]; delete map[upOld]; saveCatMap(map); }
-  cats[i] = name;
-  saveCategories(kind, cats);
+  const name = next.trim().toUpperCase();
+  if (!name || name === oldUp) return;
+  const everywhere = getCategories('staff').concat(getCategories('partner'), categoriesInUse('staff'), categoriesInUse('partner'));
+  const exists = everywhere.some(c => c.toUpperCase() === name);
+  if (exists && !confirm('“' + name + '” already exists. Merge “' + oldName + '” into it? Every entry becomes “' + name + '”.')) return;
+  const moved = renameCategoryInData(oldUp, name);
+  // Replace the label in both stored lists (data is shared across them).
+  ['staff', 'partner'].forEach(k => {
+    const cats = getCategories(k);
+    if (!cats.some(c => c.toUpperCase() === oldUp)) return;
+    saveCategories(k, cats.map(c => c.toUpperCase() === oldUp ? name : c));
+  });
+  // Carry the master assignment (keep the target's if it already has one).
+  const map = loadCatMap();
+  if (map[oldUp] && !map[name]) map[name] = map[oldUp];
+  if (map[oldUp]) delete map[oldUp];
+  saveCatMap(map);
+  renderCategories();
+  refreshCatUI();
+  peopleMsg(moved ? ('Updated ' + moved + ' entr' + (moved === 1 ? 'y' : 'ies')) : 'Renamed', true);
 }
 function deleteCategory(kind, name) {
+  const up = String(name).toUpperCase();
   const cats = getCategories(kind);
-  const i = cats.indexOf(name);
-  if (i < 0) return;
-  if (!confirm('Remove tag “' + cats[i] + '”? Existing entries keep their label; it just won\'t appear in the picker.')) return;
-  cats.splice(i, 1);
-  saveCategories(kind, cats);
+  const inList = cats.some(c => c.toUpperCase() === up);
+  const used = countCategoryInData(up);
+  if (used > 0) {
+    // Can't just drop a category that's on real entries — offer to merge it away.
+    const other = prompt('“' + name + '” is on ' + used + ' entr' + (used === 1 ? 'y' : 'ies') + '.\n\nType another category to MERGE these into (they take that name), or Cancel and use it as-is.');
+    if (other == null) return;
+    const t = other.trim().toUpperCase();
+    if (!t) return;
+    renameCategoryInData(up, t);
+    if (inList) saveCategories(kind, cats.filter(c => c.toUpperCase() !== up));
+    const map = loadCatMap(); if (map[up]) delete map[up]; saveCatMap(map);
+    renderCategories();
+    refreshCatUI();
+    peopleMsg('Merged into “' + t + '”', true);
+    return;
+  }
+  if (!inList) { renderCategoryEditor(kind); return; }
+  if (!confirm('Remove “' + name + '”? It only affects the picker; no entries use it.')) return;
+  saveCategories(kind, cats.filter(c => c.toUpperCase() !== up));
+  const map = loadCatMap(); if (map[up]) delete map[up]; saveCatMap(map);
+  renderCategories();
 }
 function moveCategory(kind, name) {
   const masters = loadMasters();
