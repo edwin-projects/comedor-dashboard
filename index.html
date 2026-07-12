@@ -245,7 +245,11 @@
   .eq3 { display:flex; justify-content:space-between; align-items:baseline; gap:12px; font-family:'Inter',sans-serif; }
   .eq3-k { font-size:12px; color:var(--text2); }
   .eq3-v { font-size:14px; color:var(--text); font-variant-numeric:tabular-nums lining-nums; white-space:nowrap; }
-  .eq3-sub { font-size:10.5px; color:var(--text3); margin-top:3px; line-height:1.35; font-variant-numeric:tabular-nums lining-nums; }
+  .eq3-sub { margin-top:5px; }
+  .eqp { display:flex; justify-content:space-between; align-items:baseline; gap:12px; padding:2px 0 2px 10px; font-family:'Inter',sans-serif; }
+  .eqp-k { font-size:11px; color:var(--text3); letter-spacing:0.2px; }
+  .eqp-v { font-size:11.5px; color:var(--text2); font-variant-numeric:tabular-nums lining-nums; white-space:nowrap; }
+  .eqp-diff .eqp-k, .eqp-diff .eqp-v { color:var(--accent2); }
   .eq3-net .eq3-k, .eq3-net .eq3-v { font-weight:600; color:var(--text); }
 
   /* BAR CHART */
@@ -1228,7 +1232,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-12-07';
+const APP_VERSION = '2026-07-12-08';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -4204,13 +4208,14 @@ function renderPnlBank() {
   const netParts = inr(net).match(/^(\D*)(.*)$/);
   const heroNet = `<span class="cv-fig"><span class="cv-pre">${netParts[1]}</span>${netParts[2]}</span>`;
 
-  // Per-partner split "EDWIN ₹.. · PRATHVI ₹.." + who's ahead by how much.
+  // Per-partner split as stacked rows (label left, amount right-aligned) plus a
+  // final "<leader> up by" row showing who has put in more and by how much.
   const capSplitLine = map => {
     const e = Object.entries(map).filter(kv => Math.abs(kv[1]) > 0.5).sort((a, b) => b[1] - a[1]);
     if (!e.length) return '';
-    let s = e.map(([k, v]) => `${esc(k)} ${inr(v)}`).join(' · ');
-    if (e.length >= 2) { const d = e[0][1] - e[1][1]; if (d > 0.5) s += ` · ${esc(e[0][0])} ahead ${inr(d)}`; }
-    return s;
+    let rows = e.map(([k, v]) => `<div class="eqp"><span class="eqp-k">${esc(k)}</span><span class="eqp-v">${inr(v)}</span></div>`).join('');
+    if (e.length >= 2) { const d = e[0][1] - e[1][1]; if (d > 0.5) rows += `<div class="eqp eqp-diff"><span class="eqp-k">${esc(e[0][0])} up by</span><span class="eqp-v">${inr(d)}</span></div>`; }
+    return rows;
   };
 
   const sEl = document.getElementById('pnl-summary');
