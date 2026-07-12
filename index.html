@@ -1194,7 +1194,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-11-04';
+const APP_VERSION = '2026-07-11-05';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -4081,6 +4081,18 @@ function renderPnlBank() {
       if (bb.direct) return;                        // partner paid a vendor directly — never moved through IDFC
       if (baseISO && bb.date <= baseISO) return;   // already reflected in the statement balance
       bankBal += (bb.capital ? 1 : -1) * (Number(bb.amount) || 0);
+    });
+    // Digital (UPI/Card) sales settle into the bank, so add them to the balance
+    // for every day AFTER the statement date (days on/before are already baked
+    // into the base). Cash sales are NOT added here — they already live in the
+    // cash balance (the day's closing count), so adding them would double-count.
+    // Source: the manager's daily UPI+Card. (Pet Pooja's item-wise report carries
+    // no payment-mode split, so the register's figures are used — the agreed
+    // fallback; if a report ever gives a UPI/Card split, prefer that.)
+    loadEntries().forEach(function (e) {
+      if (!e || !e.date) return;
+      if (baseISO && e.date <= baseISO) return;
+      bankBal += (Number(e.upi) || 0) + (Number(e.card) || 0);
     });
   }
   const inr = n => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN');
