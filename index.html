@@ -1323,7 +1323,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-12-19';
+const APP_VERSION = '2026-07-12-20';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -3660,7 +3660,7 @@ function renderExpenseCats() {
   const ordered = Object.entries(groups).sort((a, b) => b[1].total - a[1].total);
   el.innerHTML = '<div class="mcat-acc">' + ordered.map(([name, g], i) => {
     const subs = g.subs.sort((a, b) => b[1] - a[1]);
-    return `<div class="mcat${i === 0 ? ' open' : ''}">
+    return `<div class="mcat">
       <div class="mcat-head" onclick="toggleMcat(this)">
         <span class="mcat-ic">${iconOf(name)}</span>
         <span class="mcat-name">${esc(name)}</span>
