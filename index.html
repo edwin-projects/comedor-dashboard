@@ -1232,7 +1232,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-12-08';
+const APP_VERSION = '2026-07-12-09';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -4247,9 +4247,7 @@ function renderPnlBank() {
         </span>
       </div>
       <div class="cap-body">
-        <div class="eqblock"><div class="eq3"><span class="eq3-k">Infused capital</span><span class="eq3-v">${inr(capIntroduced)}</span></div><div class="eq3-sub">${capSplitLine(introBy)}</div></div>
-        <div class="eqblock"><div class="eq3"><span class="eq3-k">Withdrawals</span><span class="eq3-v ${capDrawn > 0 ? 'red-text' : ''}">${capDrawn > 0 ? '−' + inr(capDrawn) : inr(0)}</span></div>${capDrawn > 0 ? `<div class="eq3-sub">${capSplitLine(drawBy)}</div>` : ''}</div>
-        <div class="eqblock eq3-net"><div class="eq3"><span class="eq3-k">Net capital</span><span class="eq3-v">${inr(capital)}</span></div><div class="eq3-sub">${capSplitLine(netBy)}</div></div>
+        <div class="eqblock"><div class="eq3-sub" style="margin-top:0;">${capSplitLine(netBy)}</div></div>
         <div class="eqblock" style="margin-top:5px;"><div class="eq3"><span class="eq3-k">Capex · assets &amp; build-out</span><span class="eq3-v">${inr(tC)}</span></div></div>
         <div class="eqblock"><div class="eq3"><span class="eq3-k">Operating spend</span><span class="eq3-v">${inr(tO)}</span></div></div>
         <div class="eqblock"><div class="eq3"><span class="eq3-k">Setup · pre-opening costs</span><span class="eq3-v">${inr(tS)}</span></div></div>
