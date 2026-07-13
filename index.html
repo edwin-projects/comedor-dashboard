@@ -468,16 +468,16 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 .opening-hint.warn { background: rgba(224,82,82,0.1);   border: 1px solid rgba(224,82,82,0.3);   color: var(--red); }
 .opening-hint.info { background: var(--surface2); border: 1px solid var(--border); color: var(--text2); }
 /* Cash Dashboard */
-.dash-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
-.dfbtn { padding: 5px 11px; background: var(--surface2); border: 1px solid var(--border); color: var(--text2); border-radius: 6px; cursor: pointer; font-size: 10.5px; font-family: 'Inter', sans-serif; letter-spacing: 0.6px; text-transform: uppercase; white-space: nowrap; transition: all 0.2s; }
+.dash-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
+.dfbtn { padding: 3.5px 8px; background: var(--surface2); border: 1px solid var(--border); color: var(--text2); border-radius: 6px; cursor: pointer; font-size: 9.5px; font-family: 'Inter', sans-serif; letter-spacing: 0.4px; text-transform: uppercase; white-space: nowrap; transition: all 0.2s; }
 .dfbtn:hover { border-color: var(--accent); color: var(--accent); }
 .dfbtn.active { background: linear-gradient(135deg, #F0D488 0%, #C9A040 52%, #A9812C 100%); border-color: #C9A040; color: #201700; font-weight: 700; box-shadow: 0 2px 9px rgba(201,160,64,0.30); }
-.dfselect { -webkit-appearance: none; appearance: none; padding-right: 24px;
+.dfselect { -webkit-appearance: none; appearance: none; padding-right: 20px;
   background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7'><path d='M1 1l4 4 4-4' fill='none' stroke='%2390A89A' stroke-width='1.5' stroke-linecap='round'/></svg>");
-  background-repeat: no-repeat; background-position: right 9px center; }
+  background-repeat: no-repeat; background-position: right 7px center; }
 .dfselect:hover { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7'><path d='M1 1l4 4 4-4' fill='none' stroke='%23C9A040' stroke-width='1.5' stroke-linecap='round'/></svg>"); }
 .dfselect.active { color: #201700 !important;
-  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7'><path d='M1 1l4 4 4-4' fill='none' stroke='%23201700' stroke-width='1.8' stroke-linecap='round'/></svg>") no-repeat right 9px center,
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7'><path d='M1 1l4 4 4-4' fill='none' stroke='%23201700' stroke-width='1.8' stroke-linecap='round'/></svg>") no-repeat right 7px center,
     linear-gradient(135deg, #F0D488 0%, #C9A040 52%, #A9812C 100%); }
 .dfselect option { background: var(--surface); color: var(--text); font-weight: 400; }
 .dash-export-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
@@ -786,10 +786,10 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
     <button class="dfbtn" onclick="setDashFilter('yesterday',this)">Yesterday</button>
     <button class="dfbtn" onclick="setDashFilter('lastmonth',this)">Last Month</button>
     <button class="dfbtn" onclick="setDashFilter('month',this)">This Month</button>
+    <select class="dfbtn dfselect" id="dash-month" onchange="setDashMonth(this)" aria-label="Filter by month"></select>
     <button class="dfbtn" onclick="setDashFilter('ytd',this)">FY&nbsp;YTD</button>
     <button class="dfbtn" onclick="setDashFilter('lifetime',this)">Lifetime</button>
     <button class="dfbtn" onclick="setDashFilter('custom',this)">Custom</button>
-    <select class="dfbtn dfselect" id="dash-month" onchange="setDashMonth(this)" aria-label="Filter by month"></select>
   </div>
   <div id="dash-period" style="font-size:11px; color:var(--text3); font-family:'Inter',sans-serif; letter-spacing:0.5px; margin:2px 0 16px;"></div>
 
@@ -1335,7 +1335,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-12-28';
+const APP_VERSION = '2026-07-12-29';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -3460,15 +3460,19 @@ let currentDashFilter = 'today';   // default view is always Today
 let dashCustomFrom = null, dashCustomTo = null;
 let dashMonthISO = null;           // 'YYYY-MM' when the Months dropdown drives the view
 
-// Populate the Months dropdown with the 12 months of the current financial year
-// (Apr → Mar), each labelled with its real year so there's no ambiguity.
+// Populate the Months dropdown with every month that could hold data — from the
+// app's first day (Mar 2026) through the current month — each labelled with its
+// real year so there's no ambiguity. (The CSS caret is the only down-arrow; the
+// placeholder text carries none.)
 function populateMonthFilter() {
   const sel = document.getElementById('dash-month'); if (!sel) return;
   const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const fs = fyStartDate(new Date());   // 1 April of the current FY
-  let html = '<option value="">Months ▾</option>';
-  for (let i = 0; i < 12; i++) {
-    const d = new Date(fs.getFullYear(), fs.getMonth() + i, 1);
+  const [sy, sm] = (LEDGER_OPEN || '2026-03-05').split('-').map(Number);   // first data month
+  const start = new Date(sy, sm - 1, 1);
+  const now = new Date();
+  const end = new Date(now.getFullYear(), now.getMonth(), 1);             // current month
+  let html = '<option value="">Months</option>';
+  for (let d = new Date(start); d <= end; d.setMonth(d.getMonth() + 1)) {
     const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
     html += `<option value="${iso}">${MON[d.getMonth()]} ${d.getFullYear()}</option>`;
   }
