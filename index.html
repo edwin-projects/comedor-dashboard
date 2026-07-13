@@ -38,19 +38,19 @@
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      /* Atelier Noir — warm charcoal, brass, muted sage/clay */
-      --bg: #14110C; --surface: #1C1813; --surface2: #242019; --border: #322A1B;
-      --accent: #F0E6D2; --accent2: #C9A15A; --green: #93BB8C; --red: #CE8E7C;
-      --text: #F2E9D8; --text2: #B7AB95; --text3: #847A63;
+      /* Jardín Verde — Deep Forest: light Jardín inverted, warm gold on deep forest */
+      --bg: #0C1410; --surface: #121D16; --surface2: #17271D; --border: #25382C;
+      --accent: #EAF2E8; --accent2: #C9A040; --green: #6FCF97; --red: #E0836F;
+      --text: #EAF2E8; --text2: #9DB6A6; --text3: #6B8676;
       --cat-platos-c: #D9A066; --cat-bebidas-c: #C9A040; --cat-antojitos-c: #DBBB63;
       --cat-postres-c: #E0857A; --cat-vegano-c: #8FB89A; --cat-acompana-c: #A6A29A;
     }
   }
   :root[data-theme="dark"] {
-    /* Atelier Noir — warm charcoal, brass, muted sage/clay */
-    --bg: #14110C; --surface: #1C1813; --surface2: #242019; --border: #322A1B;
-    --accent: #F0E6D2; --accent2: #C9A15A; --green: #93BB8C; --red: #CE8E7C;
-    --text: #F2E9D8; --text2: #B7AB95; --text3: #847A63;
+    /* Jardín Verde — Deep Forest: light Jardín inverted, warm gold on deep forest */
+    --bg: #0C1410; --surface: #121D16; --surface2: #17271D; --border: #25382C;
+    --accent: #EAF2E8; --accent2: #C9A040; --green: #6FCF97; --red: #E0836F;
+    --text: #EAF2E8; --text2: #9DB6A6; --text3: #6B8676;
     --cat-platos-c: #D9A066; --cat-bebidas-c: #C9A040; --cat-antojitos-c: #DBBB63;
     --cat-postres-c: #E0857A; --cat-vegano-c: #8FB89A; --cat-acompana-c: #A6A29A;
   }
@@ -1326,7 +1326,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-12-25';
+const APP_VERSION = '2026-07-12-26';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
