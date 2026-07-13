@@ -1335,7 +1335,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-12-29';
+const APP_VERSION = '2026-07-12-30';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -4658,9 +4658,14 @@ function renderPnlBank() {
   // cash register — so the figure isn't ₹0 until the report is uploaded. Once a
   // Pet Pooja report covers the day, that day is "owned" and the register value
   // is dropped, so nothing double-counts.
+  // Guard: only fall back on days on/after the FIRST Pet Pooja report. Days that
+  // predate the POS going live (pre-POS cash-book entries) will never get a
+  // report, so treating them as "pending" would inflate income above Pet Pooja —
+  // the source of truth (rule 8). Such days stay in the cash book, out of income.
   const _ppOwner = incomeDayOwner();
+  const _ppStart = loadIncome().reduce((m, r) => (r.from && (!m || r.from < m)) ? r.from : m, null);
   const ppIncome = Math.round(incomeInRange(range.from, range.to));
-  const regFallback = Math.round(cashEntries.reduce((s, e) => s + ((e.date && _ppOwner[e.date] === undefined) ? (Number(e.totalSales) || 0) : 0), 0));
+  const regFallback = Math.round(cashEntries.reduce((s, e) => s + ((e.date && _ppOwner[e.date] === undefined && (!_ppStart || e.date >= _ppStart)) ? (Number(e.totalSales) || 0) : 0), 0));
   const income = ppIncome + regFallback;
   const estFromRegister = regFallback > 0;
   const discount = Math.round(incomeFieldInRange(range.from, range.to, 'discount'));
