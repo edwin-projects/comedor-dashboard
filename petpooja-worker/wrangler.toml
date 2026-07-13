@@ -1,0 +1,29 @@
+# Cloudflare Worker config for the Comedor × Pet Pooja bridge.
+# Deploy:  npx wrangler deploy      (needs CLOUDFLARE_API_TOKEN + account_id)
+# Secrets: set with `npx wrangler secret put <NAME>` — never commit them.
+
+name = "comedor-petpooja"
+main = "src/worker.js"
+compatibility_date = "2025-01-01"
+
+# Nightly reconcile pull. 20:30 UTC = 02:00 IST — safely after the business day
+# has closed. Adjust if the outlet's day-end differs.
+[triggers]
+crons = ["30 20 * * *"]
+
+[vars]
+# Non-secret config (safe to commit). Secrets below are NOT set here.
+FIREBASE_DB_URL = ""            # e.g. https://comedor-xxxx-default-rtdb.firebaseio.com
+PETPOOJA_PULL_URL = ""         # real Get-Orders endpoint (doc shows placeholder xyz.com/data)
+PETPOOJA_PULL_METHOD = "POST"  # GET-with-body isn't sendable; confirm verb with Pet Pooja
+PETPOOJA_RESTID = ""           # outlet mapping code
+RECONCILE_DAYS = "3"
+
+# Secrets — set via `wrangler secret put`, do not put values in this file:
+#   WEBHOOK_TOKEN              shared static token echoed by Pet Pooja pushes
+#   FIREBASE_SERVICE_ACCOUNT   full service-account JSON (one line)
+#   PETPOOJA_APP_KEY
+#   PETPOOJA_APP_SECRET
+#   PETPOOJA_ACCESS_TOKEN
+#
+# account_id is read from the CLOUDFLARE_ACCOUNT_ID env var at deploy time.
