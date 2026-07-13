@@ -1335,7 +1335,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-12-30';
+const APP_VERSION = '2026-07-13-01';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -2256,7 +2256,7 @@ const DEFAULT_MASTERS = [
 const MISC_MASTER = 'MISCELLANEOUS';
 // Groups retired for good — always filtered out of the master list, even if an
 // old saved/synced copy still contains them. (Their tags fall to their default.)
-const RETIRED_MASTERS = ['GROCERIES & QUICK-COMMERCE'];
+const RETIRED_MASTERS = ['GROCERIES & QUICK-COMMERCE', 'GROCERIES'];
 // After a local category/master/map write, ignore incoming Firebase echoes for a
 // few seconds so a stale server snapshot can't resurrect a just-deleted group.
 let _catSyncGuardUntil = 0;
