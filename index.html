@@ -1326,7 +1326,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-12-24';
+const APP_VERSION = '2026-07-12-25';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -4879,7 +4879,10 @@ function editBankExpense(id) {
   const sb = document.getElementById('bank-form-success');
   sb.innerHTML = `<strong>Editing</strong> — bank entry from ${when}, added by ${b.addedBy || '—'}. Change the values and save. <button class="btn btn-ghost" style="padding:2px 9px;font-size:11px;margin-left:8px;" onclick="cancelBankEdit()">Cancel</button>`;
   sb.style.display = 'block';
-  window.scrollTo(0, 0);
+  // Open the Add Bank / Account Expense card so the fields are actually visible,
+  // and scroll to them (the banner alone left nothing to edit).
+  const bc = document.getElementById('setcard-bankexp'); if (bc) bc.classList.remove('collapsed');
+  document.getElementById('be-date').scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 
 function cancelBankEdit() {
