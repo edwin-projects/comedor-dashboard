@@ -506,6 +506,9 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 .month-block.collapsed .month-rows { display: none; }
 .month-block.collapsed .mh-chev { transform: rotate(-90deg); }
 .month-rows table { width: 100%; }
+/* Master-group chip shown under a bank entry's category, so a wrong backfill guess stands out */
+.grp-line { margin-top: 3px; }
+.grp-chip { display:inline-flex; align-items:center; gap:4px; font-size:9.5px; font-weight:600; letter-spacing:0.3px; text-transform:uppercase; color:var(--accent2); background:rgba(201,161,90,0.12); border:1px solid var(--border); border-radius:9px; padding:1px 7px; }
 .log-scroll .month-rows thead th { position: static; }
 /* Highlighted "where did the money go?" destination select */
 .field-select.dest-highlight { border: 1.5px solid #C9A040; background: rgba(201,160,64,0.10); box-shadow: 0 0 0 3px rgba(201,160,64,0.10); }
@@ -1323,7 +1326,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-12-23';
+const APP_VERSION = '2026-07-12-24';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -4760,7 +4763,9 @@ function bankCatOptions(force) {
   if (force || sel.options.length <= 1) {
     const keep = sel.value;
     sel.innerHTML = '<option value="">Select category…</option>';
-    getCategories('partner').forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
+    // Include every category actually in use (e.g. backfilled 'VENDOR / OTHER'),
+    // not just the curated list, so any entry can be re-categorised on edit.
+    editorCategories('partner').forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
     if (keep) sel.value = keep;
   }
   enhanceCatSelect(sel); if (sel._csSync) sel._csSync();
@@ -4772,7 +4777,7 @@ function capCatOptions() {
   if (!sel) return;
   const keep = sel.value;
   sel.innerHTML = '<option value="">Select category…</option>';
-  getCategories('partner').forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
+  editorCategories('partner').forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; sel.appendChild(o); });
   if (keep) sel.value = keep;
   enhanceCatSelect(sel); if (sel._csSync) sel._csSync();
 }
@@ -4860,10 +4865,13 @@ function editBankExpense(id) {
     return;
   }
 
-  bankCatOptions();
+  bankCatOptions(true);
+  const beCat = document.getElementById('be-category');
+  // Guarantee this entry's category is selectable even if it's an unusual/backfilled one.
+  if (b.category && !Array.from(beCat.options).some(o => o.value === b.category)) { const o = document.createElement('option'); o.value = b.category; o.textContent = b.category; beCat.appendChild(o); }
   document.getElementById('be-date').value     = b.date || '';
   setMoney('be-amount', b.amount || '');
-  document.getElementById('be-category').value = b.category || '';
+  beCat.value = b.category || '';
   csSync('be-category');
   document.getElementById('be-desc').value     = b.desc || '';
   const btn = document.getElementById('be-submit-btn');
@@ -5135,9 +5143,15 @@ function renderBankRecent() {
     if (b.desc && b.desc !== 'Capital infusion') parts.push(esc(b.desc));
     if (b.addedBy) parts.push('by ' + esc(b.addedBy) + (b.editedBy ? ' ✎' : ''));
     const sub = parts.join(' · ');
+    // Show which master group this entry's category rolls up to, so a wrong
+    // backfill guess is obvious. Only for real expense entries (not capital/
+    // drawings/GST, which aren't categorised spend).
+    const showGrp = !b.capital && !b.payout && !b.direct && !isGstEntry(b) && b.category;
+    const grp = showGrp ? masterOf(b.category) : '';
+    const grpChip = grp ? `<div class="grp-line"><span class="grp-chip">${iconOf(grp)} ${esc(grp)}</span></div>` : '';
     return `<tr>
       <td style="white-space:nowrap;">${d}</td>
-      <td style="font-size:12px;word-break:break-word;">${esc(typeLabel(b))} ${bankSrcBadge(b)}${sub ? `<div style="color:var(--text3);font-size:11px;">${sub}</div>` : ''}</td>
+      <td style="font-size:12px;word-break:break-word;">${esc(typeLabel(b))} ${bankSrcBadge(b)}${grpChip}${sub ? `<div style="color:var(--text3);font-size:11px;">${sub}</div>` : ''}</td>
       <td class="num ${pos ? 'green-text' : 'red-text'}" style="white-space:nowrap;">${pos ? '+' : '–'}${inr(b.amount)}</td>
       <td style="padding-left:4px;padding-right:6px;"><div style="display:flex;gap:5px;justify-content:flex-end;"><button class="cat-act cat-edit" style="padding:3px 7px;font-size:11px;" onclick="editBankExpense('${b.id}')">Edit</button><button class="cat-act cat-del" style="padding:3px 7px;font-size:11px;" onclick="deleteBankExpense('${b.id}')">Del</button></div></td>
     </tr>`;
