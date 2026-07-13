@@ -1335,7 +1335,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-13-01';
+const APP_VERSION = '2026-07-13-02';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -1486,7 +1486,20 @@ function initFirebase() {
     _db.ref('comedor/category_map').on('value', snap => {
       if (_catSyncGuarded()) return;
       const v = snap.exists() ? snap.val() : null;
-      if (v && typeof v === 'object' && !Array.isArray(v)) localStorage.setItem('comedor_catmap', JSON.stringify(v));
+      let map = null;
+      if (v && typeof v === 'object') {
+        const vals = Array.isArray(v) ? v : Object.values(v);
+        // Legacy form: values are master-name strings. Pair form: values are [tag, master] arrays/objects.
+        const isPairs = vals.length && vals.every(p => p && typeof p === 'object');
+        if (isPairs) {
+          // New [tag, master] pair form (see saveCatMap — avoids '/'-in-key rejection).
+          map = {};
+          vals.forEach(p => { const t = String((p && p[0]) || '').trim().toUpperCase(); const m = String((p && p[1]) || '').trim().toUpperCase(); if (t && m) map[t] = m; });
+        } else if (!Array.isArray(v)) {
+          map = v;   // legacy object form {TAG: MASTER}
+        }
+      }
+      if (map) localStorage.setItem('comedor_catmap', JSON.stringify(map));
       refreshCatUI();
     }, onErr('category_map'));
     _db.ref('comedor/category_masters_deleted').on('value', snap => {
@@ -2359,7 +2372,11 @@ function saveCatMap(map) {
   Object.keys(map || {}).forEach(k => { const t = String(k).trim().toUpperCase(); const m = String(map[k] || '').trim().toUpperCase(); if (t && m) clean[t] = m; });
   _markCatWrite();
   localStorage.setItem('comedor_catmap', JSON.stringify(clean));
-  if (_db) _db.ref('comedor/category_map').set(clean).catch(syncWriteErr);
+  // Store as [tag, master] pairs, NOT an object keyed by tag: some category names
+  // contain '/' (e.g. "VENDOR / OTHER"), and Firebase forbids '/.#$[]' in keys —
+  // an object-keyed .set() would reject and silently drop the whole map, so
+  // reassignments never reached other devices. Pairs use integer indices → always valid.
+  if (_db) _db.ref('comedor/category_map').set(Object.keys(clean).map(k => [k, clean[k]])).catch(syncWriteErr);
 }
 function assignMaster(tag, master) { const map = loadCatMap(); map[String(tag).trim().toUpperCase()] = String(master).trim().toUpperCase(); saveCatMap(map); }
 // Every category that actually appears in spend for this list's domain — even
