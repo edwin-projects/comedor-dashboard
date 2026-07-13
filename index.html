@@ -1335,7 +1335,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-13-03';
+const APP_VERSION = '2026-07-13-04';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -3006,7 +3006,7 @@ function compressImage(file, callback) {
 }
 
 function saveDraftExpenses() {
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayLocalISO();
   const savedRows = expenseRows.filter(r => r.saved);
   if (savedRows.length > 0) {
     localStorage.setItem('comedor_draft_expenses', JSON.stringify({ date: today, rows: savedRows }));
@@ -3016,7 +3016,7 @@ function saveDraftExpenses() {
 }
 
 function loadDraftExpenses() {
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayLocalISO();
   const raw   = localStorage.getItem('comedor_draft_expenses');
   if (!raw) return;
   const draft = JSON.parse(raw);
@@ -3152,7 +3152,7 @@ function submitEntry() {
 
   // Reset
   localStorage.removeItem('comedor_draft_expenses');
-  document.getElementById('entry-date').value = new Date().toISOString().split('T')[0];
+  document.getElementById('entry-date').value = todayLocalISO();
   document.getElementById('f-opening').value = '';
   document.getElementById('f-cash').value    = '';
   document.getElementById('f-upi').value     = '';
@@ -3934,7 +3934,7 @@ function downloadCSV() {
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href = url;
-  a.download = `comedor-cash-${currentDashFilter}-${new Date().toISOString().split('T')[0]}.csv`;
+  a.download = `comedor-cash-${currentDashFilter}-${todayLocalISO()}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -5205,7 +5205,7 @@ function renderBankList() {
   bankCatOptions();
   capPartnerOptions();
   payoutPartnerOptions();
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayLocalISO();
   const bd = document.getElementById('be-date'); if (bd && !bd.value) bd.value = today;
   const cd = document.getElementById('cap-date'); if (cd && !cd.value) cd.value = today;
   const pd = document.getElementById('po-date'); if (pd && !pd.value) pd.value = today;
@@ -5409,9 +5409,25 @@ function incomeDayOwner() {
     if (sa !== sb) return sa - sb;
     return (a.from || '').localeCompare(b.from || '');
   });
+  // The current day is still in progress and future days haven't happened, so a
+  // MULTI-day report's even-spread estimate must not claim them — otherwise a
+  // month/period report spreads a phantom slice onto "Today" (income shows sales
+  // while expenses are still ₹0) and the new day never reads as a clean slate at
+  // midnight. Past days are untouched, so completed periods are unaffected. A
+  // genuine single-day record (a per-day report, or the Pet Pooja API's daily
+  // record) still owns today the moment it exists — real same-day sales count.
+  const today = todayLocalISO();
   const owner = {};
   // guard caps the loop (~11 years) so a malformed date can never hang the app.
-  recs.forEach(r => { let g = 0; for (let d = r.from; d <= r.to && g < 4000; d = isoAdd(d, 1), g++) if (owner[d] === undefined) owner[d] = r.id; });
+  recs.forEach(r => {
+    const span = daysInclusive(r.from, r.to);
+    let g = 0;
+    for (let d = r.from; d <= r.to && g < 4000; d = isoAdd(d, 1), g++) {
+      if (d > today) continue;                  // future days can't have earned income yet
+      if (d === today && span > 1) continue;     // ongoing day: only a same-day record counts, not a period estimate
+      if (owner[d] === undefined) owner[d] = r.id;
+    }
+  });
   return owner;
 }
 function incomeFieldInRange(from, to, field) {
@@ -5884,7 +5900,7 @@ function focusLog(which, opts) {
 
 function saveBankBalance() {
   const amt = money('bank-bal-input');
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayLocalISO();
   let prev = null; try { prev = JSON.parse(localStorage.getItem('comedor_bankbal') || 'null'); } catch (e) {}
   const meta = { amount: amt, asOf: new Date(today + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }), asOfISO: today, by: (currentUser ? currentUser.name : '') };
   localStorage.setItem('comedor_bankbal', JSON.stringify(meta));
@@ -6099,7 +6115,7 @@ function normalizeDate(s) {
   if (m) { let d = m[1], mo = m[2], y = m[3]; if (y.length === 2) y = '20' + y; return `${y}-${String(mo).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
   m = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
   if (m) return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
-  return new Date().toISOString().split('T')[0];
+  return todayLocalISO();
 }
 
 // ─── PEOPLE / ACCESS MANAGEMENT (Partners) ───────────────────────────────────
@@ -6434,7 +6450,7 @@ window.onload = function() {
   }
   bankCatOptions();
   const bd = document.getElementById('be-date');
-  if (bd) bd.value = new Date().toISOString().split('T')[0];
+  if (bd) bd.value = todayLocalISO();
   const bb = (function(){ try { return JSON.parse(localStorage.getItem('comedor_bankbal') || 'null'); } catch(e){ return null; } })();
   const bbi = document.getElementById('bank-bal-input');
   if (bb && bbi) bbi.value = bb.amount;
@@ -6442,9 +6458,32 @@ window.onload = function() {
   checkForUpdate();
   // Re-check whenever the app returns to the foreground (reopened tab / resumed
   // PWA) and as a slow heartbeat while it stays open.
-  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkForUpdate(); });
-  setInterval(() => { if (document.visibilityState === 'visible') checkForUpdate(); }, 120000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { checkForUpdate(); checkDayRollover(); } });
+  setInterval(() => { if (document.visibilityState === 'visible') { checkForUpdate(); checkDayRollover(); } }, 120000);
 };
+
+// Midnight roll-over. If the app is left open across midnight, the local date
+// changes but nothing re-renders, so "Today" would keep showing yesterday. Watch
+// for the day flipping (on foreground + heartbeat) and, when it does, re-render
+// the dashboard so Today becomes a clean slate, and roll the cash form's date
+// default forward if it was still on the old day (and untouched).
+let _lastLocalDay = todayLocalISO();
+function checkDayRollover() {
+  const now = todayLocalISO();
+  if (now === _lastLocalDay) return;
+  const prevDay = _lastLocalDay;
+  _lastLocalDay = now;
+  // Advance the cash form's date only if it was sitting on the day that just
+  // ended and the user hasn't started entering a different day — never clobber
+  // an in-progress entry or a manually back-dated day.
+  const ed = document.getElementById('entry-date');
+  if (ed && ed.value === prevDay && !(_editingEntry && _editingEntry.date && _editingEntry.date !== prevDay)) {
+    ed.value = now;
+    try { hydrateFormForDate(now); } catch (e) {}
+    try { checkOpening(); } catch (e) {}
+  }
+  if (document.getElementById('panel-dashboard') && document.getElementById('panel-dashboard').classList.contains('active')) renderDashboard();
+}
 
 // Ask the server (bypassing the HTTP cache with no-store) what the current build
 // is. If it's newer than the one we're running, reload once to pick it up. This
