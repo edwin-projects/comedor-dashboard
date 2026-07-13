@@ -31,8 +31,10 @@ the second layer. Do not remove either.
    must fit the viewport with no horizontal overflow; prefer card layouts over wide tables on
    small screens; keep tap targets large.
 
-4. **Black · white · gold, Grotesque type.** Dark theme is near-black background with bright
-   white text/accents and the gold Wolfpack emblem; light theme is the green "Jardín" palette.
+4. **Green · gold, Grotesque type.** Dark theme is "Jardín Verde — Deep Forest": a deep-forest
+   green-black ground (`--bg:#0C1410`) with near-white green-tinted text, soft mint positives
+   (`--green:#6FCF97`) and the gold Wolfpack emblem/accent (`--accent2:#C9A040`); light theme is
+   the green "Jardín" palette (deep green `#1A5C38` + gold). Dark = light Jardín inverted.
    Fonts: Inter throughout, lightened numerals, uppercase letter-spaced section titles.
    Positive/negative figures stay green/red.
 
