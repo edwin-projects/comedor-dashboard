@@ -1326,7 +1326,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-12-26';
+const APP_VERSION = '2026-07-12-27';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -2255,9 +2255,9 @@ function _markCatWrite() { try { _catSyncGuardUntil = Date.now() + 6000; } catch
 function _catSyncGuarded() { try { return Date.now() < _catSyncGuardUntil; } catch (e) { return false; } }
 const DEFAULT_CATMAP = {};
 [
-  ['RAW MATERIAL', ['HYPERPURE','ICE CUBES','GREEN LEAF VEGGIES','VEGETABLES','GREENS','ATLAS YBARRA','CHENAB','CROWN EDIBLES','BOLILLO SPETTACOLARE','GROCERY','INGREDIENTS','VENDOR / OTHER','VENDOR/OTHER','VENDOR','DAIRY','MEAT','FISH','FRUITS','SPICES','BLINKIT','SWIGGY INSTAMART','BIG BASKET','ZEPTO','AMAZON','GROCERY STORE EXPENSES']],
+  ['RAW MATERIAL', ['HYPERPURE','ICE CUBES','GREEN LEAF VEGGIES','VEGETABLES','GREENS','ATLAS YBARRA','CHENAB','CROWN EDIBLES','BOLILLO SPETTACOLARE','NINJA AVOCADO','HIBISCUS','GROCERY','INGREDIENTS','VENDOR / OTHER','VENDOR/OTHER','VENDOR','DAIRY','MEAT','FISH','FRUITS','SPICES','BLINKIT','SWIGGY INSTAMART','BIG BASKET','ZEPTO','AMAZON','GROCERY STORE EXPENSES']],
   ['RENT', ['RENT','RESTAURANT RENT','SHOP RENT','STAFF RENT']],
-  ['SALARIES & STAFF', ['SALARIES','SALARY','STAFF ADVANCE','STAFF OT','STAFF MEDICINE','STAFF BIRTHDAY CAKES','TRAVEL ALLOWANCE','STAFF WELFARE','STAFF FOOD']],
+  ['SALARIES & STAFF', ['SALARIES','SALARY','STAFF SALARY','STAFF SALARIES','STAFF ADVANCE','STAFF OT','STAFF MEDICINE','STAFF BIRTHDAY CAKES','TRAVEL ALLOWANCE','STAFF WELFARE','STAFF FOOD']],
   ['UTILITIES', ['ELECTRICITY BILL','ELECTRICITY','WATER CANS','CYLINDERS','GAS','UTILITIES','WATER','INTERNET','WIFI','DIESEL','FUEL']],
   ['UPKEEP & MAINTENANCE', ['HOUSE KEEPING','PEST CONTROL','DRAINAGE CLEANING','BBMP GARBAGE','PLUMBING MATERIALS','HARDWARE','EQUIPMENTS / MAHESH DISTRIBUTORS','URBAN COMPANY','PORTER','EQUIPMENT','EQUIPMENTS','MAINTENANCE','REPAIRS','REPAIR']],
   ['MARKETING & AMBIANCE', ['FLOWERS','PRINTOUTS','MARKETING','ADVERTISING','PRINTING']],
@@ -2299,13 +2299,38 @@ function loadCatMap() {
   try { const m = JSON.parse(localStorage.getItem('comedor_catmap') || 'null'); if (m && typeof m === 'object' && !Array.isArray(m)) saved = m; } catch (e) {}
   return Object.assign({}, DEFAULT_CATMAP, saved);
 }
+// Canonical key for a group name: the significant head, before any " & " / " / "
+// qualifier. Lets a default mapping to "UPKEEP & MAINTENANCE" still find a user's
+// group saved as just "UPKEEP" (or "MAINTENANCE" — either head matches).
+function _canonMaster(name) {
+  const up = String(name == null ? '' : name).trim().toUpperCase();
+  return up.split(/\s*[&/]\s*/).map(s => s.trim()).filter(Boolean);
+}
+// Resolve a group name to whatever the user's current master list actually calls
+// it: exact match first, then canonical-head match. Returns null if no group fits.
+function resolveMaster(name, masters) {
+  const up = String(name == null ? '' : name).trim().toUpperCase();
+  if (!up) return null;
+  if (masters.some(x => x.name === up)) return up;
+  const keys = _canonMaster(up);
+  const hit = masters.find(x => {
+    const mk = _canonMaster(x.name);
+    return keys.some(k => mk.indexOf(k) >= 0) || mk.some(k => keys.indexOf(k) >= 0);
+  });
+  return hit ? hit.name : null;
+}
 function masterOf(tag) {
   const t = String(tag == null ? '' : tag).trim().toUpperCase();
   const masters = loadMasters();
   let m = loadCatMap()[t];
   // A tag still pointing at a retired group falls back to its built-in default.
   if (m && RETIRED_MASTERS.indexOf(m) >= 0) m = DEFAULT_CATMAP[t] || null;
-  if (m && masters.some(x => x.name === m)) return m;
+  // Resolve to the user's actual group name so a valid mapping whose target group
+  // was renamed/shortened (e.g. "UPKEEP & MAINTENANCE" → "UPKEEP") never
+  // dead-ends in Miscellaneous. Fall back to the built-in default target too.
+  let resolved = resolveMaster(m, masters);
+  if (!resolved && DEFAULT_CATMAP[t]) resolved = resolveMaster(DEFAULT_CATMAP[t], masters);
+  if (resolved) return resolved;
   return MISC_MASTER;
 }
 function iconOf(masterName) {
