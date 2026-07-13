@@ -1335,7 +1335,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-13-02';
+const APP_VERSION = '2026-07-13-03';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -3766,7 +3766,7 @@ function renderExpenseCats() {
   const cats = {};
   const add = (c, v) => { c = (c && String(c).trim()) || 'Uncategorised'; cats[c] = (cats[c] || 0) + (Number(v) || 0); };
   getDashEntries().forEach(e => (e.expenses || []).forEach(x => add(x.category, parseFloat(x.amount) || 0)));
-  getBankInRange().forEach(b => { if (b.capital || b.payout || isGstEntry(b)) return; add(b.category, b.amount); });
+  getBankInRange().forEach(b => { if (b.capital || b.payout || isPassThruTax(b)) return; add(b.category, b.amount); });
   ledgerRows().forEach(x => { if (x.bucket !== 'O' || x.date < range.from || x.date > range.to) return; add(x.category, x.amount); });
 
   const entries = Object.entries(cats).filter(e => e[1] > 0.5);
@@ -4118,6 +4118,12 @@ function getBankInRange() {
 }
 
 function isGstEntry(b) { return !b.capital && !b.direct && b.category === 'GST'; }
+// Pass-through taxes collected on behalf of the government — GST and Service Tax.
+// They move real money out of the bank (so they still draw down the balance) but
+// are NOT an operating expense and must never touch the P&L. Same treatment as
+// GST, kept separate from isGstEntry so each still shows under its own label.
+var PASSTHRU_TAX_CATS = ['GST', 'SERVICE TAX'];
+function isPassThruTax(b) { return !b.capital && !b.direct && PASSTHRU_TAX_CATS.indexOf(String((b && b.category) || '').trim().toUpperCase()) >= 0; }
 
 // ─── RECURRING EXPENSES & REMINDERS (upcoming-outflow forecast) ──────────────
 // User-defined commitments the app knows are coming — salary on a fixed day,
@@ -4206,7 +4212,7 @@ function _opexEvents() {
   const ev = [];
   loadBankEntries().forEach(b => {
     if (!b || b.capital || b.direct || !b.date) return;
-    ev.push({ date: b.date, amount: Number(b.amount) || 0, category: b.category || '', gst: b.category === 'GST', drawsBalance: true });
+    ev.push({ date: b.date, amount: Number(b.amount) || 0, category: b.category || '', gst: isPassThruTax(b), drawsBalance: true });
   });
   loadEntries().forEach(e => {
     if (!e || !e.date) return;
@@ -4694,7 +4700,7 @@ function renderPnlBank() {
   //             capital); combines app-entered direct entries with the historical
   //             partner-paid ledger (bucket O) imported from before the app.
   //  · Cash   — spent from the daily cash drawer.
-  const idfcExp = bank.filter(b => !b.capital && !b.direct && !b.payout && !isGstEntry(b)).reduce((s, b) => s + (Number(b.amount) || 0), 0);
+  const idfcExp = bank.filter(b => !b.capital && !b.direct && !b.payout && !isPassThruTax(b)).reduce((s, b) => s + (Number(b.amount) || 0), 0);
   const directBankExp = bank.filter(b => b.direct).reduce((s, b) => s + (Number(b.amount) || 0), 0);
   const gstPaid = bank.filter(isGstEntry).reduce((s, b) => s + (Number(b.amount) || 0), 0);
   const ledgerOpex = ledgerOpexInRange(range.from, range.to);   // historical partner-paid opex (pre-app ledger import)
@@ -5209,9 +5215,9 @@ function renderBankList() {
 
 // Source badge for a bank expense: money that left the IDFC current account vs a
 // partner paying a vendor DIRECTLY from their own bank (their infused capital).
-// Capital infusions and GST carry their own labels, so they get no source badge.
+// Capital infusions and pass-through taxes carry their own labels, so they get no source badge.
 function bankSrcBadge(b) {
-  if (!b || b.capital || isGstEntry(b)) return '';
+  if (!b || b.capital || isPassThruTax(b)) return '';
   if (b.payout) return `<span class="cat-badge src-payout">${b.source === 'cash' ? 'CASH' : 'IDFC'}</span>`;
   return b.direct
     ? `<span class="cat-badge src-direct">DIRECT · ${esc(b.partner || b.addedBy || '—')}</span>`
@@ -5245,7 +5251,7 @@ function renderBankRecent() {
     // Show which master group this entry's category rolls up to, so a wrong
     // backfill guess is obvious. Only for real expense entries (not capital/
     // drawings/GST, which aren't categorised spend).
-    const showGrp = !b.capital && !b.payout && !b.direct && !isGstEntry(b) && b.category;
+    const showGrp = !b.capital && !b.payout && !b.direct && !isPassThruTax(b) && b.category;
     const grp = showGrp ? masterOf(b.category) : '';
     const grpChip = grp ? `<div class="grp-line"><span class="grp-chip">${iconOf(grp)} ${esc(grp)}</span></div>` : '';
     return `<tr>
@@ -5788,7 +5794,7 @@ function renderBankRich(p) {
 
   let list = src.filter(b => {
     if (st.by !== 'all' && (b.addedBy || '—') !== st.by) return false;
-    if (st.type === 'expense' && (b.capital || b.direct || b.payout || isGstEntry(b))) return false;
+    if (st.type === 'expense' && (b.capital || b.direct || b.payout || isPassThruTax(b))) return false;
     if (st.type === 'capital' && !b.capital && !b.direct && !b.payout) return false;
     if (st.type === 'gst' && !isGstEntry(b)) return false;
     if (st.cat !== 'all' && (b.category || '') !== st.cat) return false;
