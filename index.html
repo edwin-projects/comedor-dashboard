@@ -472,6 +472,14 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 .dfbtn { padding: 5px 11px; background: var(--surface2); border: 1px solid var(--border); color: var(--text2); border-radius: 6px; cursor: pointer; font-size: 10.5px; font-family: 'Inter', sans-serif; letter-spacing: 0.6px; text-transform: uppercase; white-space: nowrap; transition: all 0.2s; }
 .dfbtn:hover { border-color: var(--accent); color: var(--accent); }
 .dfbtn.active { background: linear-gradient(135deg, #F0D488 0%, #C9A040 52%, #A9812C 100%); border-color: #C9A040; color: #201700; font-weight: 700; box-shadow: 0 2px 9px rgba(201,160,64,0.30); }
+.dfselect { -webkit-appearance: none; appearance: none; padding-right: 24px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7'><path d='M1 1l4 4 4-4' fill='none' stroke='%2390A89A' stroke-width='1.5' stroke-linecap='round'/></svg>");
+  background-repeat: no-repeat; background-position: right 9px center; }
+.dfselect:hover { background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7'><path d='M1 1l4 4 4-4' fill='none' stroke='%23C9A040' stroke-width='1.5' stroke-linecap='round'/></svg>"); }
+.dfselect.active { color: #201700 !important;
+  background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7'><path d='M1 1l4 4 4-4' fill='none' stroke='%23201700' stroke-width='1.8' stroke-linecap='round'/></svg>") no-repeat right 9px center,
+    linear-gradient(135deg, #F0D488 0%, #C9A040 52%, #A9812C 100%); }
+.dfselect option { background: var(--surface); color: var(--text); font-weight: 400; }
 .dash-export-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
 /* Collapsible / searchable log cards */
 .logcard { border: 1px solid var(--border); border-radius: 12px; background: var(--surface); margin-bottom: 16px; overflow: hidden; }
@@ -781,6 +789,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
     <button class="dfbtn" onclick="setDashFilter('ytd',this)">FY&nbsp;YTD</button>
     <button class="dfbtn" onclick="setDashFilter('lifetime',this)">Lifetime</button>
     <button class="dfbtn" onclick="setDashFilter('custom',this)">Custom</button>
+    <select class="dfbtn dfselect" id="dash-month" onchange="setDashMonth(this)" aria-label="Filter by month"></select>
   </div>
   <div id="dash-period" style="font-size:11px; color:var(--text3); font-family:'Inter',sans-serif; letter-spacing:0.5px; margin:2px 0 16px;"></div>
 
@@ -1326,7 +1335,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-12-27';
+const APP_VERSION = '2026-07-12-28';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -3449,11 +3458,29 @@ function checkOpening() {
 // ─── CASH DASHBOARD ──────────────────────────────────────────────────────────
 let currentDashFilter = 'today';   // default view is always Today
 let dashCustomFrom = null, dashCustomTo = null;
+let dashMonthISO = null;           // 'YYYY-MM' when the Months dropdown drives the view
+
+// Populate the Months dropdown with the 12 months of the current financial year
+// (Apr → Mar), each labelled with its real year so there's no ambiguity.
+function populateMonthFilter() {
+  const sel = document.getElementById('dash-month'); if (!sel) return;
+  const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const fs = fyStartDate(new Date());   // 1 April of the current FY
+  let html = '<option value="">Months ▾</option>';
+  for (let i = 0; i < 12; i++) {
+    const d = new Date(fs.getFullYear(), fs.getMonth() + i, 1);
+    const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+    html += `<option value="${iso}">${MON[d.getMonth()]} ${d.getFullYear()}</option>`;
+  }
+  sel.innerHTML = html;
+  if (currentDashFilter === 'specificmonth' && dashMonthISO) sel.value = dashMonthISO;
+}
 
 function setDashFilter(filter, btn) {
   currentDashFilter = filter;
   document.querySelectorAll('.dfbtn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
+  const ms = document.getElementById('dash-month'); if (ms) ms.value = '';   // reset Months dropdown
   const cr = document.getElementById('custom-range');
   if (filter === 'custom') {
     cr.style.display = 'flex';
@@ -3461,6 +3488,17 @@ function setDashFilter(filter, btn) {
     cr.style.display = 'none';
     renderDashboard();
   }
+}
+
+// Months dropdown: filter the whole dashboard to one calendar month.
+function setDashMonth(sel) {
+  if (!sel.value) return;   // placeholder chosen — ignore
+  currentDashFilter = 'specificmonth';
+  dashMonthISO = sel.value;
+  document.querySelectorAll('.dfbtn').forEach(b => b.classList.remove('active'));
+  sel.classList.add('active');
+  const cr = document.getElementById('custom-range'); if (cr) cr.style.display = 'none';
+  renderDashboard();
 }
 
 // Picking the From date flows straight into the To date — clamp To to be ≥ From
@@ -3529,6 +3567,11 @@ function computeDashRange() {
       from = fmt(fyStartDate(today)); to = todayStr; break;
     case 'lifetime':
       from = '1970-01-01'; to = '2999-12-31'; break;   // everything, since day 1
+    case 'specificmonth': {
+      if (!dashMonthISO) { from = to = null; break; }
+      const [y, m] = dashMonthISO.split('-').map(Number);
+      from = `${y}-${pad(m)}-01`; to = fmt(new Date(y, m, 0)); break;
+    }
     case 'custom':
       from = dashCustomFrom; to = dashCustomTo; break;
     default:
@@ -3641,6 +3684,8 @@ function renderDailyStatus() {
 }
 
 function renderDashboard() {
+  const _ms = document.getElementById('dash-month');
+  if (_ms && _ms.options.length <= 1) { try { populateMonthFilter(); } catch (e) {} }
   renderPeriodLabel();
   try { renderDailyStatus(); } catch (e) { console.warn('Daily status render failed:', e); }
   // Each section is isolated: one bad record (e.g. a legacy entry missing a
@@ -4690,7 +4735,7 @@ function renderPnlBank() {
 
   // ── Upcoming-expenses forecast for the selected period ──
   const fc = forecastForPeriod(range.from, range.to);
-  const PERIOD_WORD = { today:'today', yesterday:'yesterday', week:'this week', month:'this month', lastmonth:'last month', quarter:'this quarter', half:'this half', ytd:'rest of FY', lifetime:'year ahead', custom:'this range' };
+  const PERIOD_WORD = { today:'today', yesterday:'yesterday', week:'this week', month:'this month', lastmonth:'last month', quarter:'this quarter', half:'this half', ytd:'rest of FY', lifetime:'year ahead', custom:'this range', specificmonth:'that month' };
   const upcWord = PERIOD_WORD[currentDashFilter] || 'ahead';
   const upcCovered = available >= fc.expected;
   const upcShort = Math.max(0, fc.expected - available);
