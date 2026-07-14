@@ -13,6 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="COMEDOR">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
 <!-- defer: these must never block first paint. If the network to a CDN is slow
      or blocked, the lock screen still appears instantly and the app runs offline
      (Firebase attaches when it loads; uploads need pdf.js/xlsx, used on demand). -->
@@ -719,6 +720,25 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 :root[data-theme="light"] .brand-gold { display:none; } :root[data-theme="light"] .brand-black { display:block; }
 @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .brand-gold{ display:block; } :root:not([data-theme="light"]) .brand-black{ display:none; } }
 .pin-wordmark { font-family:'Inter',sans-serif; letter-spacing:5px; font-size:10px; color:var(--accent2); text-align:center; margin-bottom:16px; opacity:.92; }
+
+/* ─── NUMERALS · Poppins SemiBold, tabular ──────────────────────────────────
+   Every figure the app displays renders in Poppins with lining tabular digits.
+   Placed last so it wins over the scattered per-class 'Inter' declarations.
+   Labels, section titles and dates deliberately stay in Inter. */
+:root { --num-font: 'Poppins','Inter',sans-serif; }
+.card-value, .cap-total-val, .cap-v, .exp-total-val, .expenses-total-row .exp-total-val,
+.pnl-net td, .num, .tsplit-r, .upc-amt, .eq3-v, .eqp-v, .txn-amt, .sc-cat-amt,
+.mcat-val, .mcat-sub .sval, .mcat-share, .field-input-mono, #pin-input {
+  font-family: var(--num-font);
+  font-variant-numeric: tabular-nums lining-nums;
+  font-feature-settings: "tnum" 1, "lnum" 1;
+}
+/* Prominent figures in SemiBold for the bolder, elegant read; slightly tighter
+   tracking so wider Poppins digits still fit the tiles on narrow phones. */
+.card-value, .cap-total-val, .cap-v, .exp-total-val, .expenses-total-row .exp-total-val,
+.pnl-net td, .txn-amt, .upc-amt { font-weight: 600; letter-spacing: -0.4px; }
+.num, .tsplit-r, .eq3-v, .eqp-v, .sc-cat-amt, .mcat-val, .mcat-sub .sval,
+.mcat-share { font-weight: 500; }
 </style>
 
 <!-- PIN SCREEN -->
@@ -1402,7 +1422,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-14-04';
+const APP_VERSION = '2026-07-14-05';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.

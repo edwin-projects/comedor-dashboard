@@ -35,7 +35,10 @@ the second layer. Do not remove either.
    green-black ground (`--bg:#0C1410`) with near-white green-tinted text, soft mint positives
    (`--green:#6FCF97`) and the gold Wolfpack emblem/accent (`--accent2:#C9A040`); light theme is
    the green "Jardín" palette (deep green `#1A5C38` + gold). Dark = light Jardín inverted.
-   Fonts: Inter throughout, lightened numerals, uppercase letter-spaced section titles.
+   Fonts: Inter for labels/body & uppercase letter-spaced section titles; **all
+   displayed numbers are Poppins SemiBold with tabular lining figures** (via the
+   `--num-font` var applied to every numeric class — see the numerals block at the
+   end of the CSS). Keep new number displays on that var so digits stay consistent.
    Positive/negative figures stay green/red.
 
 5. **Capital ≠ expense.** Capital infusions (`capital: true`) never count as expenses and never
