@@ -1351,6 +1351,19 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
   </div>
 </div>
 
+<!-- Edit modal for a Bank entry (account expense · capital in · money out) -->
+<div id="bankedit-overlay" onclick="closeBankEditModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1000;"></div>
+<div id="bankedit-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1001;width:min(420px,calc(100vw - 32px));background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,0.45);padding:18px;box-sizing:border-box;max-height:90vh;overflow:auto;">
+  <div id="bankedit-title" style="font-family:'Inter',sans-serif;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;font-size:13px;color:var(--text2);margin-bottom:4px;">Edit entry</div>
+  <div id="bankedit-sub" style="font-size:11px;color:var(--text3);font-family:'Inter',sans-serif;margin-bottom:14px;"></div>
+  <div id="bankedit-body"></div>
+  <div id="bankedit-msg" style="display:none;color:var(--red);font-size:12px;margin-bottom:10px;"></div>
+  <div style="display:flex;gap:10px;">
+    <button onclick="saveBankEditModal()" style="flex:1;background:var(--text);border:none;color:var(--bg);border-radius:8px;padding:12px;font-size:14px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;">Save ✓</button>
+    <button onclick="closeBankEditModal()" style="flex:0 0 auto;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:12px 16px;font-size:14px;font-family:'Inter',sans-serif;cursor:pointer;">Cancel</button>
+  </div>
+</div>
+
 <script>
 // ─── BUILD VERSION ───────────────────────────────────────────────────────────
 // Bump this string on EVERY deploy and write the SAME value into version.json.
@@ -1358,7 +1371,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-13-10';
+const APP_VERSION = '2026-07-13-11';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -4994,76 +5007,84 @@ function capPartnerOptions() {
   else if (keep && partners.includes(keep)) sel.value = keep;
 }
 
+// Editing a bank entry happens in a focused pop-up (same pattern as the ledger
+// editor) instead of scrolling up to the add-forms. The add-forms are untouched.
+let _bankEditId = null, _bankEditType = null;
 function editBankExpense(id) {
   const b = loadBankEntries().find(x => x.id === id);
   if (!b) return;
   if (!canEditBank(b.addedBy)) { alert('Only ' + (b.addedBy || 'the person who added this') + ' or a partner can edit this entry.'); return; }
-  showPanel('bankexp');
-  _editingBankId = id;
+  openBankEditModal(b);
+}
+function _fld(label, inner) { return `<label class="field-label">${label}</label>${inner}`; }
+function openBankEditModal(b) {
+  _bankEditId = b.id;
+  const type = b.payout ? 'payout' : (b.direct ? 'direct' : (b.capital ? 'capital' : 'expense'));
+  _bankEditType = type;
+  const inStyle = 'width:100%;box-sizing:border-box;margin-bottom:12px;';
+  const dateI = `<input id="bke-date" type="date" class="field-input" style="${inStyle}text-align:center;">`;
+  const amtI  = `<input id="bke-amount" type="text" inputmode="decimal" oninput="onMoneyInput(this)" class="field-input" style="${inStyle}text-align:center;">`;
+  const descI = `<input id="bke-desc" type="text" class="field-input" style="${inStyle}">`;
+  // Category options (include this entry's own category even if off-list).
+  const cats = editorCategories('partner').slice();
+  if (b.category && !cats.includes(b.category)) cats.unshift(b.category);
+  const catI = `<select id="bke-cat" class="field-input" style="${inStyle}">` +
+    ['<option value="">Select category…</option>'].concat(cats.map(c => `<option value="${esc(c)}"${c === b.category ? ' selected' : ''}>${esc(c)}</option>`)).join('') + '</select>';
+  // Partner options.
+  const partners = getUsers().filter(u => u.active !== false && roleCaps(u.role).people).map(u => u.name);
+  const who = b.partner || b.addedBy || '';
+  if (who && !partners.includes(who)) partners.unshift(who);
+  const byI = `<select id="bke-by" class="field-input" style="${inStyle}">` +
+    partners.map(n => `<option value="${esc(n)}"${n === who ? ' selected' : ''}>${esc(n)}</option>`).join('') + '</select>';
+  const srcI = `<select id="bke-source" class="field-input" style="${inStyle}"><option value="idfc"${b.source !== 'cash' ? ' selected' : ''}>IDFC bank</option><option value="cash"${b.source === 'cash' ? ' selected' : ''}>Cash drawer</option></select>`;
+  let body = _fld('Date', dateI) + _fld('Amount ₹', amtI);
+  if (type === 'payout')      body += _fld('Partner', byI) + _fld('From', srcI) + _fld('Description', descI);
+  else if (type === 'capital') body += _fld('Partner', byI) + _fld('Note', descI);
+  else if (type === 'direct')  body += _fld('Partner', byI) + _fld('Category', catI) + _fld('Payee / description', descI);
+  else                         body += _fld('Category', catI) + _fld('Payee / description', descI);
+  const titles = { payout:'Edit money out', capital:'Edit capital in', direct:'Edit direct expense', expense:'Edit bank entry' };
   const when = new Date((b.date||'') + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
-
-  if (b.payout) {
-    // Route drawings to the "Partner Money Out" form.
-    payoutPartnerOptions();
-    const srcSel = document.getElementById('po-source'); if (srcSel) srcSel.value = b.source || 'idfc';
-    onPayoutSourceChange();
-    const pc = document.getElementById('setcard-payout'); if (pc) pc.classList.remove('collapsed');
-    document.getElementById('po-date').value = b.date || '';
-    setMoney('po-amount', b.amount || '');
-    const psel = document.getElementById('po-by');
-    const pwho = b.partner || b.addedBy || '';
-    if (pwho && !Array.from(psel.options).some(o => o.value === pwho)) { const o = document.createElement('option'); o.value = pwho; o.textContent = pwho; psel.appendChild(o); }
-    if (pwho) psel.value = pwho;
-    document.getElementById('po-desc').value = b.desc || '';
-    const pb = document.getElementById('po-submit-btn'); if (pb) pb.textContent = 'Save changes ✓';
-    const pm = document.getElementById('po-form-msg');
-    pm.innerHTML = `Editing drawing from ${when}. <a onclick="cancelPayoutEdit()" style="color:var(--red);text-decoration:underline;cursor:pointer;margin-left:6px;">Cancel</a>`;
-    pm.style.cssText = 'display:block;border-radius:7px;padding:10px 12px;font-size:12.5px;margin-bottom:12px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);';
-    document.getElementById('po-date').scrollIntoView({ behavior: 'smooth', block: 'center' });
-    return;
-  }
-
-  if (b.capital || b.direct) {
-    // Route capital + partner-direct entries to the "Partner Money In" form.
-    capPartnerOptions();
-    const isDirect = !!b.direct;
-    const destSel = document.getElementById('cap-dest'); if (destSel) destSel.value = isDirect ? 'direct' : 'bank';
-    onCapDestChange();
-    const cc = document.getElementById('setcard-capital'); if (cc) cc.classList.remove('collapsed');
-    document.getElementById('cap-date').value   = b.date || '';
-    setMoney('cap-amount', b.amount || '');
-    const sel = document.getElementById('cap-by');
-    const who = b.partner || b.addedBy || '';
-    if (who && !Array.from(sel.options).some(o => o.value === who)) { const o = document.createElement('option'); o.value = who; o.textContent = who; sel.appendChild(o); }
-    if (who) sel.value = who;
-    if (isDirect) { capCatOptions(); const cat = document.getElementById('cap-category'); if (cat) cat.value = b.category || ''; csSync('cap-category'); }
-    document.getElementById('cap-desc').value = (b.desc && b.desc !== 'Capital infusion') ? b.desc : '';
-    const cb = document.getElementById('cap-submit-btn'); if (cb) cb.textContent = 'Save changes ✓';
-    const m = document.getElementById('cap-form-msg');
-    m.innerHTML = `Editing ${isDirect ? 'direct expense' : 'capital'} from ${when}. <a onclick="cancelCapEdit()" style="color:var(--red);text-decoration:underline;cursor:pointer;margin-left:6px;">Cancel</a>`;
-    m.style.cssText = 'display:block;border-radius:7px;padding:10px 12px;font-size:12.5px;margin-bottom:12px;background:var(--surface2);border:1px solid var(--border);color:var(--text2);';
-    document.getElementById('cap-date').scrollIntoView({ behavior:'smooth', block:'center' });
-    return;
-  }
-
-  bankCatOptions(true);
-  const beCat = document.getElementById('be-category');
-  // Guarantee this entry's category is selectable even if it's an unusual/backfilled one.
-  if (b.category && !Array.from(beCat.options).some(o => o.value === b.category)) { const o = document.createElement('option'); o.value = b.category; o.textContent = b.category; beCat.appendChild(o); }
-  document.getElementById('be-date').value     = b.date || '';
-  setMoney('be-amount', b.amount || '');
-  beCat.value = b.category || '';
-  csSync('be-category');
-  document.getElementById('be-desc').value     = b.desc || '';
-  const btn = document.getElementById('be-submit-btn');
-  if (btn) btn.textContent = 'Save changes ✓';
-  const sb = document.getElementById('bank-form-success');
-  sb.innerHTML = `<strong>Editing</strong> — bank entry from ${when}, added by ${b.addedBy || '—'}. Change the values and save. <button class="btn btn-ghost" style="padding:2px 9px;font-size:11px;margin-left:8px;" onclick="cancelBankEdit()">Cancel</button>`;
-  sb.style.display = 'block';
-  // Open the Add Bank / Account Expense card so the fields are actually visible,
-  // and scroll to them (the banner alone left nothing to edit).
-  const bc = document.getElementById('setcard-bankexp'); if (bc) bc.classList.remove('collapsed');
-  document.getElementById('be-date').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  document.getElementById('bankedit-title').textContent = titles[type];
+  document.getElementById('bankedit-sub').textContent = 'From ' + when + (b.addedBy ? ' · added by ' + b.addedBy : '');
+  document.getElementById('bankedit-body').innerHTML = body;
+  document.getElementById('bke-date').value = b.date || '';
+  setMoney('bke-amount', b.amount || '');
+  const de = document.getElementById('bke-desc'); if (de) de.value = (b.desc && b.desc !== 'Capital infusion') ? b.desc : '';
+  document.getElementById('bankedit-msg').style.display = 'none';
+  document.getElementById('bankedit-overlay').style.display = 'block';
+  document.getElementById('bankedit-modal').style.display = 'block';
+}
+function closeBankEditModal() {
+  _bankEditId = null; _bankEditType = null;
+  document.getElementById('bankedit-overlay').style.display = 'none';
+  document.getElementById('bankedit-modal').style.display = 'none';
+}
+function saveBankEditModal() {
+  if (!_bankEditId) return;
+  const editing = loadBankEntries().find(x => x.id === _bankEditId);
+  if (!editing) { closeBankEditModal(); return; }
+  const type = _bankEditType;
+  const val = id => { const el = document.getElementById(id); return el ? el.value : ''; };
+  const date = val('bke-date'), amount = money('bke-amount');
+  const desc = (val('bke-desc') || '').trim(), category = val('bke-cat'), by = val('bke-by'), source = val('bke-source');
+  const msg = document.getElementById('bankedit-msg');
+  const err = t => { msg.textContent = '⚠ ' + t; msg.style.display = 'block'; };
+  if (!date) return err('Date is required');
+  if (!(amount > 0)) return err('Amount is required');
+  if ((type === 'expense' || type === 'direct') && !category) return err('Category is required');
+  if ((type === 'expense' || type === 'direct') && !desc) return err('Payee / description is required');
+  if ((type === 'payout' || type === 'capital' || type === 'direct') && !by) return err('Pick the partner');
+  const me = currentUser ? currentUser.name : '';
+  let fields;
+  if (type === 'payout')       fields = { date, amount, partner: by, source: source || 'idfc', desc };
+  else if (type === 'capital') fields = { date, amount, partner: by, desc: desc || 'Capital infusion' };
+  else if (type === 'direct')  fields = { date, amount, partner: by, category, desc };
+  else                         fields = { date, amount, category, desc };
+  const entry = Object.assign({}, editing, fields, { editedBy: me, editedAt: new Date().toLocaleString('en-IN') });
+  saveBankExpense(entry);
+  closeBankEditModal();
+  renderBankList();
+  if (document.getElementById('panel-dashboard').classList.contains('active')) renderDashboard();
 }
 
 function cancelBankEdit() {
