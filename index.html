@@ -511,6 +511,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 .month-head:hover { color: var(--text); }
 .month-head .mh-chev { color: var(--text3); font-size: 12px; transition: transform 0.2s; }
 .month-count { color: var(--text3); font-weight: 500; }
+.month-total { font-weight: 700; letter-spacing: 0.5px; font-size: 12px; }
 .month-block.collapsed .month-rows { display: none; }
 .month-block.collapsed .mh-chev { transform: rotate(-90deg); }
 .month-rows table { width: 100%; }
@@ -1335,7 +1336,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-13-08';
+const APP_VERSION = '2026-07-13-09';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -2067,19 +2068,23 @@ function toggleMonth(headEl) {
   if (willOpen && b.parentNode) b.parentNode.querySelectorAll('.month-block').forEach(x => x.classList.add('collapsed'));
   b.classList.toggle('collapsed');
 }
-function renderMonthlyGrouped(entries, tableStyle, theadHTML, rowFn, keyFn) {
+function renderMonthlyGrouped(entries, tableStyle, theadHTML, rowFn, keyFn, totalFn) {
   const groups = [], idx = {};
   entries.forEach(e => {
     const k = String(keyFn(e) || '').slice(0, 7);
     if (idx[k] === undefined) { idx[k] = groups.length; groups.push({ k: k, items: [] }); }
     groups[idx[k]].items.push(e);
   });
-  // Every month starts collapsed — the user opens one at a time.
-  const body = groups.map(g => `
+  // Every month starts collapsed — the user opens one at a time. Optional totalFn
+  // renders that month's total in the header, so it's visible even when collapsed.
+  const body = groups.map(g => {
+    const tot = totalFn ? `<span class="month-total">${totalFn(g.items)}</span>` : '';
+    return `
     <div class="month-block collapsed" data-month="${g.k}">
-      <div class="month-head" onclick="toggleMonth(this)"><span>${esc(monthLabelFromKey(g.k))} <span class="month-count">· ${g.items.length}</span></span><span class="mh-chev">▾</span></div>
+      <div class="month-head" onclick="toggleMonth(this)"><span>${esc(monthLabelFromKey(g.k))} <span class="month-count">· ${g.items.length}</span></span><span style="display:flex;align-items:center;gap:10px;">${tot}<span class="mh-chev">▾</span></span></div>
       <div class="month-rows"><table style="${tableStyle}"><thead>${theadHTML}</thead><tbody>${g.items.map(rowFn).join('')}</tbody></table></div>
-    </div>`).join('');
+    </div>`;
+  }).join('');
   return `<div style="padding:8px;">${body}</div>`;
 }
 function reapplyLogFilter(key) {
@@ -5290,7 +5295,15 @@ function renderBankRecent() {
       <td style="padding-left:4px;padding-right:6px;"><div style="display:flex;gap:5px;justify-content:flex-end;"><button class="cat-act cat-edit" style="padding:3px 7px;font-size:11px;" onclick="editBankExpense('${b.id}')">Edit</button><button class="cat-act cat-del" style="padding:3px 7px;font-size:11px;" onclick="deleteBankExpense('${b.id}')">Del</button></div></td>
     </tr>`;
   };
-  wrap.innerHTML = renderMonthlyGrouped(mine, 'width:100%;table-layout:fixed;', thead, rowFn, b => b.date);
+  // Month total shown in each month header (visible even while collapsed): the
+  // net of what's displayed — capital in counts +, everything else (spend,
+  // drawings, GST) counts −. Coloured to match the row signs.
+  const monthTotal = items => {
+    const net = items.reduce((s, b) => s + ((b.capital ? 1 : -1) * (Number(b.amount) || 0)), 0);
+    const cls = net >= 0 ? 'green-text' : 'red-text';
+    return `<span class="${cls}">${net >= 0 ? '+' : '–'}${inr(Math.abs(Math.round(net)))}</span>`;
+  };
+  wrap.innerHTML = renderMonthlyGrouped(mine, 'width:100%;table-layout:fixed;', thead, rowFn, b => b.date, monthTotal);
   reapplyLogFilter('bankrecent');
 }
 
