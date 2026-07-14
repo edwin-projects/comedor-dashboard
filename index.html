@@ -764,6 +764,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
   </div>
   <div style="display:flex; gap:10px; align-items:center;">
     <div id="sync-status" class="sync-pill sync-connecting" title="Live sync status" onclick="showSyncHelp()"><span class="sync-dot"></span><span id="sync-label">Syncing…</span></div>
+    <div id="build-badge" onclick="forceRefreshBuild()" title="App build — tap to force the latest version" style="font-size:10px;line-height:1;color:var(--text3,#7f8f84);font-family:'Inter',sans-serif;cursor:pointer;letter-spacing:.03em;white-space:nowrap;opacity:.75;">v…</div>
     <button id="theme-toggle" onclick="toggleTheme()" title="Toggle light/dark" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:6px;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;box-sizing:border-box;">◑</button>
     <div id="role-badge">—</div>
     <button id="logout-btn" onclick="logout()" title="Log out / switch user" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);border-radius:6px;height:32px;padding:0 12px;font-size:12px;font-family:'Inter',sans-serif;cursor:pointer;display:inline-flex;align-items:center;flex-shrink:0;box-sizing:border-box;">Log out</button>
@@ -1335,7 +1336,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-13-04';
+const APP_VERSION = '2026-07-13-05';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -1765,10 +1766,18 @@ function grantAccess(user) {
   if (dateField) { dateField.value = today; hydrateFormForDate(today); }
 }
 
-// Today's date as YYYY-MM-DD in the device's local timezone (NOT UTC — an
-// ISO/UTC date rolls over early in India, showing "yesterday" before 5:30 AM).
+// "Now" as a Date whose local-getter components read Indian Standard Time
+// (UTC+5:30), REGARDLESS of the device's timezone. The whole app keys its
+// business day off IST — the day must roll at IST midnight for everyone, and a
+// bare new Date() would trust the phone's zone (wrong if it's ever off IST, and
+// UTC rolls over 5.5h early). Use this for every "today"/date-range calculation.
+function nowIST() {
+  const now = new Date();
+  return new Date(now.getTime() + (now.getTimezoneOffset() + 330) * 60000);
+}
+// Today's date as YYYY-MM-DD in IST. The business day rolls at IST midnight.
 function todayLocalISO() {
-  const d = new Date();
+  const d = nowIST();
   return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
 }
 
@@ -3168,7 +3177,7 @@ function submitEntry() {
 
 // ─── PERSISTENCE (localStorage + Firebase sync) ───────────────────────────────
 // Short clock time like "10:00 AM" / "11:30 PM" for stamping when an action was done.
-function _nowTime() { try { return new Date().toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true }).toUpperCase(); } catch (e) { return ''; } }
+function _nowTime() { try { return new Date().toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' }).toUpperCase(); } catch (e) { return ''; } }
 // Pull a short clock time ("11:53 PM") out of a stored date-time string like
 // "11/7/2026, 11:53:47 pm" — a fallback "recorded at" stamp for older entries
 // saved before per-step (opening/sales) timestamps were tracked.
@@ -3486,8 +3495,8 @@ function populateMonthFilter() {
   const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const [sy, sm] = (LEDGER_OPEN || '2026-03-05').split('-').map(Number);   // first data month
   const start = new Date(sy, sm - 1, 1);
-  const now = new Date();
-  const end = new Date(now.getFullYear(), now.getMonth(), 1);             // current month
+  const now = nowIST();
+  const end = new Date(now.getFullYear(), now.getMonth(), 1);             // current month (IST)
   let html = '<option value="">Months</option>';
   for (let d = new Date(start); d <= end; d.setMonth(d.getMonth() + 1)) {
     const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
@@ -3551,7 +3560,7 @@ function fyLabel(today) {
   return s + '–' + String((s + 1) % 100).padStart(2, '0');
 }
 function computeDashRange() {
-  const today = new Date();
+  const today = nowIST();   // business day rolls at IST midnight, not the device's
   const pad = n => String(n).padStart(2, '0');
   const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
   const todayStr = fmt(today);
@@ -3614,7 +3623,7 @@ function renderPeriodLabel() {
   if (!from || !to) { el.textContent = ''; return; }
   const d = iso => { const [y, m, day] = iso.split('-'); const mon = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m - 1]; return `${+day} ${mon} ${y}`; };
   const label = from === to ? d(from) : `${d(from)} – ${d(to)}`;
-  el.textContent = `${label}  ·  FY ${fyLabel(new Date())} (Apr–Mar)`;
+  el.textContent = `${label}  ·  FY ${fyLabel(nowIST())} (Apr–Mar)`;
 }
 // At-a-glance notes on the manager's cash actions — is the opening cash added,
 // is the closing cash updated. These follow the SELECTED period, exactly like
@@ -3625,10 +3634,10 @@ function renderPeriodLabel() {
 function renderDailyStatus() {
   const el = document.getElementById('daily-status');
   if (!el) return;
-  const now = new Date();
+  const now = nowIST();
   const pad = n => String(n).padStart(2, '0');
-  // Local date, matching computeDashRange() (NOT UTC) so 'today' lines up with
-  // the Today filter in every timezone.
+  // IST date, matching computeDashRange() so 'today' lines up with the Today
+  // filter for everyone regardless of device timezone.
   const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
   const todayISO = fmt(now);
   const { from, to } = computeDashRange();
@@ -6454,6 +6463,8 @@ window.onload = function() {
   const bb = (function(){ try { return JSON.parse(localStorage.getItem('comedor_bankbal') || 'null'); } catch(e){ return null; } })();
   const bbi = document.getElementById('bank-bal-input');
   if (bb && bbi) bbi.value = bb.amount;
+  const _bbadge = document.getElementById('build-badge');
+  if (_bbadge) _bbadge.textContent = 'v' + APP_VERSION;
   registerServiceWorker();
   checkForUpdate();
   // Re-check whenever the app returns to the foreground (reopened tab / resumed
@@ -6502,6 +6513,19 @@ function checkForUpdate() {
       })
       .catch(() => {});
   } catch (e) {}
+}
+
+// Force the very latest build: drop every cache + unregister the service worker,
+// then hard-reload from the network. Bypasses the ~10-min GitHub Pages HTML cache
+// and any stale worker shell in one tap — the surest way to leave an old build.
+function forceRefreshBuild() {
+  try { sessionStorage.removeItem('comedor_updated_to'); } catch (e) {}
+  const done = () => location.reload();
+  const jobs = [];
+  try { if (window.caches && caches.keys) jobs.push(caches.keys().then(ks => Promise.all(ks.map(k => caches.delete(k))))); } catch (e) {}
+  try { if (navigator.serviceWorker && navigator.serviceWorker.getRegistrations) jobs.push(navigator.serviceWorker.getRegistrations().then(rs => Promise.all(rs.map(r => r.unregister())))); } catch (e) {}
+  Promise.all(jobs).then(done).catch(done);
+  setTimeout(done, 1500);   // never hang if a cache/SW call stalls
 }
 
 // Register a network-first service worker so a new deploy shows up on the
