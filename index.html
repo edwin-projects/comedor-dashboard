@@ -1335,7 +1335,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-13-07';
+const APP_VERSION = '2026-07-13-08';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -1760,7 +1760,7 @@ function grantAccess(user) {
   document.getElementById('pin-screen').style.display = 'none';
   document.getElementById('app').style.display = 'block';
   applyRoleAccess(currentRole, user);
-  const today = todayLocalISO();
+  const today = activeCashDay();
   const dateField = document.getElementById('entry-date');
   if (dateField) { dateField.value = today; hydrateFormForDate(today); }
 }
@@ -2169,7 +2169,7 @@ function showPanel(id) {
   if (id === 'entry') {
     renderEntryRecent(); renderIncomeList();
     const dateEl = document.getElementById('entry-date');
-    if (dateEl && !dateEl.value) dateEl.value = todayLocalISO();   // always default to today
+    if (dateEl && !dateEl.value) dateEl.value = activeCashDay();   // today, or an unclosed earlier day
     const _d = dateEl ? dateEl.value : '';
     if (_d) hydrateFormForDate(_d);
     updateCashVerifyLock();
@@ -3159,9 +3159,10 @@ function submitEntry() {
   document.getElementById('form-success').style.display = 'none';
   btnFlash('submit-entry-btn', editingThis ? 'Saving…' : 'Submitting…', editingThis ? 'Saved ✓' : 'Submitted ✓', 'Submit Day\'s Entry ✓');
 
-  // Reset
+  // Reset. Land on the next day that still needs work — another unclosed earlier
+  // day if one remains, otherwise today.
   localStorage.removeItem('comedor_draft_expenses');
-  document.getElementById('entry-date').value = todayLocalISO();
+  document.getElementById('entry-date').value = activeCashDay();
   document.getElementById('f-opening').value = '';
   document.getElementById('f-cash').value    = '';
   document.getElementById('f-upi').value     = '';
@@ -3425,6 +3426,16 @@ function oldestOpenDayBefore(date) {
     .filter(e => e.date < date && e.partial)
     .sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   return open[0] || null;
+}
+// The day the cash form should open on. Normally today (IST), BUT if an earlier
+// day was started and never closed — e.g. a busy day whose cash count spills past
+// midnight — default to that pending day instead, so the delayed entry lands on
+// the day it belongs to (not the new calendar day) and the manager just finishes
+// it. Matches the "close the previous day first" gate. Never a future day.
+function activeCashDay() {
+  const today = todayLocalISO();
+  const open = oldestOpenDayBefore(today);
+  return open ? open.date : today;
 }
 function _fmtDay(iso) {
   return new Date(iso + 'T00:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
