@@ -583,8 +583,10 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 .subcard.collapsed .subcard-body { display:none; }
 .subcard-body { padding:4px 14px 14px; }
 /* Expense-category editor rows */
-.cat-add { display:flex; gap:8px; margin-bottom:14px; }
+.cat-add { display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
 .cat-add .field-input { flex:1; min-width:0; }
+.cat-add .cat-add-name { flex-basis:100%; }
+.cat-add .cat-add-group { flex:1; min-width:0; }
 .cat-add .btn { flex-shrink:0; padding:0 16px; }
 .cat-row { display:flex; align-items:center; gap:6px; padding:10px 2px; border-bottom:1px solid var(--border); }
 .cat-row:last-child { border-bottom:none; }
@@ -1227,7 +1229,8 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
         <div class="subcard-head" onclick="toggleSubcat('staff')"><span class="subcard-title">Staff categories · Cash tab</span><span class="subcard-count" id="subcat-count-staff">0</span><span class="subcard-chev">▾</span></div>
         <div class="subcard-body">
           <div class="cat-add">
-            <input id="cat-new-staff" class="field-input" placeholder="New staff category" onkeydown="if(event.key==='Enter'){event.preventDefault();addCategory('staff');}">
+            <input id="cat-new-staff" class="field-input cat-add-name" placeholder="New staff category" onkeydown="if(event.key==='Enter'){event.preventDefault();addCategory('staff');}">
+            <select id="cat-new-group-staff" class="field-input cat-add-group" title="Group"></select>
             <button class="btn" id="cat-add-staff-btn" onclick="addCategory('staff')">Add ✓</button>
           </div>
           <button class="catcopy-btn" onclick="copyCatsBetween('partner','staff')">⇄ Copy Partner categories &amp; groups into this list</button>
@@ -1240,7 +1243,8 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
         <div class="subcard-head" onclick="toggleSubcat('partner')"><span class="subcard-title">Partner categories · Bank tab</span><span class="subcard-count" id="subcat-count-partner">0</span><span class="subcard-chev">▾</span></div>
         <div class="subcard-body">
           <div class="cat-add">
-            <input id="cat-new-partner" class="field-input" placeholder="New partner category" onkeydown="if(event.key==='Enter'){event.preventDefault();addCategory('partner');}">
+            <input id="cat-new-partner" class="field-input cat-add-name" placeholder="New partner category" onkeydown="if(event.key==='Enter'){event.preventDefault();addCategory('partner');}">
+            <select id="cat-new-group-partner" class="field-input cat-add-group" title="Group"></select>
             <button class="btn" id="cat-add-partner-btn" onclick="addCategory('partner')">Add ✓</button>
           </div>
           <button class="catcopy-btn" onclick="copyCatsBetween('staff','partner')">⇄ Copy Staff categories &amp; groups into this list</button>
@@ -1398,7 +1402,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-14-03';
+const APP_VERSION = '2026-07-14-04';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -2575,6 +2579,15 @@ function renderCategoryEditor(kind) {
   </div>`).join('') || '<div class="log-empty">No categories yet — add one above.</div>';
   const badge = document.getElementById('subcat-count-' + kind);
   if (badge) badge.textContent = cats.length;
+  // Group picker on the "add category" row — a group must be chosen up front so a
+  // new tag never silently lands in Miscellaneous. Preserve any in-progress choice
+  // across re-renders (e.g. a sync echo) instead of resetting it.
+  const grpSel = document.getElementById('cat-new-group-' + kind);
+  if (grpSel) {
+    const keep = grpSel.value || '';
+    grpSel.innerHTML = '<option value="" disabled' + (keep ? '' : ' selected') + '>Group…</option>'
+      + masters.map(x => `<option value="${esc(x.name)}"${x.name === keep ? ' selected' : ''}>${esc(x.icon + ' ' + x.name)}</option>`).join('');
+  }
 }
 // Set a category's master from its row dropdown (or make a new master inline).
 function onMasterChange(sel, kind) {
@@ -2603,14 +2616,20 @@ function catListClick(ev, kind) {
 }
 function addCategory(kind) {
   const inp = document.getElementById('cat-new-' + kind);
+  const grpSel = document.getElementById('cat-new-group-' + kind);
   const name = (inp.value || '').trim();
   if (!name) return;
+  const group = grpSel ? String(grpSel.value || '').trim().toUpperCase() : '';
+  if (!group) { peopleMsg('Pick a group for “' + name + '” first', false); if (grpSel && grpSel.focus) grpSel.focus(); return; }
   const cats = getCategories(kind);
   if (cats.some(c => c.toLowerCase() === name.toLowerCase())) { peopleMsg('“' + name + '” already exists', false); return; }
   cats.push(name);
-  saveCategories(kind, cats);   // new tag lands in Miscellaneous until moved
+  saveCategories(kind, cats);
+  assignMaster(name, group);   // honour the chosen group instead of defaulting to Miscellaneous
   inp.value = '';
+  if (grpSel) grpSel.value = '';   // reset the picker back to the "Group…" placeholder
   renderCategoryEditor(kind);
+  if (document.getElementById('panel-dashboard')?.classList.contains('active')) { try { renderExpenseCats(); } catch (e) {} }
   btnFlash('cat-add-' + kind + '-btn', 'Adding…', 'Added ✓', 'Add ✓');
 }
 // How many real expense entries carry this category (bank + cash + ledger).
