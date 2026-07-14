@@ -1364,6 +1364,32 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
   </div>
 </div>
 
+<!-- Edit modal for a Cash day (opening · sales · expenses · closing) -->
+<div id="cashedit-overlay" onclick="closeCashEditModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1000;"></div>
+<div id="cashedit-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1001;width:min(460px,calc(100vw - 32px));background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,0.45);padding:18px;box-sizing:border-box;max-height:92vh;overflow:auto;">
+  <div style="font-family:'Inter',sans-serif;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;font-size:13px;color:var(--text2);margin-bottom:4px;">Edit cash day</div>
+  <div id="cashedit-sub" style="font-size:11px;color:var(--text3);font-family:'Inter',sans-serif;margin-bottom:14px;"></div>
+  <label class="field-label">Date</label>
+  <input id="cme-date" type="date" class="field-input" style="width:100%;box-sizing:border-box;text-align:center;margin-bottom:12px;">
+  <label class="field-label">Opening cash ₹</label>
+  <input id="cme-opening" type="text" inputmode="decimal" oninput="onMoneyInput(this);cmeRecalc()" class="field-input" style="width:100%;box-sizing:border-box;text-align:center;margin-bottom:12px;">
+  <label class="field-label">Sales — cash · UPI · card ₹</label>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">
+    <input id="cme-cash" type="text" inputmode="decimal" oninput="onMoneyInput(this);cmeRecalc()" class="field-input" style="box-sizing:border-box;text-align:center;" placeholder="Cash">
+    <input id="cme-upi"  type="text" inputmode="decimal" oninput="onMoneyInput(this)" class="field-input" style="box-sizing:border-box;text-align:center;" placeholder="UPI">
+    <input id="cme-card" type="text" inputmode="decimal" oninput="onMoneyInput(this)" class="field-input" style="box-sizing:border-box;text-align:center;" placeholder="Card">
+  </div>
+  <label class="field-label">Cash expenses</label>
+  <div id="cme-exp"></div>
+  <button onclick="cmeAddRow()" style="width:100%;background:rgba(255,255,255,0.05);border:1px dashed var(--border);color:var(--text2);border-radius:8px;padding:9px;font-size:13px;font-family:'Inter',sans-serif;cursor:pointer;margin-bottom:12px;">＋ Add expense</button>
+  <div id="cme-close-hint" style="font-size:12px;color:var(--text2);background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:14px;"></div>
+  <div id="cashedit-msg" style="display:none;color:var(--red);font-size:12px;margin-bottom:10px;"></div>
+  <div style="display:flex;gap:10px;">
+    <button onclick="saveCashEditModal()" style="flex:1;background:var(--text);border:none;color:var(--bg);border-radius:8px;padding:12px;font-size:14px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;">Save ✓</button>
+    <button onclick="closeCashEditModal()" style="flex:0 0 auto;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:12px 16px;font-size:14px;font-family:'Inter',sans-serif;cursor:pointer;">Cancel</button>
+  </div>
+</div>
+
 <script>
 // ─── BUILD VERSION ───────────────────────────────────────────────────────────
 // Bump this string on EVERY deploy and write the SAME value into version.json.
@@ -1371,7 +1397,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-13-11';
+const APP_VERSION = '2026-07-13-12';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -4090,42 +4116,92 @@ function closeBillsViewer() {
 
 let _editingEntry = null;
 
+// Editing a saved cash day happens in a focused pop-up (same pattern as the bank
+// and ledger editors) instead of loading it back into the multi-step add-form.
+let _cashEditOrig = null, _cmeRows = [];
 function editEntry(date) {
   const entry = loadEntries().find(e => e.date === date);
   if (!entry) return;
   if (!canEditCash(entry.addedBy)) { alert('Only ' + (entry.addedBy || 'the person who added this') + ' or a partner can edit this entry.'); return; }
-  _editingEntry = entry;
-
-  // Unlock date for edit
-  const dateField = document.getElementById('entry-date');
-  dateField.value = entry.date;
-  dateField.readOnly = false;
-  dateField.style.opacity = '1';
-  dateField.style.pointerEvents = 'auto';
-
-  setMoney('f-opening', entry.opening || '');
-  setMoney('f-cash', entry.cash || '');
-  setMoney('f-upi', entry.upi || '');
-  setMoney('f-card', entry.card || '');
-
-  expenseRows = (entry.expenses && entry.expenses.length)
-    ? entry.expenses.map(x => ({ id: Date.now() + Math.random(), category: x.category, desc: x.desc, amount: x.amount, saved: true, photo: x.photo || null }))
-    : [{ id: Date.now(), category: '', desc: '', amount: '', saved: false, photo: null }];
-  renderExpenseRows();
-  recalc();
-  checkOpening();
-
-  // Show edit banner
-  const successBox = document.getElementById('form-success');
-  successBox.innerHTML = `<strong>Edit Mode</strong> — editing ${new Date(date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' })}${entry.addedBy ? ', originally added by ' + entry.addedBy : ''}. Correct the values and submit.`;
-  successBox.style.display = 'block';
-
-  // Switch to entry panel
-  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  document.getElementById('panel-entry').classList.add('active');
-  document.querySelector('[data-panel="entry"]').classList.add('active');
-  window.scrollTo(0, 0);
+  openCashEditModal(entry);
+}
+function openCashEditModal(entry) {
+  _cashEditOrig = entry.date;
+  _cmeRows = (entry.expenses || []).map(x => ({ category: x.category || '', desc: x.desc || '', amount: x.amount || '', photo: x.photo || null }));
+  const when = new Date(entry.date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+  document.getElementById('cashedit-sub').textContent = when + (entry.addedBy ? ' · added by ' + entry.addedBy : '');
+  document.getElementById('cme-date').value = entry.date || '';
+  setMoney('cme-opening', entry.opening || '');
+  setMoney('cme-cash', entry.cash || '');
+  setMoney('cme-upi', entry.upi || '');
+  setMoney('cme-card', entry.card || '');
+  renderCmeRows();
+  document.getElementById('cashedit-msg').style.display = 'none';
+  document.getElementById('cashedit-overlay').style.display = 'block';
+  document.getElementById('cashedit-modal').style.display = 'block';
+}
+function renderCmeRows() {
+  const c = document.getElementById('cme-exp'); if (!c) return;
+  const cats = getCategories('staff');
+  c.innerHTML = _cmeRows.map((r, i) => `
+    <div style="border:1px solid var(--border);border-radius:8px;padding:8px;margin-bottom:8px;">
+      <select class="field-input" style="width:100%;box-sizing:border-box;margin-bottom:6px;font-size:13px;" onchange="_cmeRows[${i}].category=this.value">
+        <option value="">Select category…</option>
+        ${cats.map(x => `<option value="${esc(x)}"${r.category === x ? ' selected' : ''}>${esc(x)}</option>`).join('')}
+      </select>
+      <div style="display:grid;grid-template-columns:1fr 92px 34px;gap:6px;align-items:center;">
+        <input class="field-input" style="font-size:13px;padding:8px;box-sizing:border-box;" placeholder="Description" value="${esc(r.desc || '')}" onchange="_cmeRows[${i}].desc=this.value">
+        <input class="field-input" type="text" inputmode="decimal" style="font-size:13px;padding:8px;box-sizing:border-box;text-align:center;" placeholder="₹" value="${groupIndian(String(r.amount || ''))}" oninput="onMoneyInput(this);_cmeRows[${i}].amount=this.value.replace(/,/g,'');cmeRecalc()">
+        <button onclick="cmeRemoveRow(${i})" title="Remove" style="background:rgba(224,82,82,0.15);border:1px solid rgba(224,82,82,0.3);color:var(--red);border-radius:6px;height:36px;cursor:pointer;">✕</button>
+      </div>
+      ${r.photo ? '<div style="font-size:10px;color:var(--text3);margin-top:5px;">📎 photo kept</div>' : ''}
+    </div>`).join('');
+  cmeRecalc();
+}
+function cmeAddRow() { _cmeRows.push({ category:'', desc:'', amount:'', photo:null }); renderCmeRows(); }
+function cmeRemoveRow(i) { _cmeRows.splice(i, 1); renderCmeRows(); }
+function cmeRecalc() {
+  const opening = money('cme-opening'), cash = money('cme-cash');
+  const totExp = _cmeRows.reduce((s, r) => s + (parseFloat(String(r.amount).replace(/,/g,'')) || 0), 0);
+  const closing = opening + cash - totExp;
+  const el = document.getElementById('cme-close-hint');
+  if (el) el.innerHTML = `Cash in hand (closing) = opening + cash − cash-expenses = <b>₹${Math.round(closing).toLocaleString('en-IN')}</b>`;
+}
+function closeCashEditModal() {
+  _cashEditOrig = null; _cmeRows = [];
+  document.getElementById('cashedit-overlay').style.display = 'none';
+  document.getElementById('cashedit-modal').style.display = 'none';
+}
+function saveCashEditModal() {
+  if (!_cashEditOrig) return;
+  const orig = loadEntries().find(e => e.date === _cashEditOrig);
+  if (!orig) { closeCashEditModal(); return; }
+  const date = document.getElementById('cme-date').value;
+  const opening = money('cme-opening'), cash = money('cme-cash'), upi = money('cme-upi'), card = money('cme-card');
+  const msg = document.getElementById('cashedit-msg');
+  const err = t => { msg.textContent = '⚠ ' + t; msg.style.display = 'block'; };
+  if (!date) return err('Date is required');
+  if (date > todayLocalISO()) return err(_fmtDay(date) + ' is in the future — cash can only go up to today (IST).');
+  if (!(opening > 0)) return err('Opening cash is required');
+  const rows = _cmeRows.map(r => ({ category: r.category, desc: (r.desc || '').trim(), amount: parseFloat(String(r.amount).replace(/,/g,'')) || 0, photo: r.photo || null }));
+  for (const r of rows) { if (r.amount > 0 && (!r.category || !r.desc)) return err('Every expense needs a category and a description.'); }
+  const filled = rows.filter(r => r.amount > 0);
+  const totalExpenses = filled.reduce((s, r) => s + r.amount, 0);
+  const totalSales = cash + upi + card;
+  const closing = opening + cash - totalExpenses;
+  const me = currentUser ? currentUser.name : '';
+  // Changing the date: don't clobber a different day, and clear the old record.
+  if (date !== _cashEditOrig) {
+    if (loadEntries().some(e => e.date === date)) return err('There is already a cash entry on ' + _fmtDay(date) + '.');
+    const list = loadEntries().filter(e => e.date !== _cashEditOrig);
+    localStorage.setItem('comedor_entries', JSON.stringify(list));
+    if (_db) _db.ref('comedor/entries/' + _cashEditOrig.replace(/-/g, '_')).remove().catch(syncWriteErr);
+  }
+  const rec = Object.assign({}, orig, { date, opening, cash, upi, card, totalSales, expenses: filled, totalExpenses, closing, editedBy: me, editedAt: new Date().toLocaleString('en-IN') });
+  saveEntry(rec);
+  closeCashEditModal();
+  if (document.getElementById('panel-entry')?.classList.contains('active')) renderEntryRecent();
+  if (document.getElementById('panel-dashboard')?.classList.contains('active')) renderDashboard();
 }
 
 function deleteEntry(date) {
