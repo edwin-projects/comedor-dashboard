@@ -1336,7 +1336,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-13-05';
+const APP_VERSION = '2026-07-13-06';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -3122,6 +3122,7 @@ function submitEntry() {
 
   const errors = [];
   if (!date)        errors.push('Date is required');
+  if (date && date > todayLocalISO()) errors.push(`${_fmtDay(date)} is in the future — cash can only be recorded up to today, ${_fmtDay(todayLocalISO())} (IST). Change the date.`);
   if (opening <= 0) errors.push('Opening Cash Balance is required');
   const openPrior = date ? oldestOpenDayBefore(date) : null;
   if (openPrior) errors.push(`Close ${_fmtDay(openPrior.date)} first — enter its closing cash before submitting a later day.`);
@@ -3222,6 +3223,7 @@ function saveOpening() {
   const errBox  = document.getElementById('form-errors');
   const errors  = [];
   if (!date)        errors.push('Date is required');
+  if (date && date > todayLocalISO()) errors.push(`${_fmtDay(date)} is in the future — cash can only be recorded up to today, ${_fmtDay(todayLocalISO())} (IST). Change the date.`);
   if (opening <= 0) errors.push('Opening Cash Balance is required');
   const openPrev = date ? oldestOpenDayBefore(date) : null;
   if (openPrev) errors.push(`Close ${_fmtDay(openPrev.date)} first — its closing cash count is still pending. Finish the previous day before starting a new one.`);
@@ -3274,6 +3276,10 @@ function saveSales() {
     errBox.innerHTML = '<div>⚠ Date is required</div>'; errBox.style.display = 'block';
     errBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); return;
   }
+  if (date > todayLocalISO()) {
+    errBox.innerHTML = `<div>⚠ ${_fmtDay(date)} is in the future — cash can only be recorded up to today, ${_fmtDay(todayLocalISO())} (IST). Change the date.</div>`;
+    errBox.style.display = 'block'; errBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); return;
+  }
   errBox.style.display = 'none';
 
   const cash = money('f-cash'), upi = money('f-upi'), card = money('f-card');
@@ -3321,6 +3327,10 @@ function saveCashExpenses() {
   if (!date) {
     errBox.innerHTML = '<div>⚠ Date is required</div>'; errBox.style.display = 'block';
     errBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); return;
+  }
+  if (date > todayLocalISO()) {
+    errBox.innerHTML = `<div>⚠ ${_fmtDay(date)} is in the future — cash can only be recorded up to today, ${_fmtDay(todayLocalISO())} (IST). Change the date.</div>`;
+    errBox.style.display = 'block'; errBox.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); return;
   }
   errBox.style.display = 'none';
 
