@@ -48,8 +48,10 @@ export default {
     // Shared-token check. Pet Pooja can echo a static token in the body; we set
     // WEBHOOK_TOKEN to the same value and reject anything that doesn't match.
     if (env.WEBHOOK_TOKEN) {
-      const got = payload.token || payload.Token || '';
-      if (got !== env.WEBHOOK_TOKEN) return json({ error: 'unauthorized' }, 401);
+      // Trim both sides — Pet Pooja's console pads the token with a trailing space
+      // in the payload, which an exact compare would (and did) reject with a 401.
+      const got = String(payload.token || payload.Token || '').trim();
+      if (got !== String(env.WEBHOOK_TOKEN).trim()) return json({ error: 'unauthorized' }, 401);
     }
     if (payload.event && payload.event !== 'orderdetails') return json({ ok: true, skipped: payload.event });
 

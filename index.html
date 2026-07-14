@@ -17,6 +17,7 @@
      or blocked, the lock screen still appears instantly and the app runs offline
      (Firebase attaches when it loads; uploads need pdf.js/xlsx, used on demand). -->
 <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
 <script defer src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script defer src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -1397,7 +1398,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-13-12';
+const APP_VERSION = '2026-07-14-01';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -1463,13 +1464,13 @@ function showSyncHelp() {
   alert(
     'LIVE SYNC ACROSS DEVICES\n\n' +
     'This device: ' + st + '\n\n' +
-    'If it says "Sync blocked", the Firebase Realtime Database rules are closed, so no device can read or write the shared data. A partner with access to the Firebase project fixes it once:\n\n' +
+    'If it says "Sync blocked", the app could not authenticate to the shared database. A partner with access to the Firebase project fixes it once:\n\n' +
     '1. console.firebase.google.com  →  project "comedor-finance-dashboard"\n' +
-    '2. Build → Realtime Database → Rules tab\n' +
-    '3. Replace the rules with:\n\n' +
-    '{\n  "rules": {\n    "comedor": { ".read": true, ".write": true }\n  }\n}\n\n' +
+    '2. Build → Authentication → Sign-in method → enable "Anonymous".\n' +
+    '3. Build → Realtime Database → Rules tab → set the rules to:\n\n' +
+    '{\n  "rules": {\n    "comedor": { ".read": "auth != null", ".write": "auth != null" }\n  }\n}\n\n' +
     '4. Press Publish.\n\n' +
-    'Every phone, iPad and browser then syncs within a second. (Make sure a Realtime Database has actually been created in that project — not only Firestore.)'
+    'Every phone, iPad and browser then syncs within a second. (Make sure a Realtime Database has actually been created in that project — not only Firestore, and that Anonymous sign-in is enabled or no device can connect.)'
   );
 }
 
@@ -1479,6 +1480,14 @@ function initFirebase() {
   try {
     firebase.initializeApp(FIREBASE_CONFIG);
     _db = firebase.database();
+
+    // The database rules now require an authenticated client (auth != null), so we
+    // sign in anonymously and only wire the listeners once we actually have a user.
+    // A listen attached before auth resolves would be denied by the rules and never
+    // retried, so everything below runs inside wireSync(), triggered post-auth.
+    var _synced = false;
+    var wireSync = function () {
+      if (_synced) return; _synced = true;
 
     // Connection heartbeat → drives the Live / Offline pill.
     _db.ref('.info/connected').on('value', s => {
@@ -1599,6 +1608,16 @@ function initFirebase() {
     migrateRecurringGst();
     migrateRecurringCa();
     migrateCapsV1();
+    };  // end wireSync — wired only after we have an authenticated user
+
+    // Anonymous sign-in gives every device a stable auth identity, so the rules can
+    // reject any request that isn't coming through the app. Wire sync as soon as the
+    // user is present (onAuthStateChanged fires once anonymous sign-in completes).
+    firebase.auth().onAuthStateChanged(function (u) { if (u) wireSync(); });
+    firebase.auth().signInAnonymously().catch(function (e) {
+      console.warn('Anonymous sign-in failed:', e && e.message);
+      setSyncStatus('blocked');
+    });
   } catch (e) { console.warn('Firebase init failed:', e); setSyncStatus('offline'); }
 }
 // The restaurant's fixed monthly commitments, derived from the Mar–Jul history:
