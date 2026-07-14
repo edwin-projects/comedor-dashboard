@@ -1329,6 +1329,28 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
   </div>
 </div>
 
+<!-- Edit modal for an imported historical ledger entry -->
+<div id="led-overlay" onclick="closeLedgerEdit()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1000;"></div>
+<div id="led-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1001;width:min(420px,calc(100vw - 32px));background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,0.45);padding:18px;box-sizing:border-box;max-height:90vh;overflow:auto;">
+  <div style="font-family:'Inter',sans-serif;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;font-size:13px;color:var(--text2);margin-bottom:4px;">Edit ledger entry</div>
+  <div style="font-size:11px;color:var(--text3);font-family:'Inter',sans-serif;margin-bottom:14px;">Imported from the Excel ledger. Changes update the P&amp;L and capital.</div>
+  <label class="field-label">Date</label>
+  <input id="led-date" type="date" class="field-input" style="width:100%;box-sizing:border-box;text-align:center;margin-bottom:12px;">
+  <label class="field-label">Amount ₹</label>
+  <input id="led-amount" type="text" inputmode="decimal" oninput="onMoneyInput(this)" class="field-input" style="width:100%;box-sizing:border-box;text-align:center;margin-bottom:12px;">
+  <label class="field-label">Paid by</label>
+  <select id="led-by" class="field-input" style="width:100%;box-sizing:border-box;margin-bottom:12px;"><option value="P">Prathvi</option><option value="E">Edwin</option></select>
+  <label class="field-label">Type</label>
+  <select id="led-bucket" class="field-input" style="width:100%;box-sizing:border-box;margin-bottom:12px;"><option value="O">Operating (in P&amp;L)</option><option value="C">Capex (asset)</option><option value="S">Setup (pre-open)</option><option value="I">Capital infusion</option></select>
+  <label class="field-label">Category / description</label>
+  <input id="led-cat" type="text" class="field-input" style="width:100%;box-sizing:border-box;margin-bottom:16px;">
+  <div id="led-msg" style="display:none;color:var(--red);font-size:12px;margin-bottom:10px;"></div>
+  <div style="display:flex;gap:10px;">
+    <button onclick="saveLedgerRow()" style="flex:1;background:var(--text);border:none;color:var(--bg);border-radius:8px;padding:12px;font-size:14px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;">Save ✓</button>
+    <button onclick="closeLedgerEdit()" style="flex:0 0 auto;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:12px 16px;font-size:14px;font-family:'Inter',sans-serif;cursor:pointer;">Cancel</button>
+  </div>
+</div>
+
 <script>
 // ─── BUILD VERSION ───────────────────────────────────────────────────────────
 // Bump this string on EVERY deploy and write the SAME value into version.json.
@@ -1336,7 +1358,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-13-09';
+const APP_VERSION = '2026-07-13-10';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -1522,6 +1544,15 @@ function initFirebase() {
       renderActivePanel();
       if (document.getElementById('panel-people')?.classList.contains('active')) renderRecurring();
     }, onErr('recurring'));
+
+    // Historical partner-paid ledger (imported from the pre-app Excel). Untouched
+    // it stays the baked-in seed; once anyone edits a row we store the whole set
+    // here and every device reads from it. Absent snapshot = never edited = keep
+    // the seed, so we only overwrite localStorage when a stored version exists.
+    _db.ref('comedor/ledger').on('value', snap => {
+      if (snap.exists()) { const v = snap.val(); localStorage.setItem('comedor_ledger', JSON.stringify(Array.isArray(v) ? v : Object.values(v))); }
+      renderActivePanel();
+    }, onErr('ledger'));
     upgradeHistoricalIncome();
     seedHistoricalCashBook();
     seedRecurringDefaults();
@@ -4652,7 +4683,21 @@ var HIST_LEDGER=[["2026-07-06",118658.0,"P","O","Grocery"],
 ["2025-09-05",1000000.0,"E","C","Security Deposit"],
 ["2025-09-03",4500.0,"P","C","Outlet Survey"],
 ["2025-09-01",30000.0,"P","C","Security Deposit"]];
-function loadLedger(){ return (typeof HIST_LEDGER!=='undefined')?HIST_LEDGER:[]; }
+// Row = [date, INR, 'E'|'P', bucket, category, id]. Reads the editable/synced
+// store if it exists; otherwise the baked-in seed, tagged with a stable id ('L'+
+// index) per row so it's addressable for edit/delete. The id (r[5]) is ignored by
+// every calc below, which only read r[0..4] — so nothing about the accounting
+// changes; the data just becomes editable.
+function loadLedger(){
+  try { const raw = localStorage.getItem('comedor_ledger'); if (raw) { const a = JSON.parse(raw); if (Array.isArray(a)) return a; } } catch(e){}
+  return (typeof HIST_LEDGER!=='undefined') ? HIST_LEDGER.map((r,i)=> (r.length > 5 ? r : [r[0],r[1],r[2],r[3],r[4],'L'+i])) : [];
+}
+// Persist the whole ledger (localStorage + Firebase). From the first save on, the
+// stored version is the source of truth on every device.
+function saveLedger(arr){
+  try { localStorage.setItem('comedor_ledger', JSON.stringify(arr)); } catch(e){}
+  if (_db) _db.ref('comedor/ledger').set(arr).catch(syncWriteErr);
+}
 // Row = [date, INR, 'E'|'P', bucket 'C'apex | 'S'etup(pre-open) | 'O'perating, category]
 function ledgerCapitalBy(){ var o={Edwin:0,Prathvi:0}; loadLedger().forEach(function(r){ o[r[2]==='E'?'Edwin':'Prathvi']+=r[1]; }); return o; }
 // Per-partner totals for a set of buckets, e.g. ledgerSumBy('CS') = capex + setup.
@@ -5258,14 +5303,107 @@ function bankSrcBadge(b) {
     : '<span class="cat-badge src-idfc">IDFC</span>';
 }
 
+// The imported historical ledger, shaped for the bank recent-entries list. Bucket
+// 'I' (a capital infusion) reads as money in (+); everything else is spend (−).
+const LEDGER_BUCKET_LABEL = { C:'Capex', S:'Setup', O:'Operating', I:'Capital' };
+function ledgerBankRows() {
+  return loadLedger().map((r, i) => ({
+    _ledger: true,
+    id: r[5] || ('L' + i),
+    date: r[0],
+    amount: Number(r[1]) || 0,
+    capital: r[3] === 'I',
+    bucket: r[3],
+    bucketLabel: LEDGER_BUCKET_LABEL[r[3]] || '—',
+    category: r[4],
+    partner: (r[2] === 'E' ? 'Edwin' : 'Prathvi'),
+    addedBy: (r[2] === 'E' ? 'Edwin' : 'Prathvi')
+  }));
+}
+function ledgerRowHTML(b, inr) {
+  const d = new Date(b.date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short' });
+  const pos = !!b.capital;
+  const chip = `<span class="cat-badge" style="background:var(--surface2);color:var(--text3);border:1px solid var(--border);">Ledger · ${esc(b.bucketLabel)}</span>`;
+  return `<tr>
+    <td style="white-space:nowrap;">${d}</td>
+    <td style="font-size:12px;word-break:break-word;">${esc(b.category || '—')} ${chip}<div style="color:var(--text3);font-size:11px;">by ${esc(b.addedBy)}</div></td>
+    <td class="num ${pos ? 'green-text' : 'red-text'}" style="white-space:nowrap;">${pos ? '+' : '–'}${inr(b.amount)}</td>
+    <td style="padding-left:4px;padding-right:6px;"><div style="display:flex;gap:5px;justify-content:flex-end;"><button class="cat-act cat-edit" style="padding:3px 7px;font-size:11px;" onclick="editLedgerRow('${b.id}')">Edit</button><button class="cat-act cat-del" style="padding:3px 7px;font-size:11px;" onclick="deleteLedgerRow('${b.id}')">Del</button></div></td>
+  </tr>`;
+}
+let _editingLedgerId = null;
+function _ledgerIdOf(r, i) { return r[5] || ('L' + i); }
+function editLedgerRow(id) {
+  const rows = loadLedger();
+  const idx = rows.findIndex((r, i) => _ledgerIdOf(r, i) === id);
+  if (idx < 0) return;
+  const r = rows[idx];
+  const by = r[2] === 'E' ? 'Edwin' : 'Prathvi';
+  if (!canEditBank(by)) { alert('Only ' + by + ' or a partner can edit this entry.'); return; }
+  _editingLedgerId = id;
+  document.getElementById('led-date').value = r[0] || '';
+  setMoney('led-amount', r[1] || '');
+  document.getElementById('led-by').value = r[2] || 'P';
+  document.getElementById('led-bucket').value = r[3] || 'O';
+  document.getElementById('led-cat').value = r[4] || '';
+  const m = document.getElementById('led-msg'); if (m) m.style.display = 'none';
+  document.getElementById('led-overlay').style.display = 'block';
+  document.getElementById('led-modal').style.display = 'block';
+}
+function closeLedgerEdit() {
+  _editingLedgerId = null;
+  document.getElementById('led-overlay').style.display = 'none';
+  document.getElementById('led-modal').style.display = 'none';
+}
+function _afterLedgerChange() {
+  if (document.getElementById('panel-bankexp')?.classList.contains('active')) renderBankList();
+  if (document.getElementById('panel-dashboard')?.classList.contains('active')) renderDashboard();
+}
+function saveLedgerRow() {
+  if (!_editingLedgerId) return;
+  const date   = document.getElementById('led-date').value;
+  const amount = money('led-amount');
+  const by     = document.getElementById('led-by').value;
+  const bucket = document.getElementById('led-bucket').value;
+  const cat    = (document.getElementById('led-cat').value || '').trim();
+  const msg = document.getElementById('led-msg');
+  if (!date || !(amount > 0) || !cat) { msg.textContent = 'Date, a positive amount and a category are all required.'; msg.style.display = 'block'; return; }
+  const rows = loadLedger().map(r => r.slice());
+  const idx = rows.findIndex((r, i) => _ledgerIdOf(r, i) === _editingLedgerId);
+  if (idx < 0) { closeLedgerEdit(); return; }
+  rows[idx] = [date, amount, by, bucket, UP(cat), _editingLedgerId];
+  saveLedger(rows);
+  closeLedgerEdit();
+  _afterLedgerChange();
+}
+function deleteLedgerRow(id) {
+  const rows = loadLedger();
+  const idx = rows.findIndex((r, i) => _ledgerIdOf(r, i) === id);
+  if (idx < 0) return;
+  const r = rows[idx];
+  const by = r[2] === 'E' ? 'Edwin' : 'Prathvi';
+  if (!canEditBank(by)) { alert('Only ' + by + ' or a partner can delete this entry.'); return; }
+  const when = new Date((r[0] || '') + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+  if (!confirm('Delete the ledger entry “' + (r[4] || '') + '” (' + when + ', ₹' + Number(r[1] || 0).toLocaleString('en-IN') + ')? This updates the P&L and capital.')) return;
+  // Rows from loadLedger() already carry a stable id in r[5], so a plain filter is
+  // safe — remaining ids don't shift.
+  const next = rows.filter((x, i) => _ledgerIdOf(x, i) !== id);
+  saveLedger(next);
+  _afterLedgerChange();
+}
+
 // Recent bank entries (expense · capital · partner-direct) the current user can
 // edit or delete, shown right on the Bank tab — parity with the Cash tab's list.
 function renderBankRecent() {
   const wrap = document.getElementById('bank-recent-wrap');
   if (!wrap) return;
   const inr = n => '₹' + Number(n || 0).toLocaleString('en-IN');
-  const mine = loadBankEntries().filter(b => canEditBank(b.addedBy))
-    .sort((a, b) => (b.date + (b.at || '')).localeCompare(a.date + (a.at || ''))).slice(0, 200);
+  // App-entered bank entries + the imported historical ledger rows (partner-paid),
+  // shown together so every partner-paid expense lives in one editable list.
+  const bankMine = loadBankEntries().filter(b => canEditBank(b.addedBy));
+  const ledMine  = ledgerBankRows().filter(b => canEditBank(b.addedBy));
+  const mine = bankMine.concat(ledMine)
+    .sort((a, b) => (b.date + (b.at || '')).localeCompare(a.date + (a.at || ''))).slice(0, 400);
   const cnt = document.getElementById('count-bankrecent');
   if (cnt) cnt.textContent = mine.length + (mine.length === 1 ? ' entry' : ' entries');
   if (!mine.length) { wrap.innerHTML = '<div class="log-empty">No bank entries yet. Ones you add appear here to edit or delete.</div>'; return; }
@@ -5276,6 +5414,7 @@ function renderBankRecent() {
     : isGstEntry(b) ? 'GST' : (b.category || '—');
   const thead = `<tr><th style="width:52px;">Date</th><th>Type</th><th class="num" style="width:74px;">₹</th><th style="width:96px;"></th></tr>`;
   const rowFn = b => {
+    if (b._ledger) return ledgerRowHTML(b, inr);
     const d = new Date(b.date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short' });
     const pos = !!b.capital;
     const parts = [];
