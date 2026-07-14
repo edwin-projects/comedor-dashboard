@@ -1398,7 +1398,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-14-02';
+const APP_VERSION = '2026-07-14-03';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -4863,21 +4863,15 @@ window.addEventListener('resize', () => {
 function renderPnlBank() {
   const cashEntries = getDashEntries();
   const range = getRange();
-  // Income = Pet Pooja (authoritative). For any day in range that has NO Pet
-  // Pooja report yet, fall back to that day's End-of-Day Sales total from the
-  // cash register — so the figure isn't ₹0 until the report is uploaded. Once a
-  // Pet Pooja report covers the day, that day is "owned" and the register value
-  // is dropped, so nothing double-counts.
-  // Guard: only fall back on days on/after the FIRST Pet Pooja report. Days that
-  // predate the POS going live (pre-POS cash-book entries) will never get a
-  // report, so treating them as "pending" would inflate income above Pet Pooja —
-  // the source of truth (rule 8). Such days stay in the cash book, out of income.
-  const _ppOwner = incomeDayOwner();
-  const _ppStart = loadIncome().reduce((m, r) => (r.from && (!m || r.from < m)) ? r.from : m, null);
+  // Income = Pet Pooja reports ONLY (rule 8). The daily cash register is for cash
+  // reconciliation, not sales — it undercounts delivery, and folding its End-of-Day
+  // UPI/Cash/Card total into income double-counted against the report once it landed
+  // (and made the figure churn day-to-day). So a day with no report yet simply reads
+  // ₹0 for income until its Pet Pooja report — or the real-time Pet Pooja API feed,
+  // which writes the same comedor/income records — arrives. The register's End-of-Day
+  // Sales stay in the cash book, out of income.
   const ppIncome = Math.round(incomeInRange(range.from, range.to));
-  const regFallback = Math.round(cashEntries.reduce((s, e) => s + ((e.date && _ppOwner[e.date] === undefined && (!_ppStart || e.date >= _ppStart)) ? (Number(e.totalSales) || 0) : 0), 0));
-  const income = ppIncome + regFallback;
-  const estFromRegister = regFallback > 0;
+  const income = ppIncome;
   const discount = Math.round(incomeFieldInRange(range.from, range.to, 'discount'));
   const cashExp  = cashEntries.reduce((s, e) => s + (e.totalExpenses || 0), 0);
   const bank = getBankInRange();
