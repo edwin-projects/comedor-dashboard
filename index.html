@@ -1297,6 +1297,21 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
       <div id="rec-list" style="margin-top:16px;"></div>
     </div>
   </div>
+
+  <!-- Data accuracy audit -->
+  <div class="setcard collapsed tint-blue" id="setcard-audit">
+    <div class="setcard-head" onclick="toggleSet('audit')"><span class="setcard-title">Data Accuracy Audit</span><span class="setcard-chev">▾</span></div>
+    <div class="setcard-body">
+      <p class="exp-note">Cross-checks every tab against the live data — cash sales &amp; expense totals, drawer reconciliation, day-to-day continuity, bank record validity, historical ledger rows, Pet Pooja reports, and possible double-entries. Runs on this device against the synced database, so it always reflects what everyone actually sees.</p>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        <button id="audit-run-btn" class="btn" style="flex:1 1 140px; padding:12px;" onclick="runDataAudit()">Run audit ✓</button>
+        <button id="audit-export-btn" class="btn btn-ghost" style="flex:1 1 140px; padding:12px;" onclick="exportDataSnapshot()">Export snapshot (JSON)</button>
+      </div>
+      <div id="audit-results" style="margin-top:16px;"></div>
+      <textarea id="audit-export-ta" readonly onclick="this.select()" style="display:none; width:100%; height:150px; margin-top:12px; font-family:monospace; font-size:11px; background:var(--surface); color:var(--text); border:1px solid var(--border); border-radius:8px; padding:10px; box-sizing:border-box;"></textarea>
+      <p class="exp-note" style="margin-top:10px; color:var(--text3);">Export copies the full dataset (PINs stripped) to your clipboard and downloads a JSON file — share it for a deeper reconciliation. Once the Pet Pooja API is live, its data flows into the same database and shows up here automatically.</p>
+    </div>
+  </div>
 </div>
 
 </div><!-- end #app -->
@@ -1397,7 +1412,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-13-12';
+const APP_VERSION = '2026-07-14-1';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -5305,6 +5320,167 @@ function currentCashBalance() {
     if (b.payout && b.source === 'cash' && (!lastDate || b.date > lastDate)) bal -= (Number(b.amount) || 0);
   });
   return bal;
+}
+
+// ─── DATA ACCURACY AUDIT ─────────────────────────────────────────────────────
+// Runs entirely on-device against the live synced data (Firebase → localStorage),
+// so it works where a server can't reach the DB. Every check is defensive — a
+// single malformed record is reported, never allowed to throw. Levels:
+//   ok = passed · info = worth knowing · warn = probably wrong · fail = broken
+function _auditNum(v) { return Number(v) || 0; }
+function _auditFuture(iso) { return iso && iso > todayLocalISO(); }
+function runDataAudit() {
+  const R = [];
+  const add = (level, title, msg, items) => R.push({ level, title, msg, items: items || [] });
+  const rupee = n => '₹' + Math.round(_auditNum(n)).toLocaleString('en-IN');
+  const entries = loadEntries().slice().sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  const bank = loadBankEntries();
+  const ledger = loadLedger();
+  const income = loadIncome();
+
+  // ── CASH ──
+  let bad = [];
+  entries.forEach(e => { const t = _auditNum(e.cash) + _auditNum(e.upi) + _auditNum(e.card); if (Math.abs(t - _auditNum(e.totalSales)) > 1) bad.push(`${e.date}: day total ${rupee(e.totalSales)} ≠ cash+UPI+card ${rupee(t)}`); });
+  add(bad.length ? 'fail' : 'ok', 'Cash · sales totals', bad.length ? `${bad.length} day(s) where the sales total doesn't match its parts` : 'Every day: cash + UPI + card = the day total', bad);
+
+  bad = [];
+  entries.forEach(e => { const s = (Array.isArray(e.expenses) ? e.expenses : []).reduce((a, x) => a + _auditNum(x.amount), 0); if (Math.abs(s - _auditNum(e.totalExpenses)) > 1) bad.push(`${e.date}: expense total ${rupee(e.totalExpenses)} ≠ sum of items ${rupee(s)}`); });
+  add(bad.length ? 'fail' : 'ok', 'Cash · expense totals', bad.length ? `${bad.length} day(s) where the expense items don't add up` : 'Every day: expense items add to the day expense total', bad);
+
+  bad = []; let variance = 0;
+  entries.forEach(e => { if (e.partial) return; const exp = _auditNum(e.opening) + _auditNum(e.cash) - _auditNum(e.totalExpenses); const d = _auditNum(e.closing) - exp; if (Math.abs(d) > 1) { variance += d; bad.push(`${e.date}: counted ${rupee(e.closing)} vs expected ${rupee(exp)} (${d > 0 ? '+' : ''}${rupee(d)})`); } });
+  add(bad.length ? 'warn' : 'ok', 'Cash · drawer reconciliation', bad.length ? `${bad.length} closed day(s) where the counted cash ≠ opening + cash sales − cash expenses · net over/short ${rupee(variance)}` : 'Every closed day: the counted cash matches the maths', bad);
+
+  bad = []; let prev = null;
+  entries.forEach(e => { if (prev) { const d = _auditNum(e.opening) - _auditNum(prev.closing); if (Math.abs(d) > 1) bad.push(`${e.date}: opening ${rupee(e.opening)} ≠ ${prev.date} closing ${rupee(prev.closing)} (${d > 0 ? '+' : ''}${rupee(d)})`); } if (!e.partial) prev = e; });
+  add(bad.length ? 'warn' : 'ok', 'Cash · day-to-day continuity', bad.length ? `${bad.length} day(s) whose opening ≠ the previous day's closing` : 'Each day opens where the last one closed', bad);
+
+  const seen = {}; bad = [];
+  entries.forEach(e => { if (seen[e.date]) bad.push(e.date); seen[e.date] = 1; });
+  if (bad.length) add('fail', 'Cash · duplicate days', `${bad.length} date(s) with more than one cash entry`, bad);
+
+  const cfut = entries.filter(e => _auditFuture(e.date)).map(e => e.date);
+  if (cfut.length) add('fail', 'Cash · future-dated days', `${cfut.length} cash day(s) dated after today (IST)`, cfut);
+  const copen = entries.filter(e => e.partial).map(e => e.date);
+  if (copen.length) add('info', 'Cash · open (uncounted) days', `${copen.length} day(s) still awaiting a closing count`, copen);
+
+  // ── BANK ──
+  bad = []; const bids = {};
+  bank.forEach(b => {
+    const flags = ['capital', 'direct', 'payout'].filter(k => b[k]).length;
+    if (flags > 1) bad.push(`${b.date || '?'} ${rupee(b.amount)}: more than one type flag set`);
+    if (!(_auditNum(b.amount) > 0)) bad.push(`${b.date || '?'}: non-positive amount`);
+    if (!b.date) bad.push(`(no date) ${rupee(b.amount)}`);
+    if (b.id) { if (bids[b.id]) bad.push(`duplicate id ${b.id}`); bids[b.id] = 1; }
+  });
+  add(bad.length ? 'fail' : 'ok', 'Bank · record validity', bad.length ? `${bad.length} bank record issue(s)` : 'Every bank entry has a date, a positive amount, one clear type, a unique id', bad);
+
+  const bfut = bank.filter(b => _auditFuture(b.date)).map(b => `${b.date} ${rupee(b.amount)}`);
+  if (bfut.length) add('fail', 'Bank · future-dated entries', `${bfut.length} bank entr(y/ies) dated after today (IST)`, bfut);
+
+  // ── LEDGER (historical import) ──
+  bad = []; const lids = {};
+  ledger.forEach((r, i) => {
+    const id = (r && r[5]) || ('L' + i);
+    if (!r || !r[0]) bad.push(`row ${i}: no date`);
+    if (!(_auditNum(r && r[1]) > 0)) bad.push(`row ${i}: non-positive amount`);
+    if (['E', 'P'].indexOf(r && r[2]) < 0) bad.push(`row ${i}: partner not E/P`);
+    if (['C', 'S', 'O', 'I'].indexOf(r && r[3]) < 0) bad.push(`row ${i}: bucket not C/S/O/I`);
+    if (lids[id]) bad.push(`duplicate id ${id}`); lids[id] = 1;
+  });
+  add(bad.length ? 'fail' : 'ok', 'Ledger · row validity', bad.length ? `${bad.length} ledger row issue(s)` : 'Every historical ledger row is well-formed', bad);
+
+  // ── INCOME (Pet Pooja) ──
+  bad = [];
+  income.forEach(r => { if (!r.from || !r.to) { bad.push(`${r.id}: missing period`); return; } if (r.from > r.to) bad.push(`${r.id}: from ${r.from} after to ${r.to}`); if (!(_auditNum(r.gross) >= 0)) bad.push(`${r.id}: negative gross`); });
+  add(bad.length ? 'fail' : 'ok', 'Income · report validity', bad.length ? `${bad.length} report issue(s)` : 'Every Pet Pooja report has a valid period and gross', bad);
+
+  bad = [];
+  income.forEach(r => { const cats = r.categories || {}; const keys = Object.keys(cats); if (!keys.length) return; const s = keys.reduce((a, k) => a + _auditNum(cats[k]), 0); const g = _auditNum(r.gross); if (g > 0 && Math.abs(s - g) / g > 0.02) bad.push(`${r.from}→${r.to}: categories ${rupee(s)} vs gross ${rupee(g)}`); });
+  if (bad.length) add('warn', 'Income · category vs gross', `${bad.length} report(s) whose category breakdown is >2% off the gross`, bad);
+
+  const owner = incomeDayOwner(); const ownCount = {};
+  for (const d in owner) ownCount[owner[d]] = (ownCount[owner[d]] || 0) + 1;
+  const shadowed = income.filter(r => r.from && r.to && !ownCount[r.id] && !_auditFuture(r.from)).map(r => `${r.from}→${r.to} ${rupee(r.gross)}`);
+  if (shadowed.length) add('info', 'Income · shadowed reports', `${shadowed.length} report(s) fully overridden by more granular reports — they add nothing to income (expected after a finer re-upload)`, shadowed);
+
+  // ── CROSS-TAB ──
+  bad = []; const cashKeys = {};
+  entries.forEach(e => (Array.isArray(e.expenses) ? e.expenses : []).forEach(x => { if (_auditNum(x.amount) > 0) { const k = e.date + '|' + Math.round(_auditNum(x.amount)); cashKeys[k] = 1; } }));
+  bank.filter(b => !b.capital && !b.payout).forEach(b => { const k = b.date + '|' + Math.round(_auditNum(b.amount)); if (cashKeys[k]) bad.push(`${b.date} ${rupee(b.amount)} — in Bank (${b.category || b.desc || '—'}) and in Cash`); });
+  if (bad.length) add('warn', 'Cross-tab · possible double entry', `${bad.length} expense(s) with the same date & amount in both Cash and Bank — check they aren't the same payment counted twice`, bad);
+
+  const _ck = s => String(s || '—').trim().toUpperCase();
+  const intro = {}, draw = {};
+  bank.filter(b => b.capital || b.direct).forEach(b => { const k = _ck(b.partner || b.addedBy); intro[k] = (intro[k] || 0) + _auditNum(b.amount); });
+  const cl = ledgerCapitalBy(); Object.keys(cl).forEach(k => { if (cl[k]) { const kk = _ck(k); intro[kk] = (intro[kk] || 0) + cl[k]; } });
+  bank.filter(b => b.payout).forEach(b => { const k = _ck(b.partner || b.addedBy); draw[k] = (draw[k] || 0) + _auditNum(b.amount); });
+  const negCap = [];
+  new Set(Object.keys(intro).concat(Object.keys(draw))).forEach(k => { const net = (intro[k] || 0) - (draw[k] || 0); if (net < -1) negCap.push(`${k}: ${rupee(net)}`); });
+  if (negCap.length) add('warn', 'Capital · negative partner balance', `${negCap.length} partner(s) have drawn out more than they put in`, negCap);
+
+  let hasBase = false; try { hasBase = !!JSON.parse(localStorage.getItem('comedor_bankbal') || 'null'); } catch (e) {}
+  if (!hasBase) add('info', 'Bank · no statement base', 'No IDFC statement base is set — the bank balance is derived from entries alone', []);
+
+  renderAuditResults(R);
+  return R;
+}
+
+function renderAuditResults(R) {
+  const el = document.getElementById('audit-results'); if (!el) return;
+  const order = { fail: 0, warn: 1, info: 2, ok: 3 };
+  const icon = { fail: '✕', warn: '⚠', info: 'ⓘ', ok: '✓' };
+  const col = { fail: 'var(--red)', warn: 'var(--accent2,#C9A040)', info: 'var(--text3)', ok: 'var(--green)' };
+  const fails = R.filter(r => r.level === 'fail').length, warns = R.filter(r => r.level === 'warn').length;
+  const head = fails ? `${fails} problem(s) need attention` : warns ? `No breakages · ${warns} thing(s) to review` : 'All checks passed ✓';
+  const headCol = fails ? 'var(--red)' : warns ? 'var(--accent2,#C9A040)' : 'var(--green)';
+  const rows = R.slice().sort((a, b) => order[a.level] - order[b.level]).map(r => {
+    const items = (r.items && r.items.length)
+      ? `<div style="margin-top:8px; font-size:11px; color:var(--text3); font-family:'Inter',sans-serif; line-height:1.7; border-top:1px dashed var(--border); padding-top:6px;">${r.items.slice(0, 60).map(i => `<div>${esc(i)}</div>`).join('')}${r.items.length > 60 ? `<div>…and ${r.items.length - 60} more</div>` : ''}</div>`
+      : '';
+    return `<div style="border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:8px; background:rgba(255,255,255,0.02);"><div style="display:flex; align-items:center; gap:8px;"><span style="color:${col[r.level]}; font-weight:700;">${icon[r.level]}</span><span style="font-size:13px; font-weight:600; color:var(--text);">${esc(r.title)}</span></div><div style="font-size:12px; color:var(--text2); margin-top:3px;">${esc(r.msg)}</div>${items}</div>`;
+  }).join('');
+  el.innerHTML = `<div style="font-size:14px; font-weight:700; color:${headCol}; margin-bottom:2px;">${esc(head)}</div><div style="font-size:11px; color:var(--text3); font-family:'Inter',sans-serif; margin-bottom:12px;">Checked ${esc(nowIST().toLocaleString('en-IN'))} IST · v${esc(APP_VERSION)}</div>${rows}`;
+}
+
+// Full dataset snapshot — the bridge to an off-device reconciliation (a server
+// can't reach Firebase directly). PINs are stripped. Copies to clipboard AND
+// downloads a JSON file; also shown in the textarea for easy copy on mobile.
+function exportDataSnapshot() {
+  let meta = null; try { meta = JSON.parse(localStorage.getItem('comedor_bankbal') || 'null'); } catch (e) {}
+  let users = []; try { users = (JSON.parse(localStorage.getItem('comedor_users') || '[]') || []).map(u => { const c = Object.assign({}, u); delete c.pin; return c; }); } catch (e) {}
+  const snap = {
+    app: 'comedor-finance-dashboard',
+    version: APP_VERSION,
+    generatedAtIST: nowIST().toLocaleString('en-IN'),
+    todayIST: todayLocalISO(),
+    summary: {
+      incomeLifetime: Math.round(incomeInRange('1970-01-01', '2999-12-31')),
+      bankBalance: computeBankBalance(),
+      cashBalance: currentCashBalance()
+    },
+    cashEntries: loadEntries(),
+    bankEntries: loadBankEntries(),
+    ledger: loadLedger(),
+    income: loadIncome(),
+    recurring: loadRecurring(),
+    bankStatementBase: meta,
+    users: users,
+    auditFindings: runDataAudit()
+  };
+  const json = JSON.stringify(snap, null, 2);
+  const ta = document.getElementById('audit-export-ta');
+  if (ta) { ta.value = json; ta.style.display = 'block'; ta.focus(); ta.select(); }
+  try { if (navigator.clipboard) navigator.clipboard.writeText(json); } catch (e) {}
+  try {
+    const blob = new Blob([json], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'comedor-audit-' + todayLocalISO() + '.json';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  } catch (e) {}
+  btnFlash('audit-export-btn', 'Preparing…', 'Copied ✓', 'Export snapshot (JSON)');
 }
 
 function payoutPartnerOptions() {
