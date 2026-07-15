@@ -1422,7 +1422,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-14-05';
+const APP_VERSION = '2026-07-15-01';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -3311,7 +3311,22 @@ function submitEntry() {
 
 // ─── PERSISTENCE (localStorage + Firebase sync) ───────────────────────────────
 // Short clock time like "10:00 AM" / "11:30 PM" for stamping when an action was done.
-function _nowTime() { try { return new Date().toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Kolkata' }).toUpperCase(); } catch (e) { return ''; } }
+// We derive AM/PM ourselves from the 24-hour IST time instead of asking the locale
+// for a 12-hour string: some devices' Intl (seen on staff phones) mislabel the day
+// period with hour12:true, stamping afternoon/evening times as "AM". Reading the
+// 24-hour hour and formatting the label by hand is correct on every device.
+function _nowTime() {
+  try {
+    const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date());
+    let h = 0, m = 0;
+    parts.forEach(p => { if (p.type === 'hour') h = parseInt(p.value, 10); else if (p.type === 'minute') m = parseInt(p.value, 10); });
+    if (!Number.isFinite(h)) h = 0;
+    if (h >= 24) h -= 24;                              // some engines emit 24 at midnight
+    const ap = h >= 12 ? 'PM' : 'AM';
+    const h12 = (h % 12) || 12;
+    return h12 + ':' + String(m).padStart(2, '0') + ' ' + ap;
+  } catch (e) { return ''; }
+}
 // Pull a short clock time ("11:53 PM") out of a stored date-time string like
 // "11/7/2026, 11:53:47 pm" — a fallback "recorded at" stamp for older entries
 // saved before per-step (opening/sales) timestamps were tracked.
