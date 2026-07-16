@@ -77,7 +77,7 @@ export default {
       const fb = firebase(env);
       const days = Number(env.RECONCILE_DAYS || 3);          // trailing window self-heals skips
       const today = new Date();
-      for (let i = 1; i <= days; i++) {
+      for (let i = 0; i <= days; i++) {   // i=0 = today, so intraday runs keep the current day live
         const d = new Date(today.getTime() - i * 86400000);
         const date = new Date(d.getTime() + 5.5 * 3600 * 1000).toISOString().slice(0, 10);  // IST day
         try {

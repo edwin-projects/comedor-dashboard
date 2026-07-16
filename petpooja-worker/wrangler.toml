@@ -9,7 +9,7 @@ compatibility_date = "2025-01-01"
 # Nightly reconcile pull. 20:30 UTC = 02:00 IST — safely after the business day
 # has closed. Adjust if the outlet's day-end differs.
 [triggers]
-crons = ["30 20 * * *"]
+crons = ["*/15 * * * *"]
 
 [vars]
 # Non-secret config (safe to commit). Secrets below are NOT set here.
@@ -17,7 +17,7 @@ FIREBASE_DB_URL = "https://comedor-finance-dashboard-default-rtdb.firebaseio.com
 PETPOOJA_PULL_URL = "https://api.petpooja.com/V1/thirdparty/generic_get_orders/"
 PETPOOJA_PULL_METHOD = "POST"  # Pet Pooja's sample is GET-with-body, unsendable from
                                # Workers; generic_get_orders accepts POST. Flip if needed.
-PETPOOJA_RESTID = ""           # outlet mapping code (email: "7u06i9e1dy"). Left blank so the
+PETPOOJA_RESTID = "7u06i9e1dy"           # outlet mapping code (email: "7u06i9e1dy"). Left blank so the
                                # webhook accepts every push until we confirm the live push's
                                # restID from the first real order, then set it to tighten.
 RECONCILE_DAYS = "3"
