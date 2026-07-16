@@ -829,84 +829,13 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 
   <div class="section-title" style="margin-top:26px;">Logs</div>
   <div class="log-search-wrap" style="margin-bottom:14px;display:flex;">
-    <input class="log-search" id="master-search" placeholder="Search all logs — payee, amount, category, person, date…" oninput="masterSearch(this.value)">
+    <input class="log-search" id="master-search" placeholder="Search the capital ledger — category, person, amount, date…" oninput="masterSearch(this.value)">
     <button type="button" class="log-search-x" aria-label="Clear search" onclick="clearSearchBox(this)">✕</button>
   </div>
   <div id="master-search-note" style="font-size:11px;color:var(--text3);font-family:'Inter',sans-serif;margin:-8px 2px 14px;display:none;"></div>
 
-  <!-- Collapsible: Cash daily register -->
-  <div class="logcard collapsed" id="logcard-cash">
-    <div class="logcard-head" onclick="toggleLog('cash')">
-      <span class="logcard-title"><svg class="hd-ic" viewBox="0 0 24 24"><path d="M4 5.5A1.5 1.5 0 0 1 5.5 4H20v16H5.5A1.5 1.5 0 0 1 4 18.5z"/><path d="M8 4v16M11 8.5h5.5M11 12h5.5"/></svg> Daily cash register <span class="logcard-count" id="count-cash">0</span></span>
-      <span class="logcard-chev" id="chev-cash">▾</span>
-    </div>
-    <div class="logcard-body">
-      <div class="log-toolbar">
-        <div class="log-toprow">
-          <div class="log-search-wrap"><input class="log-search" id="search-cash" placeholder="Search date, amount, person…" oninput="filterLog('cash')"><button type="button" class="log-search-x" aria-label="Clear search" onclick="clearSearchBox(this)">✕</button></div>
-          <button class="fchip fchip-clear" id="dcash-clear" style="display:none;" onclick="clearLog('dcash')">✕ Clear</button>
-          <button class="log-more" id="dcash-morebtn" onclick="toggleAdv('dcash')">Filters ▾</button>
-        </div>
-        <div class="log-adv" id="dcash-adv" hidden>
-          <div class="chip-row" id="dcash-bychips"></div>
-          <div class="log-toolrow">
-            <select class="log-select" id="dcash-sort" onchange="setSort('dcash',this.value)">
-              <option value="date_desc">Newest first</option>
-              <option value="date_asc">Oldest first</option>
-              <option value="sales_desc">Sales: high → low</option>
-              <option value="sales_asc">Sales: low → high</option>
-              <option value="exp_desc">Expenses: high → low</option>
-            </select>
-            <div class="dash-export-bar" style="margin:0;">
-              <button class="btn btn-ghost" onclick="copyForSheets()">📋 Copy</button>
-              <button class="btn btn-ghost" onclick="downloadCSV()">⬇ CSV</button>
-              <button class="btn btn-ghost owner-only" onclick="clearAllEntries()" style="color:var(--red);border-color:rgba(224,82,82,0.4);">🗑 Clear</button>
-            </div>
-          </div>
-        </div>
-        <div class="log-summary" id="dcash-summary" style="margin-left:0;"></div>
-      </div>
-      <div id="dash-table-wrap" class="log-scroll"></div>
-      <div id="dash-expense-wrap"></div>
-    </div>
-  </div>
-
-  <!-- Collapsible: Bank account expenses -->
-  <div class="logcard collapsed" id="logcard-bank">
-    <div class="logcard-head" onclick="toggleLog('bank')">
-      <span class="logcard-title"><svg class="hd-ic" viewBox="0 0 24 24"><path d="M3.5 9.5 12 4l8.5 5.5"/><path d="M5 10.5v8M10 10.5v8M14 10.5v8M19 10.5v8"/><path d="M3.5 20.5h17"/></svg> Bank account expenses <span class="logcard-count" id="count-bank">0</span></span>
-      <span class="logcard-chev" id="chev-bank">▾</span>
-    </div>
-    <div class="logcard-body">
-      <div class="log-toolbar">
-        <div class="log-toprow">
-          <div class="log-search-wrap"><input class="log-search" id="dbank-search" placeholder="Search payee, category, person…" oninput="setSearch('dbank',this.value)"><button type="button" class="log-search-x" aria-label="Clear search" onclick="clearSearchBox(this)">✕</button></div>
-          <button class="log-more" id="dbank-morebtn" onclick="toggleAdv('dbank')">Filters ▾</button>
-        </div>
-        <div class="chip-row" id="dbank-typechips">
-          <button class="fchip active" data-v="all" onclick="setType('dbank','all')">All</button>
-          <button class="fchip" data-v="expense" onclick="setType('dbank','expense')">Expenses</button>
-          <button class="fchip" data-v="gst" onclick="setType('dbank','gst')">GST</button>
-          <button class="fchip" data-v="capital" onclick="setType('dbank','capital')">Capital in</button>
-          <button class="fchip fchip-clear" id="dbank-clear" style="display:none;" onclick="clearLog('dbank')">✕ Clear</button>
-        </div>
-        <div class="log-adv" id="dbank-adv" hidden>
-          <div class="chip-row" id="dbank-bychips"></div>
-          <div class="log-toolrow">
-            <select class="log-select" id="dbank-cat" onchange="setCat('dbank',this.value)"><option value="all">All categories</option></select>
-            <select class="log-select" id="dbank-sort" onchange="setSort('dbank',this.value)">
-              <option value="date_desc">Newest first</option>
-              <option value="date_asc">Oldest first</option>
-              <option value="amt_desc">Amount: high → low</option>
-              <option value="amt_asc">Amount: low → high</option>
-            </select>
-          </div>
-        </div>
-        <div class="log-summary" id="dbank-summary" style="margin-left:0;"></div>
-      </div>
-      <div id="dbank-list" class="log-scroll"></div>
-    </div>
-  </div>
+  <!-- Daily cash register and Bank account expenses logs live on the Cash and Bank
+       tabs respectively; the dashboard keeps only the summarised category logs. -->
 
   <!-- Collapsible: Expenses by category (all sources incl. partner-direct) -->
   <div class="logcard collapsed" id="logcard-expcat">
@@ -1422,7 +1351,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-15-01';
+const APP_VERSION = '2026-07-16-01';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -2230,27 +2159,21 @@ document.addEventListener('input', e => {
 function masterSearch(v) {
   v = v || '';
   const q = v.trim().toLowerCase();
-  LOGF.dbank.search = q; LOGF.dledger.search = q;
-  const bs = document.getElementById('dbank-search'); if (bs) bs.value = v;
+  // The Daily-cash and Bank logs now live on the Cash/Bank tabs, so the dashboard
+  // master search drives the Setup & Capital Ledger that remains here.
+  LOGF.dledger.search = q;
   const ls = document.getElementById('dledger-search'); if (ls) ls.value = v;
-  if (typeof renderBankRich === 'function') renderBankRich('dbank');
   if (typeof renderLedger === 'function') renderLedger('dledger');
-  const cs = document.getElementById('search-cash'); if (cs) cs.value = v;
-  filterLog('cash');
 
-  const bankN = document.querySelectorAll('#dbank-list tbody tr').length;
   const ledN = document.querySelectorAll('#dledger-list tbody tr').length;
-  const cashN = Array.from(document.querySelectorAll('#dash-table-wrap tbody tr')).filter(tr => !tr.classList.contains('log-total') && tr.style.display !== 'none').length;
   // Open a log only if the search is non-empty AND it has a hit; otherwise collapse it.
   const setOpen = (k, has) => { const c = document.getElementById('logcard-' + k); if (c) c.classList.toggle('collapsed', !(q && has)); };
-  setOpen('cash', cashN > 0);
-  setOpen('bank', bankN > 0);
   setOpen('ledger', ledN > 0);
 
   const note = document.getElementById('master-search-note');
   if (note) {
     if (!q) { note.style.display = 'none'; note.textContent = ''; return; }
-    note.textContent = `Matches — cash ${cashN} · bank ${bankN} · ledger ${ledN}`;
+    note.textContent = `Matches — ledger ${ledN}`;
     note.style.display = 'block';
   }
 }
