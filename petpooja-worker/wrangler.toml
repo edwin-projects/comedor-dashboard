@@ -9,7 +9,7 @@ compatibility_date = "2025-01-01"
 # Nightly reconcile pull. 20:30 UTC = 02:00 IST — safely after the business day
 # has closed. Adjust if the outlet's day-end differs.
 [triggers]
-crons = ["*/15 * * * *"]
+crons = ["*/3 * * * *"]
 
 [vars]
 # Non-secret config (safe to commit). Secrets below are NOT set here.
