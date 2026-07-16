@@ -640,10 +640,12 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 .mcat.open .mcat-chev { transform:rotate(90deg); }
 .mcat-body { display:none; padding:2px 12px 12px 48px; }
 .mcat.open .mcat-body { display:block; }
-.mcat-sub { display:flex; align-items:baseline; gap:10px; padding:6px 0; border-top:1px dashed var(--border); }
+.mcat-sub { display:flex; align-items:baseline; gap:10px; padding:6px 0; border-top:1px dashed var(--border); cursor:pointer; transition:opacity 0.12s; }
 .mcat-sub:first-child { border-top:none; }
+.mcat-sub:hover .sname, .mcat-sub:active .sname { color:var(--text); }
 .mcat-sub .sname { flex:1; font-size:11.5px; text-transform:uppercase; letter-spacing:0.3px; color:var(--text2); min-width:0; }
 .mcat-sub .sval { font-size:11.5px; color:var(--text2); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.mcat-sub .schev { font-size:12px; color:var(--text3); line-height:1; }
 /* People — mobile-friendly card list */
 .person-list { display:flex; flex-direction:column; gap:10px; }
 .person-card { border:1px solid var(--border); border-radius:11px; background:var(--surface); padding:14px 15px; }
@@ -1119,7 +1121,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
     </div>
   </div>
 
-  <p class="exp-note" style="text-align:center; margin-top:6px;">Every bank entry also appears in the <b>Bank account expenses</b> log on the Dashboard, with full search &amp; filters.</p>
+  <p class="exp-note" style="text-align:center; margin-top:6px;">Every bank expense also rolls into the Dashboard's <b>Expenses by category</b> — tap any category line there to drill into its cash &amp; bank transactions.</p>
 </div>
 
 <!-- ===================== PEOPLE / ACCESS (Partners) ===================== -->
@@ -1345,6 +1347,20 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
   </div>
 </div>
 
+<!-- Drill-down: a dashboard expense category → its actual cash + bank transactions -->
+<div id="drill-overlay" onclick="closeExpenseDrill()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1000;"></div>
+<div id="drill-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1001;width:min(500px,calc(100vw - 32px));background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,0.45);padding:18px;box-sizing:border-box;max-height:88vh;overflow:auto;">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:4px;">
+    <div>
+      <div style="font-family:'Inter',sans-serif;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;font-size:13px;color:var(--text2);">Expense detail</div>
+      <div id="drill-title" style="font-size:15px;color:var(--text);font-weight:600;margin-top:3px;"></div>
+    </div>
+    <button onclick="closeExpenseDrill()" aria-label="Close" style="flex:0 0 auto;background:rgba(255,255,255,0.05);border:1px solid var(--border);color:var(--text2);border-radius:8px;padding:6px 11px;font-size:15px;cursor:pointer;">✕</button>
+  </div>
+  <div id="drill-sub" style="font-size:11px;color:var(--text3);font-family:'Inter',sans-serif;margin-bottom:14px;"></div>
+  <div id="drill-list"></div>
+</div>
+
 <script>
 // ─── BUILD VERSION ───────────────────────────────────────────────────────────
 // Bump this string on EVERY deploy and write the SAME value into version.json.
@@ -1352,7 +1368,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-16-03';
+const APP_VERSION = '2026-07-16-04';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -3897,7 +3913,7 @@ function renderExpenseCats() {
         <span class="mcat-val">₹${Math.round(g.total).toLocaleString('en-IN')}</span>
         <span class="mcat-chev">▸</span>
       </div>
-      <div class="mcat-body">${subs.map(s => `<div class="mcat-sub"><span class="sname">${esc(s[0])}</span><span class="sval">₹${Math.round(s[1]).toLocaleString('en-IN')}</span></div>`).join('')}</div>
+      <div class="mcat-body">${subs.map(s => `<div class="mcat-sub" data-cat="${esc(s[0])}" onclick="showExpenseDrill(this.dataset.cat)"><span class="sname">${esc(s[0])}</span><span class="sval">₹${Math.round(s[1]).toLocaleString('en-IN')}</span><span class="schev">›</span></div>`).join('')}</div>
     </div>`;
   }).join('') + '</div>';
 }
@@ -3907,6 +3923,66 @@ function toggleMcat(head) {
   const wasOpen = row.classList.contains('open');
   row.parentElement.querySelectorAll('.mcat').forEach(x => x.classList.remove('open'));
   if (!wasOpen) row.classList.add('open');
+}
+
+// Drill-down: every real transaction behind a dashboard expense category — pulled
+// from BOTH the cash register line items and the bank ledger (plus imported
+// partner-paid ledger opex), for the selected period. Same sources/period as
+// renderExpenseCats, so the drill total matches the category row exactly.
+function expenseTxnsForCategory(cat) {
+  const range = getRange();
+  const norm = s => (s && String(s).trim()) || 'Uncategorised';
+  const target = norm(cat);
+  const out = [];
+  getDashEntries().forEach(e => (e.expenses || []).forEach(x => {
+    if (norm(x.category) !== target) return;
+    const amt = parseFloat(x.amount) || 0; if (!amt) return;
+    out.push({ date: e.date, amount: amt, src: 'Cash', desc: x.desc || '', edit: canEditCash(e.addedBy) ? "editEntry('" + e.date + "')" : null });
+  }));
+  getBankInRange().forEach(b => {
+    if (b.capital || b.payout || isPassThruTax(b)) return;
+    if (norm(b.category) !== target) return;
+    const amt = Number(b.amount) || 0; if (!amt) return;
+    out.push({ date: b.date, amount: amt, src: b.direct ? 'Direct' : 'Bank', desc: b.desc || '', edit: (b.id && canEditBank(b.addedBy)) ? "editBankExpense('" + b.id + "')" : null });
+  });
+  ledgerRows().forEach(x => {
+    if (x.bucket !== 'O' || x.date < range.from || x.date > range.to) return;
+    if (norm(x.category) !== target) return;
+    out.push({ date: x.date, amount: x.amount, src: 'Ledger', desc: 'Partner-paid (imported) · ' + x.by, edit: null });
+  });
+  return out.sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+}
+function showExpenseDrill(cat) {
+  const inr = n => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN');
+  const txns = expenseTxnsForCategory(cat);
+  const total = txns.reduce((s, t) => s + t.amount, 0);
+  const badgeCss = { Cash: 'background:rgba(126,200,227,0.16);color:#7ec8e3;', Bank: 'background:rgba(201,160,64,0.18);color:var(--accent2);', Direct: 'background:rgba(143,190,147,0.16);color:var(--green);', Ledger: 'background:rgba(255,255,255,0.06);color:var(--text3);' };
+  const d = iso => new Date(iso + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
+  document.getElementById('drill-title').textContent = cat;
+  const per = {}; txns.forEach(t => { per[t.src] = (per[t.src] || 0) + t.amount; });
+  const mix = Object.keys(per).map(k => k + ' ' + inr(per[k])).join(' · ');
+  document.getElementById('drill-sub').textContent =
+    txns.length + (txns.length === 1 ? ' transaction · ' : ' transactions · ') + inr(total) + (mix ? '   (' + mix + ')' : '');
+  document.getElementById('drill-list').innerHTML = txns.length ? txns.map(t => {
+    const badge = `<span class="cat-badge" style="${badgeCss[t.src] || ''}">${t.src}</span>`;
+    const editBtn = t.edit
+      ? `<button class="cat-act cat-edit" style="padding:3px 8px;font-size:11px;" onclick="closeExpenseDrill();${t.edit}">Edit</button>`
+      : '<span style="font-size:10.5px;color:var(--text3);font-family:Inter,sans-serif;">imported</span>';
+    return `<div style="display:flex;align-items:center;gap:10px;padding:9px 2px;border-top:1px dashed var(--border);">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12.5px;">${badge} <span style="color:var(--text2);">${d(t.date)}</span></div>
+        ${t.desc ? `<div style="font-size:11px;color:var(--text3);font-family:Inter,sans-serif;margin-top:2px;word-break:break-word;">${esc(t.desc)}</div>` : ''}
+      </div>
+      <div class="num red-text" style="white-space:nowrap;font-size:12.5px;">–${inr(t.amount)}</div>
+      <div>${editBtn}</div>
+    </div>`;
+  }).join('') : '<div class="log-empty">No transactions in this period.</div>';
+  document.getElementById('drill-overlay').style.display = 'block';
+  document.getElementById('drill-modal').style.display = 'block';
+}
+function closeExpenseDrill() {
+  const o = document.getElementById('drill-overlay'); if (o) o.style.display = 'none';
+  const m = document.getElementById('drill-modal'); if (m) m.style.display = 'none';
 }
 
 function sortEntries(list, sort) {
