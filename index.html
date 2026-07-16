@@ -1464,7 +1464,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-17-06';
+const APP_VERSION = '2026-07-17-07';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -6061,7 +6061,7 @@ function setMenuMonth(sel) {
   renderMenu();
 }
 function toggleMenuRow(el) { el.classList.toggle('open'); }
-let menuOpenTier = 'star';   // which tier accordion is expanded — one at a time
+let menuOpenTier = null;   // which tier accordion is expanded — all collapsed by default, one at a time
 function toggleMenuTier(el, key) {
   const acc = el.parentElement;
   const wasOpen = acc.classList.contains('open');
