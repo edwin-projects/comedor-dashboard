@@ -1352,7 +1352,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-16-02';
+const APP_VERSION = '2026-07-16-03';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -4236,7 +4236,15 @@ function renderEntryRecent() {
       <td style="padding-left:4px;padding-right:6px;"><div style="display:flex;gap:5px;justify-content:flex-end;"><button class="cat-act cat-edit" style="padding:3px 7px;font-size:11px;" onclick="editEntry('${e.date}')">Edit</button><button class="cat-act cat-del" style="padding:3px 7px;font-size:11px;" onclick="deleteEntry('${e.date}')">Del</button></div></td>
     </tr>`;
   };
-  wrap.innerHTML = renderMonthlyGrouped(mine, 'width:100%;table-layout:fixed;', thead, rowFn, e => e.date);
+  // Month header shows that month's cash-expense total (visible while collapsed),
+  // mirroring the Bank tab's month totals. Expenses are spend, so red/negative.
+  const monthTotal = items => {
+    const exp = items.reduce((s, e) => s + (Number(e.totalExpenses) || 0), 0);
+    return exp > 0
+      ? `<span class="red-text">–${inr(exp)}</span>`
+      : `<span style="color:var(--text3);">${inr(0)}</span>`;
+  };
+  wrap.innerHTML = renderMonthlyGrouped(mine, 'width:100%;table-layout:fixed;', thead, rowFn, e => e.date, monthTotal);
   reapplyLogFilter('entry');
 }
 
