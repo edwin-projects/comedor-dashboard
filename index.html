@@ -1368,7 +1368,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-16-05';
+const APP_VERSION = '2026-07-16-06';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -5065,15 +5065,27 @@ function renderPnlBank() {
   const liveAtISO = _ppAt.length ? _ppAt[_ppAt.length - 1] : '';
   const liveTxt = liveAtISO ? (function (iso) { try { return new Date(iso).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', minute: '2-digit', hour12: true }).toUpperCase(); } catch (e) { return ''; } })(liveAtISO) : '';
   const liveCaption = (liveTxt && currentDashFilter === 'today')
-    ? '<div style="margin-top:7px;font-size:11px;font-weight:600;color:#4CAF7D;display:flex;align-items:center;gap:5px;"><span style="width:7px;height:7px;border-radius:50%;background:#4CAF7D;display:inline-block;box-shadow:0 0 6px #4CAF7D;"></span>Live as on ' + liveTxt + '</div>'
+    ? '<div style="position:absolute;top:10px;right:12px;font-size:10px;font-weight:600;color:#4CAF7D;display:flex;align-items:center;gap:4px;opacity:.92;white-space:nowrap;"><span style="width:6px;height:6px;border-radius:50%;background:#4CAF7D;display:inline-block;box-shadow:0 0 5px #4CAF7D;"></span>Live ' + liveTxt + '</div>'
     : '';
+  // Real payment split from the Pet Pooja feed (payMix); falls back to the register mix.
+  const _pm = incomePayMixInRange(range.from, range.to);
+  const _pmTot = _pm.cash + _pm.card + _pm.upi + _pm.online + _pm.other;
+  const payRows = _pmTot > 0
+    ? [
+        { k:'Cash',   v:_pm.cash,   pct:pctTxt(_pm.cash,   income), order:1 },
+        { k:'Card',   v:_pm.card,   pct:pctTxt(_pm.card,   income), order:2 },
+        { k:'UPI',    v:_pm.upi,    pct:pctTxt(_pm.upi,    income), order:3 },
+        { k:'Online', v:_pm.online, pct:pctTxt(_pm.online, income), order:4 },
+        { k:'Other',  v:_pm.other,  pct:pctTxt(_pm.other,  income), order:5 },
+      ]
+    : (regTot ? [{ k:'UPI/Card', v:incNon, pct:pctTxt(incNon,income), order:1 }, { k:'Cash', v:incCash, pct:pctTxt(incCash,income), order:2 }] : []);
   const sEl = document.getElementById('pnl-summary');
   if (sEl) sEl.innerHTML = `
     <div class="cards2">
-      <div class="card card-click tile-income" onclick="focusLog('sales')"><div class="card-label">Income (Sales)</div><div class="card-value green">${inr(income)}</div><div class="card-sub">${splitGrid([
-        ...(regTot ? [{k:'UPI/Card',v:incNon,pct:pctTxt(incNon,income),order:1},{k:'Cash',v:incCash,pct:pctTxt(incCash,income),order:2}] : []),
-        {k:'Comp & Disc',v:discount,pct:discount>0?pctTxt(discount,income,' of sales'):'',dim:true,always:true,order:3}
-      ])}</div>${liveCaption}</div>
+      <div class="card card-click tile-income" style="position:relative;" onclick="focusLog('sales')">${liveCaption}<div class="card-label">Income (Sales)</div><div class="card-value green">${inr(income)}</div><div class="card-sub">${splitGrid([
+        ...payRows,
+        {k:'Comp & Disc',v:discount,pct:discount>0?pctTxt(discount,income,' of sales'):'',dim:true,always:true,order:6}
+      ])}</div></div>
       <div class="card card-click tile-exp" onclick="focusLog('expcat')"><div class="card-label">Expenses</div><div class="card-value red">${inr(totalExp)}</div><div class="card-sub">${splitGrid([
         {k:'IDFC',v:idfcExp,pct:pctTxt(idfcExp,totalExp)},{k:'Partner Direct',v:directExp,pct:pctTxt(directExp,totalExp)},{k:'Cash',v:cashExp,pct:pctTxt(cashExp,totalExp)}
       ])}</div></div>
@@ -5806,6 +5818,21 @@ function incomeFieldInRange(from, to, field) {
   return sum;
 }
 function incomeInRange(from, to) { return incomeFieldInRange(from, to, 'gross'); }
+function incomePayMixInRange(from, to) {
+  const out = { cash:0, card:0, upi:0, online:0, other:0 };
+  if (!from || !to) return out;
+  const recs = loadIncome(); const owner = incomeDayOwner();
+  const ownedDays = {};
+  for (const d in owner) { if (d >= from && d <= to) ownedDays[owner[d]] = (ownedDays[owner[d]] || 0) + 1; }
+  const byId = {}; recs.forEach(r => byId[r.id] = r);
+  Object.keys(ownedDays).forEach(id => {
+    const r = byId[id]; if (!r || !r.payMix) return;
+    const nd = daysInclusive(r.from, r.to); if (nd <= 0) return;
+    const scale = ownedDays[id] / nd;
+    ['cash','card','upi','online','other'].forEach(k => { out[k] += (Number(r.payMix[k]) || 0) * scale; });
+  });
+  return out;
+}
 function incomeCatsInRange(from, to) {
   const recs = loadIncome(); const owner = incomeDayOwner();
   const ownedDays = {};

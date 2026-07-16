@@ -23,8 +23,8 @@ const str = v => (v == null ? '' : String(v)).trim();
 function payBucket(type) {
   const t = str(type).toLowerCase();
   if (t === 'cash') return 'cash';
-  if (t === 'card') return 'card';
-  if (t === 'other') return 'upi';                 // UPI / QR / custom tender
+  if (t === 'card' || t === 'credit card' || t === 'debit card') return 'card';
+  if (t === 'upi' || t === 'other') return 'upi';  // pull sends "UPI"; push calls UPI "Other"
   if (t === 'online' || t === 'not paid') return 'online';
   return 'other';
 }
