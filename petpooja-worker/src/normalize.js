@@ -67,6 +67,7 @@ function normalizeOrder(raw) {
     createdOn: str(o.created_on),
     status: str(o.status) || 'Success',
     cancelled: str(o.status).toLowerCase() === 'cancelled',
+    complimentary: str(o.status).toLowerCase() === 'complimentary' || str(o.waivedOff) === '1',
     orderType: str(o.order_type),                   // Dine In / Pick Up / Delivery
     channel: str(o.order_from) || 'POS',            // POS / Zomato / Swiggy / …
     paymentType: str(o.payment_type),
@@ -85,7 +86,8 @@ function normalizeOrder(raw) {
 // it. Cancelled orders are stored (audit) but excluded from every total. Extra
 // fields (payMix, channels, counts) are additive for later features.
 function rollupDay(date, orders) {
-  const live = orders.filter(o => o && !o.cancelled && o.date === date);
+  const live = orders.filter(o => o && !o.cancelled && !o.complimentary && o.date === date);
+  const comps = orders.filter(o => o && o.complimentary && !o.cancelled && o.date === date);
   let gross = 0, discount = 0, tax = 0, units = 0;
   const categories = {};
   const payMix = { cash: 0, card: 0, upi: 0, online: 0, other: 0 };
@@ -118,6 +120,8 @@ function rollupDay(date, orders) {
     // additive (not yet read by the app) —
     orders: live.length,
     cancelled: orders.filter(o => o && o.cancelled && o.date === date).length,
+    complimentary: comps.length,
+    compValue: round2(comps.reduce((s, o) => s + (o.gross || 0), 0)),
     payMix: mapVals(payMix, round2),
     channels: mapVals(channels, round2),
     source: 'Pet Pooja',

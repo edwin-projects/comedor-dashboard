@@ -1369,7 +1369,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-16-08';
+const APP_VERSION = '2026-07-16-09';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -4936,6 +4936,7 @@ function renderPnlBank() {
   const ppIncome = Math.round(incomeInRange(range.from, range.to));
   const income = ppIncome;
   const discount = Math.round(incomeFieldInRange(range.from, range.to, 'discount'));
+  const compVal = Math.round(incomeFieldInRange(range.from, range.to, 'compValue'));
   const cashExp  = cashEntries.reduce((s, e) => s + (e.totalExpenses || 0), 0);
   const bank = getBankInRange();
   // Operating spend by source, kept separate for a clean P&L:
@@ -5085,7 +5086,7 @@ function renderPnlBank() {
     <div class="cards2">
       <div class="card card-click tile-income" style="position:relative;" onclick="focusLog('sales')">${liveCaption}<div class="card-label">Income (Sales)</div><div class="card-value green">${inr(income)}</div><div class="card-sub">${splitGrid([
         ...payRows,
-        {k:'Comp & Disc',v:discount,pct:discount>0?pctTxt(discount,income,' of sales'):'',dim:true,always:true,order:6}
+        {k:'Comp & Disc',v:discount + compVal,pct:(discount+compVal)>0?pctTxt(discount+compVal,income,' of sales'):'',dim:true,always:true,order:6}
       ])}</div></div>
       <div class="card card-click tile-exp" onclick="focusLog('expcat')"><div class="card-label">Expenses</div><div class="card-value red">${inr(totalExp)}</div><div class="card-sub">${splitGrid([
         {k:'IDFC',v:idfcExp,pct:pctTxt(idfcExp,totalExp)},{k:'Partner Direct',v:directExp,pct:pctTxt(directExp,totalExp)},{k:'Cash',v:cashExp,pct:pctTxt(cashExp,totalExp)}
