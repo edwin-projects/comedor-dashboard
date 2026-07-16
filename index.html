@@ -355,6 +355,7 @@
   .tag-green { background: rgba(76,175,125,0.15); color: var(--green); padding: 2px 8px; border-radius: 4px; font-size: 10px; font-family: 'Inter', sans-serif; }
   .tag-red { background: rgba(224,82,82,0.15); color: var(--red); padding: 2px 8px; border-radius: 4px; font-size: 10px; font-family: 'Inter', sans-serif; }
   .tag-gold { background: rgba(232,185,106,0.15); color: var(--accent2); padding: 2px 8px; border-radius: 4px; font-size: 10px; font-family: 'Inter', sans-serif; }
+@keyframes liveBlink{0%,100%{opacity:1}50%{opacity:.28}}
 </style>
 </head>
 <body>
@@ -1368,7 +1369,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-16-07';
+const APP_VERSION = '2026-07-16-08';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -5065,7 +5066,7 @@ function renderPnlBank() {
   const liveAtISO = _ppAt.length ? _ppAt[_ppAt.length - 1] : '';
   const liveTxt = liveAtISO ? (function (iso) { try { return new Date(iso).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: 'numeric', minute: '2-digit', hour12: true }).toUpperCase(); } catch (e) { return ''; } })(liveAtISO) : '';
   const liveCaption = (liveTxt && currentDashFilter === 'today')
-    ? '<div style="font-size:9px;font-weight:600;color:#4CAF7D;display:flex;align-items:center;justify-content:flex-end;gap:4px;white-space:nowrap;margin-bottom:1px;"><span style="width:6px;height:6px;border-radius:50%;background:#4CAF7D;display:inline-block;box-shadow:0 0 4px #4CAF7D;"></span>Live ' + liveTxt + '</div>'
+    ? '<div style="position:absolute;top:12px;right:12px;font-size:9px;font-weight:600;color:#4CAF7D;display:flex;align-items:center;gap:4px;white-space:nowrap;z-index:2;"><span style="width:6px;height:6px;border-radius:50%;background:#4CAF7D;display:inline-block;box-shadow:0 0 5px #4CAF7D;animation:liveBlink 1.4s ease-in-out infinite;"></span>' + liveTxt + '</div>'
     : '';
   // Real payment split from the Pet Pooja feed (payMix); falls back to the register mix.
   const _pm = incomePayMixInRange(range.from, range.to);
@@ -5082,7 +5083,7 @@ function renderPnlBank() {
   const sEl = document.getElementById('pnl-summary');
   if (sEl) sEl.innerHTML = `
     <div class="cards2">
-      <div class="card card-click tile-income" onclick="focusLog('sales')">${liveCaption}<div class="card-label">Income (Sales)</div><div class="card-value green">${inr(income)}</div><div class="card-sub">${splitGrid([
+      <div class="card card-click tile-income" style="position:relative;" onclick="focusLog('sales')">${liveCaption}<div class="card-label">Income (Sales)</div><div class="card-value green">${inr(income)}</div><div class="card-sub">${splitGrid([
         ...payRows,
         {k:'Comp & Disc',v:discount,pct:discount>0?pctTxt(discount,income,' of sales'):'',dim:true,always:true,order:6}
       ])}</div></div>
