@@ -826,6 +826,34 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
     #panel-menu .mt-tierhd .tc { margin-left:auto; font-family:var(--num-font); font-size:12px; color:var(--text2); font-variant-numeric:tabular-nums; }
     #panel-menu .mt-star .sw { background:var(--green); } #panel-menu .mt-steady .sw { background:var(--accent2); } #panel-menu .mt-under .sw { background:var(--red); }
     #panel-menu .mt-star .tn { color:var(--green); } #panel-menu .mt-steady .tn { color:var(--accent2); } #panel-menu .mt-under .tn { color:var(--red); }
+    /* Top 3 / Bottom 3 colored band */
+    #panel-menu .mt-tb { display:flex; flex-direction:column; gap:10px; margin-bottom:4px; }
+    #panel-menu .mt-tbcard { border:1px solid var(--border); border-radius:14px; padding:11px 13px; }
+    #panel-menu .mt-tbcard.top { background:color-mix(in srgb,var(--green) 9%,var(--surface)); border-color:color-mix(in srgb,var(--green) 32%,var(--border)); }
+    #panel-menu .mt-tbcard.bot { background:color-mix(in srgb,var(--red) 8%,var(--surface)); border-color:color-mix(in srgb,var(--red) 30%,var(--border)); }
+    #panel-menu .mt-tbh { font-size:10px; letter-spacing:.8px; text-transform:uppercase; font-weight:700; margin-bottom:8px; display:flex; align-items:center; gap:6px; }
+    #panel-menu .mt-tbcard.top .mt-tbh { color:var(--green); }
+    #panel-menu .mt-tbcard.bot .mt-tbh { color:var(--red); }
+    #panel-menu .mt-tbrow { display:grid; grid-template-columns:20px 1fr auto; gap:9px; align-items:center; padding:5px 0; }
+    #panel-menu .mt-tbrow + .mt-tbrow { border-top:1px solid var(--border); }
+    #panel-menu .mt-tbrow .medal { font-size:12px; text-align:center; }
+    #panel-menu .mt-tbrow .nm { min-width:0; }
+    #panel-menu .mt-tbrow .nm .t { font-size:12.5px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    #panel-menu .mt-tbrow .nm .m { font-size:10px; color:var(--text3); }
+    #panel-menu .mt-tbrow .v { font-family:var(--num-font); font-weight:600; font-size:13px; font-variant-numeric:tabular-nums lining-nums; text-align:right; white-space:nowrap; }
+    /* Accordion tiers */
+    #panel-menu .mt-acc { border:1px solid var(--border); border-radius:14px; overflow:hidden; margin-bottom:10px; }
+    #panel-menu .mt-acchd { display:flex; align-items:center; gap:8px; padding:12px 13px; cursor:pointer; background:var(--surface); }
+    #panel-menu .mt-acchd .sw { width:9px; height:9px; border-radius:3px; flex:none; }
+    #panel-menu .mt-acchd .tn { font-size:13px; font-weight:700; }
+    #panel-menu .mt-acchd .td { font-size:10.5px; color:var(--text3); }
+    #panel-menu .mt-acchd .tsum { margin-left:auto; font-family:var(--num-font); font-size:12px; color:var(--text2); font-variant-numeric:tabular-nums; white-space:nowrap; }
+    #panel-menu .mt-acchd .mt-chev { font-size:11px; color:var(--text3); transition:transform .18s; margin-left:2px; }
+    #panel-menu .mt-acc.open .mt-acchd .mt-chev { transform:rotate(90deg); }
+    #panel-menu .mt-acc.mt-star .tn { color:var(--green); } #panel-menu .mt-acc.mt-steady .tn { color:var(--accent2); } #panel-menu .mt-acc.mt-under .tn { color:var(--red); }
+    #panel-menu .mt-acc.mt-star .sw { background:var(--green); } #panel-menu .mt-acc.mt-steady .sw { background:var(--accent2); } #panel-menu .mt-acc.mt-under .sw { background:var(--red); }
+    #panel-menu .mt-accbody { display:none; padding:0 8px 8px; }
+    #panel-menu .mt-acc.open .mt-accbody { display:block; }
     #panel-menu .mt-lst { display:flex; flex-direction:column; gap:1px; background:var(--border); border:1px solid var(--border); border-radius:13px; overflow:hidden; }
     #panel-menu .mt-row { background:var(--surface); cursor:pointer; }
     #panel-menu .mt-rmain { display:grid; grid-template-columns:24px 1fr auto; gap:10px; align-items:center; padding:10px 13px; }
@@ -1424,7 +1452,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-17-01';
+const APP_VERSION = '2026-07-17-02';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -5978,6 +6006,14 @@ function setMenuMonth(sel) {
   renderMenu();
 }
 function toggleMenuRow(el) { el.classList.toggle('open'); }
+let menuOpenTier = 'star';   // which tier accordion is expanded — one at a time
+function toggleMenuTier(el, key) {
+  const acc = el.parentElement;
+  const wasOpen = acc.classList.contains('open');
+  const wrap = document.getElementById('menu-body');
+  if (wrap) wrap.querySelectorAll('.mt-acc').forEach(a => a.classList.remove('open'));
+  if (wasOpen) { menuOpenTier = null; } else { acc.classList.add('open'); menuOpenTier = key; }
+}
 
 function renderMenu() {
   const body = document.getElementById('menu-body'); if (!body) return;
@@ -6035,12 +6071,36 @@ function renderMenu() {
       </div>
       <div class="mt-dnote"><b>Trend over time</b> and <b>profit per plate</b> land here next — the trend builds as more daily data accrues, and profit unlocks once each dish's cost is added.</div></div></div>`;
   };
-  const tier = (cls, name, desc, arr) => arr.length ? `<div class="mt-tierhd mt-${cls}"><span class="sw"></span><span class="tn">${name}</span><span class="td">· ${desc}</span><span class="tc">${arr.length}</span></div><div class="mt-lst">${arr.map((it, i) => row(it, i + 1)).join('')}</div>` : '';
+  // Accordion tier: header carries the tier's total; one open at a time.
+  const tier = (cls, name, desc, arr) => {
+    if (!arr.length) return '';
+    const sum = arr.reduce((s, x) => s + x.g, 0);
+    const open = menuOpenTier === cls ? ' open' : '';
+    return `<div class="mt-acc mt-${cls}${open}">
+      <div class="mt-acchd" onclick="toggleMenuTier(this,'${cls}')">
+        <span class="sw"></span><span class="tn">${name}</span><span class="td">· ${desc}</span>
+        <span class="tsum">${inr(sum)} · ${arr.length}</span><span class="mt-chev">▸</span>
+      </div>
+      <div class="mt-accbody"><div class="mt-lst">${arr.map((it, i) => row(it, i + 1)).join('')}</div></div>
+    </div>`;
+  };
+
+  // Top 3 / Bottom 3 colored band (follows the selected ranking metric)
+  const ranked = sortDesc(items);
+  const medals = ['①', '②', '③'];
+  const tbRow = (it, i) => {
+    const val = metric === 'g' ? inr(it.g) : (it.q + ' plates');
+    return `<div class="mt-tbrow"><div class="medal">${medals[i] || (i + 1)}</div>
+      <div class="nm"><div class="t">${esc(it.n)}</div><div class="m">${esc(it.c)}</div></div>
+      <div class="v">${val}</div></div>`;
+  };
+  const top3 = ranked.slice(0, 3);
+  const bot3 = ranked.slice(-3).reverse();
 
   body.innerHTML =
-    `<div class="mt-kpis">
-       <div class="mt-kpi"><div class="k">Dishes sold</div><div class="v">${items.length}</div><div class="s">${Object.keys(catG).length} categories</div></div>
-       <div class="mt-kpi"><div class="k">Top seller</div><div class="v" style="color:var(--green)">${esc(top.n)}</div><div class="s">${inr(top.g)} · ${top.q} plates</div></div>
+    `<div class="mt-tb">
+       <div class="mt-tbcard top"><div class="mt-tbh">🏆 Top 3</div>${top3.map(tbRow).join('')}</div>
+       <div class="mt-tbcard bot"><div class="mt-tbh">⚠️ Bottom 3</div>${bot3.map(tbRow).join('')}</div>
      </div>
      <div style="display:flex;justify-content:space-between;align-items:center;margin:16px 2px 9px;">
        <span style="font-size:10px;letter-spacing:1.4px;text-transform:uppercase;color:var(--text3);font-weight:600;">Ranked by</span>
