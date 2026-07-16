@@ -875,6 +875,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
           <button class="fchip active" data-v="all" onclick="setType('dledger','all')">All</button>
           <button class="fchip" data-v="capex" onclick="setType('dledger','capex')">Setup / Capex</button>
           <button class="fchip" data-v="opex" onclick="setType('dledger','opex')">Operating</button>
+          <button class="fchip" data-v="direct" onclick="setType('dledger','direct')">Partner-direct</button>
           <button class="fchip fchip-clear" id="dledger-clear" style="display:none;" onclick="clearLog('dledger')">✕ Clear</button>
         </div>
         <div class="log-adv" id="dledger-adv" hidden>
@@ -1351,7 +1352,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-16-01';
+const APP_VERSION = '2026-07-16-02';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -5941,6 +5942,24 @@ function ledgerRows() {
     return { date: r[0], amount: r[1], by: who, addedBy: who, capex: r[3] !== 'O', bucket: r[3], bucketLabel: label[r[3]] || '—', category: r[4] };
   });
 }
+// Bank entries that move partner capital, shaped like ledger rows so the Setup &
+// Capital Ledger can list them alongside the day-1 ledger and its total equals the
+// Partner Capital figure exactly. Partner-direct spend and capital infusions add to
+// capital (positive); withdrawals reduce it (negative `amount`). Kept distinct by
+// bucket so each row is chip-tagged (Direct / Capital in / Withdrawal).
+function capitalBankRows() {
+  const tc = s => String(s || '').toLowerCase().replace(/\b([a-z])/g, m => m.toUpperCase());
+  const out = [];
+  loadBankEntries().forEach(b => {
+    const amt = Number(b.amount) || 0;
+    if (!amt) return;
+    const who = tc(b.partner || b.addedBy) || '—';
+    if (b.payout)       out.push({ date: b.date || '', amount: -amt, by: who, addedBy: who, capex: false, bucket: 'W', bucketLabel: 'Withdrawal', category: 'Withdrawal · ' + who });
+    else if (b.capital) out.push({ date: b.date || '', amount:  amt, by: who, addedBy: who, capex: false, bucket: 'K', bucketLabel: 'Capital in', category: 'Capital infusion' });
+    else if (b.direct)  out.push({ date: b.date || '', amount:  amt, by: who, addedBy: who, capex: false, bucket: 'D', bucketLabel: 'Direct', category: tc(b.category || b.payee || b.desc || 'Direct payment') });
+  });
+  return out;
+}
 function ledgerCard(x) {
   const inr = n => '₹' + Number(n || 0).toLocaleString('en-IN');
   const d = new Date(x.date + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
@@ -5954,7 +5973,10 @@ function ledgerCard(x) {
 function renderLedger(p) {
   p = p || 'dledger';
   const st = LOGF[p];
-  const src = ledgerRows();
+  // Day-1 ledger + the bank entries that move partner capital, so this card's
+  // total reconciles to the Partner Capital figure exactly (rule: partner-direct
+  // spend and infusions add to capital; withdrawals reduce it).
+  const src = ledgerRows().concat(capitalBankRows());
   const bc = document.getElementById(p + '-bychips'); if (bc) bc.innerHTML = byChipsHTML(p, src);
   const cs = document.getElementById(p + '-cat');
   if (cs) {
@@ -5967,8 +5989,9 @@ function renderLedger(p) {
   const sortSel = document.getElementById(p + '-sort'); if (sortSel) sortSel.value = st.sort;
   let list = src.filter(x => {
     if (st.by !== 'all' && x.by !== st.by) return false;
-    if (st.type === 'capex' && !x.capex) return false;
-    if (st.type === 'opex' && x.capex) return false;
+    if (st.type === 'capex'  && !x.capex) return false;          // day-1 capex/setup/capital
+    if (st.type === 'opex'   && x.bucket !== 'O') return false;  // day-1 operating
+    if (st.type === 'direct' && x.bucket !== 'D') return false;  // partner-direct (post-app)
     if (st.cat !== 'all' && x.category !== st.cat) return false;
     if (st.search) {
       const hay = (x.category + ' ' + x.by + ' ' + x.date + ' ' + x.amount).toLowerCase();
@@ -6020,7 +6043,11 @@ function toggleAcc(prefix, i) {
 function ledgerAccordion(list) {
   const inr = n => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN');
   const d = iso => new Date(iso + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' });
-  const row = x => `<tr><td>${d(x.date)} <span style="color:var(--text3);">${esc(x.bucketLabel)} · ${esc(x.by)}</span></td><td class="num red-text">–${inr(x.amount)}</td></tr>`;
+  const row = x => {
+    const neg = Number(x.amount) < 0;                 // withdrawal reduces capital
+    const mag = Math.abs(Number(x.amount) || 0);
+    return `<tr><td>${d(x.date)} <span style="color:var(--text3);">${esc(x.bucketLabel)} · ${esc(x.by)}</span></td><td class="num ${neg ? 'green-text' : 'red-text'}">${neg ? '+' : '–'}${inr(mag)}</td></tr>`;
+  };
   return catAccordion('ledgercat', list, row);
 }
 
