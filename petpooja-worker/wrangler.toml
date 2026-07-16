@@ -14,16 +14,20 @@ crons = ["30 20 * * *"]
 [vars]
 # Non-secret config (safe to commit). Secrets below are NOT set here.
 FIREBASE_DB_URL = "https://comedor-finance-dashboard-default-rtdb.firebaseio.com"
-PETPOOJA_PULL_URL = ""         # real Get-Orders endpoint (doc shows placeholder xyz.com/data)
-PETPOOJA_PULL_METHOD = "POST"  # GET-with-body isn't sendable; confirm verb with Pet Pooja
-PETPOOJA_RESTID = ""           # outlet mapping code
+PETPOOJA_PULL_URL = "https://api.petpooja.com/V1/thirdparty/generic_get_orders/"
+PETPOOJA_PULL_METHOD = "POST"  # Pet Pooja's sample is GET-with-body, unsendable from
+                               # Workers; generic_get_orders accepts POST. Flip if needed.
+PETPOOJA_RESTID = ""           # outlet mapping code (email: "7u06i9e1dy"). Left blank so the
+                               # webhook accepts every push until we confirm the live push's
+                               # restID from the first real order, then set it to tighten.
 RECONCILE_DAYS = "3"
 
 # Secrets — set via `wrangler secret put`, do not put values in this file:
 #   WEBHOOK_TOKEN              shared static token echoed by Pet Pooja pushes
 #   FIREBASE_SERVICE_ACCOUNT   full service-account JSON (one line)
-#   PETPOOJA_APP_KEY
-#   PETPOOJA_APP_SECRET
-#   PETPOOJA_ACCESS_TOKEN
+#   PETPOOJA_APP_KEY           pull: app_key
+#   PETPOOJA_APP_SECRET        pull: app_secret
+#   PETPOOJA_ACCESS_TOKEN      pull: access_token
+#   PETPOOJA_COOKIE            pull: full Cookie header value, e.g. "PETPOOJA_API=<value>"
 #
 # account_id is read from the CLOUDFLARE_ACCOUNT_ID env var at deploy time.
