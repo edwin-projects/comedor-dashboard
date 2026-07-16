@@ -470,6 +470,12 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 .opening-hint.ok   { background: rgba(76,175,125,0.1);  border: 1px solid rgba(76,175,125,0.3);  color: var(--green); }
 .opening-hint.warn { background: rgba(224,82,82,0.1);   border: 1px solid rgba(224,82,82,0.3);   color: var(--red); }
 .opening-hint.info { background: var(--surface2); border: 1px solid var(--border); color: var(--text2); }
+/* Pet Pooja live-figure hint under each end-of-day tender field */
+.pp-hint { font-size: 10px; font-family: var(--num-font); font-variant-numeric: tabular-nums lining-nums; text-align: center; margin-top: 4px; min-height: 13px; color: var(--text3); line-height: 1.3; }
+.pp-flag { font-size: 12px; font-family: 'Inter', sans-serif; margin-bottom: 10px; padding: 9px 13px; border-radius: 7px; line-height: 1.45; }
+.pp-flag.ok   { background: rgba(76,175,125,0.10); border: 1px solid rgba(76,175,125,0.32); color: var(--green); }
+.pp-flag.warn { background: rgba(201,160,64,0.12); border: 1px solid rgba(201,160,64,0.40); color: var(--accent2); }
+.pp-flag.info { background: var(--surface2); border: 1px solid var(--border); color: var(--text3); }
 /* Cash Dashboard */
 .dash-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 20px; }
 .dfbtn { padding: 3.5px 8px; background: var(--surface2); border: 1px solid var(--border); color: var(--text2); border-radius: 6px; cursor: pointer; font-size: 9.5px; font-family: 'Inter', sans-serif; letter-spacing: 0.4px; text-transform: uppercase; white-space: nowrap; transition: all 0.2s; }
@@ -1029,21 +1035,25 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
   <div class="setcard collapsed tint-green" id="setcard-cashsales">
     <div class="setcard-head" onclick="toggleSet('cashsales')"><span class="setcard-title"><span class="step-num">3</span> End-of-Day Sales</span><span class="setcard-chev">▾</span></div>
     <div class="setcard-body">
-    <p class="exp-note">Fill in at closing (~11 pm). UPI &amp; Card figures from your POS app.</p>
+    <p class="exp-note">Fill in at closing (~11 pm). Pet Pooja's live figure shows under each box — match it.</p>
     <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; margin-bottom:12px;">
       <div>
         <label class="field-label">Cash ₹</label>
         <input id="f-cash" type="text" inputmode="decimal" class="field-input field-input-mono" placeholder="0" oninput="onMoneyInput(this); recalc()" style="text-align:center;">
+        <div id="pp-cash" class="pp-hint"></div>
       </div>
       <div>
         <label class="field-label">UPI ₹</label>
         <input id="f-upi" type="text" inputmode="decimal" class="field-input field-input-mono" placeholder="0" oninput="onMoneyInput(this); recalc()" style="text-align:center;">
+        <div id="pp-upi" class="pp-hint"></div>
       </div>
       <div>
         <label class="field-label">Card ₹</label>
         <input id="f-card" type="text" inputmode="decimal" class="field-input field-input-mono" placeholder="0" oninput="onMoneyInput(this); recalc()" style="text-align:center;">
+        <div id="pp-card" class="pp-hint"></div>
       </div>
     </div>
+    <div id="pp-compare-status"></div>
     <div id="total-sales-display" class="calc-box" style="min-height:0; padding:10px 14px;"></div>
     <button id="save-sales-btn" class="btn" style="width:100%; margin-top:16px; padding:13px; font-size:14px;" onclick="saveSales()">Save Sales ✓</button>
     <div style="margin-top:9px; font-size:11px; color:var(--text3); text-align:center; font-family:'Inter',sans-serif; line-height:1.6;">
@@ -1454,7 +1464,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-17-05';
+const APP_VERSION = '2026-07-17-06';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -3232,7 +3242,44 @@ function recalc() {
   const expDisp = document.getElementById('total-expenses-display');
   if (expDisp) expDisp.textContent = `₹${totalExpenses.toLocaleString('en-IN')}`;
 
+  renderPpCompare();
   updateCashVerifyLock();
+}
+
+// Soft cross-check of the manager's end-of-day tender split against the Pet Pooja
+// live pull for the SAME day. Shows Pet Pooja's figure under each field; flags any
+// rupee-level difference but NEVER blocks saving (the physical count is the manager's
+// to record). Exact match on all three tenders → green tick.
+function renderPpCompare() {
+  const dateEl = document.getElementById('entry-date');
+  const date = dateEl ? dateEl.value : '';
+  const fields = [['f-cash', 'pp-cash', 'cash'], ['f-upi', 'pp-upi', 'upi'], ['f-card', 'pp-card', 'card']];
+  const statusEl = document.getElementById('pp-compare-status');
+  const clear = () => { fields.forEach(f => { const e = document.getElementById(f[1]); if (e) e.innerHTML = ''; }); if (statusEl) statusEl.innerHTML = ''; };
+  if (!date) { clear(); return; }
+  let pm; try { pm = incomePayMixInRange(date, date); } catch (e) { clear(); return; }
+  const ppTotal = (pm.cash || 0) + (pm.card || 0) + (pm.upi || 0) + (pm.online || 0) + (pm.other || 0);
+  if (ppTotal <= 0) {   // Pet Pooja hasn't synced this day yet — nothing to compare
+    fields.forEach(f => { const e = document.getElementById(f[1]); if (e) e.innerHTML = ''; });
+    if (statusEl) statusEl.innerHTML = '';
+    return;
+  }
+  let anyDiff = false, entered = 0;
+  fields.forEach(([fid, hid, key]) => {
+    const el = document.getElementById(hid); if (!el) return;
+    const ppv = Math.round(pm[key] || 0);
+    const cur = Math.round(money(fid));
+    entered += cur;
+    const match = cur === ppv;
+    if (!match) anyDiff = true;
+    const col = match ? 'var(--green)' : 'var(--accent2)';
+    el.innerHTML = `Pet Pooja <b style="color:${col}">₹${ppv.toLocaleString('en-IN')}</b>${match ? ' ✓' : ''}`;
+  });
+  if (!statusEl) return;
+  if (entered <= 0) { statusEl.innerHTML = ''; return; }   // manager hasn't keyed anything yet
+  statusEl.innerHTML = anyDiff
+    ? `<div class="pp-flag warn">⚠ Doesn't match Pet Pooja — please check again. You can still save.</div>`
+    : `<div class="pp-flag ok">✓ Matches Pet Pooja to the rupee</div>`;
 }
 
 // Cash Verification (step 4) only unlocks once the day's opening (step 1) and
@@ -3334,6 +3381,7 @@ function submitEntry() {
   document.getElementById('total-sales-display').innerHTML      = '';
   document.getElementById('verify-result').innerHTML            = '';
   document.getElementById('total-expenses-display').textContent = '₹0';
+  renderPpCompare();   // show Pet Pooja's split for the fresh day, before any typing
   renderEntryRecent();
 }
 
