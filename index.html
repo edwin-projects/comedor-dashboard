@@ -1080,7 +1080,11 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
   </div>
 
   <!-- Pet Pooja income upload (manager or partners) -->
-  <div class="setcard collapsed tint-purple" id="setcard-petpooja">
+  <!-- Manual Pet Pooja upload retired 17 Jul 2026: income now flows live from the
+       Pet Pooja API sync (webhook + nightly reconcile) into comedor/income, and
+       history is backfilled to 3 Mar 2026. Hidden, not deleted — unhide (remove the
+       inline display:none) to restore the manual upload path if ever needed. -->
+  <div class="setcard collapsed tint-purple" id="setcard-petpooja" style="display:none;">
     <div class="setcard-head" onclick="toggleSet('petpooja')"><span class="setcard-title"><span class="step-num"><svg class="hd-ic" viewBox="0 0 24 24"><path d="M4 20V4M4 20h16"/><path d="M7 15l3.5-4 3 2.5L20 7"/></svg></span> Pet Pooja Sales Report</span><span class="setcard-chev">▾</span></div>
     <div class="setcard-body">
     <p class="exp-note">Upload the Pet Pooja <b>Outlet Item-Wise report</b> (Excel or CSV) — this is the restaurant's income (all channels). Cover a day or a whole period; uploading an overlapping range is safe — overlap days keep the earlier report, so nothing double-counts. (Live API sync comes later.)</p>
@@ -1450,7 +1454,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-17-04';
+const APP_VERSION = '2026-07-17-05';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
