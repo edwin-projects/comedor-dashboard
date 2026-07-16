@@ -803,7 +803,62 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
   <div class="tab" data-panel="dashboard" data-cap="dashboard" onclick="showPanel('dashboard')"><svg class="tab-ic" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="8" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="11" width="7" height="10" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg>Dashboard</div>
   <div class="tab" data-panel="entry" data-cap="cash" onclick="showPanel('entry')"><svg class="tab-ic" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M6 9.5v5M18 9.5v5"/></svg>Cash</div>
   <div class="tab" data-panel="bankexp" data-cap="bank" onclick="showPanel('bankexp')"><svg class="tab-ic" viewBox="0 0 24 24"><path d="M3.5 9.5 12 4l8.5 5.5"/><path d="M5 10.5v8M10 10.5v8M14 10.5v8M19 10.5v8"/><path d="M3.5 20.5h17"/></svg>Bank</div>
+  <div class="tab" data-panel="menu" data-cap="dashboard" onclick="showPanel('menu')"><svg class="tab-ic" viewBox="0 0 24 24"><path d="M4 3v18M4 3c2 0 3 2 3 5s-1 4-3 4"/><path d="M15 3c-1.5 1.5-2 3.5-2 6s.5 4.5 2 6v6"/><path d="M18.5 3v18"/></svg>Menu<sup style="font-size:7px;font-weight:600;letter-spacing:.2px;opacity:.6;margin-left:2px;">(coming soon)</sup></div>
   <div class="tab" data-panel="people" data-cap="people" onclick="showPanel('people')"><svg class="tab-ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>Settings</div>
+</div>
+
+<!-- ===================== MENU ===================== -->
+<div id="panel-menu" class="panel content">
+  <style>
+    /* Menu tab — scoped with .mt- prefix so nothing here touches other panels */
+    #panel-menu .mt-metric { display:inline-flex; background:var(--surface2); border:1px solid var(--border); border-radius:8px; padding:2px; gap:2px; }
+    #panel-menu .mt-metric button { font-size:11px; color:var(--text3); background:none; border:none; padding:5px 11px; border-radius:6px; font-family:'Inter',sans-serif; cursor:pointer; }
+    #panel-menu .mt-metric button.on { background:var(--surface); color:var(--text); font-weight:600; }
+    #panel-menu .mt-kpis { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:6px; }
+    #panel-menu .mt-kpi { background:var(--surface); border:1px solid var(--border); border-radius:13px; padding:11px 13px; }
+    #panel-menu .mt-kpi .k { font-size:9.5px; letter-spacing:.6px; text-transform:uppercase; color:var(--text3); }
+    #panel-menu .mt-kpi .v { font-family:var(--num-font); font-weight:600; font-size:18px; font-variant-numeric:tabular-nums lining-nums; margin-top:3px; }
+    #panel-menu .mt-kpi .s { font-size:10.5px; color:var(--text2); margin-top:1px; }
+    #panel-menu .mt-tierhd { display:flex; align-items:center; gap:8px; margin:18px 2px 9px; }
+    #panel-menu .mt-tierhd .sw { width:9px; height:9px; border-radius:3px; flex:none; }
+    #panel-menu .mt-tierhd .tn { font-size:13px; font-weight:700; }
+    #panel-menu .mt-tierhd .td { font-size:10.5px; color:var(--text3); }
+    #panel-menu .mt-tierhd .tc { margin-left:auto; font-family:var(--num-font); font-size:12px; color:var(--text2); font-variant-numeric:tabular-nums; }
+    #panel-menu .mt-star .sw { background:var(--green); } #panel-menu .mt-steady .sw { background:var(--accent2); } #panel-menu .mt-under .sw { background:var(--red); }
+    #panel-menu .mt-star .tn { color:var(--green); } #panel-menu .mt-steady .tn { color:var(--accent2); } #panel-menu .mt-under .tn { color:var(--red); }
+    #panel-menu .mt-lst { display:flex; flex-direction:column; gap:1px; background:var(--border); border:1px solid var(--border); border-radius:13px; overflow:hidden; }
+    #panel-menu .mt-row { background:var(--surface); cursor:pointer; }
+    #panel-menu .mt-rmain { display:grid; grid-template-columns:24px 1fr auto; gap:10px; align-items:center; padding:10px 13px; }
+    #panel-menu .mt-rank { font-family:var(--num-font); font-size:12px; color:var(--text3); font-variant-numeric:tabular-nums; text-align:center; }
+    #panel-menu .mt-nm { min-width:0; }
+    #panel-menu .mt-nm .t { font-size:13px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    #panel-menu .mt-nm .m { font-size:10.5px; color:var(--text3); margin-top:1px; }
+    #panel-menu .mt-rv { text-align:right; white-space:nowrap; }
+    #panel-menu .mt-rv .g { font-family:var(--num-font); font-weight:600; font-size:14px; font-variant-numeric:tabular-nums lining-nums; }
+    #panel-menu .mt-rv .u { font-size:10px; color:var(--text3); }
+    #panel-menu .mt-det { display:none; background:var(--surface2); border-top:1px solid var(--border); padding:12px 15px 14px; }
+    #panel-menu .mt-row.open .mt-det { display:block; }
+    #panel-menu .mt-dstats { display:flex; gap:20px; }
+    #panel-menu .mt-dstat .dk { font-size:9px; letter-spacing:.5px; text-transform:uppercase; color:var(--text3); }
+    #panel-menu .mt-dstat .dv { font-family:var(--num-font); font-size:15px; font-weight:600; font-variant-numeric:tabular-nums; margin-top:2px; }
+    #panel-menu .mt-dnote { margin-top:11px; font-size:11px; color:var(--text2); background:var(--surface); border:1px dashed var(--border); border-radius:9px; padding:9px 11px; line-height:1.45; }
+    #panel-menu .mt-insight { display:flex; gap:10px; align-items:flex-start; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:11px 13px; margin-bottom:8px; }
+    #panel-menu .mt-insight .ic { font-size:15px; flex:none; line-height:1.2; }
+    #panel-menu .mt-insight .it { font-size:12px; } #panel-menu .mt-insight .it b { font-weight:700; color:var(--text); }
+    #panel-menu .mt-insight .it .s { color:var(--text2); font-size:10.5px; margin-top:2px; }
+    #panel-menu .mt-empty { color:var(--text3); font-size:12.5px; text-align:center; padding:34px 16px; line-height:1.55; }
+  </style>
+  <div class="dash-filters" id="menu-filters">
+    <button class="dfbtn" data-f="today" onclick="setMenuFilter('today',this)">Today</button>
+    <button class="dfbtn" data-f="yesterday" onclick="setMenuFilter('yesterday',this)">Yesterday</button>
+    <button class="dfbtn" data-f="lastmonth" onclick="setMenuFilter('lastmonth',this)">Last Month</button>
+    <button class="dfbtn" data-f="month" onclick="setMenuFilter('month',this)">This Month</button>
+    <select class="dfbtn dfselect" id="menu-month" onchange="setMenuMonth(this)" aria-label="Filter by month"></select>
+    <button class="dfbtn" data-f="ytd" onclick="setMenuFilter('ytd',this)">FY&nbsp;YTD</button>
+    <button class="dfbtn" data-f="lifetime" onclick="setMenuFilter('lifetime',this)">Lifetime</button>
+  </div>
+  <div id="menu-period" style="font-size:11px; color:var(--text3); font-family:'Inter',sans-serif; letter-spacing:0.5px; margin:2px 0 16px;"></div>
+  <div id="menu-body"></div>
 </div>
 
 <!-- ===================== DASHBOARD ===================== -->
@@ -1369,7 +1424,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-16-09';
+const APP_VERSION = '2026-07-16-11';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -1400,6 +1455,7 @@ function renderActivePanel() {
     else if (id === 'bankexp') renderBankList();
     else if (id === 'entry') { renderEntryRecent(); checkOpening(); }
     else if (id === 'people') renderPeople();
+    else if (id === 'menu') renderMenu();
   } catch (e) { console.warn('Panel render failed (' + id + '):', e); }   // never let a synced record freeze the UI
 }
 
@@ -2246,6 +2302,7 @@ function showPanel(id) {
   }
   if (id === 'bankexp') renderBankList();
   if (id === 'people') { ensureUsersSeeded(); renderPeople(); }
+  if (id === 'menu') renderMenu();
 }
 
 function showPanelDirect(id) {
@@ -3599,8 +3656,8 @@ let dashMonthISO = null;           // 'YYYY-MM' when the Months dropdown drives 
 // app's first day (Mar 2026) through the current month — each labelled with its
 // real year so there's no ambiguity. (The CSS caret is the only down-arrow; the
 // placeholder text carries none.)
-function populateMonthFilter() {
-  const sel = document.getElementById('dash-month'); if (!sel) return;
+function populateMonthFilter(selId) {
+  const sel = document.getElementById(selId || 'dash-month'); if (!sel) return;
   const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const [sy, sm] = (LEDGER_OPEN || '2026-03-05').split('-').map(Number);   // first data month
   const start = new Date(sy, sm - 1, 1);
@@ -5867,6 +5924,136 @@ function incomeItemsInRange(from, to) {
     });
   });
   return { byCat: byCat, anyDetail: anyDetail };
+}
+
+// ─── MENU ENGINEERING TAB ────────────────────────────────────────────────────
+// Per-dish aggregation over the SAME deduped owned days as income, so menu
+// figures reconcile to the sales figures. Returns a flat array of
+// { n:name, c:category, g:gross, q:plates } for the selected period.
+// Item detail exists only from July 2026 (when the Pet Pooja item sync began);
+// earlier days carry gross-only records, so they contribute no dishes here.
+function menuItemsInRange(from, to) {
+  if (!from || !to) return [];
+  const recs = loadIncome(); const owner = incomeDayOwner();
+  const ownedDays = {};
+  for (const d in owner) { if (d >= from && d <= to) ownedDays[owner[d]] = (ownedDays[owner[d]] || 0) + 1; }
+  const acc = {};
+  recs.forEach(r => {
+    const nd = daysInclusive(r.from, r.to); const od = ownedDays[r.id] || 0; if (nd <= 0 || !od) return;
+    if (!Array.isArray(r.itemList) || !r.itemList.length) return;
+    const scale = od / nd;
+    r.itemList.forEach(it => {
+      const n = (it.n && String(it.n).trim()) || '—';
+      const c = (it.c && String(it.c).trim()) || '—';
+      const key = c + '' + n;
+      if (!acc[key]) acc[key] = { n: n, c: c, g: 0, q: 0 };
+      acc[key].g += (Number(it.g) || 0) * scale;
+      acc[key].q += (Number(it.q) || 0) * scale;
+    });
+  });
+  return Object.values(acc).map(x => ({ n: x.n, c: x.c, g: Math.round(x.g), q: Math.round(x.q) }))
+    .filter(x => x.g > 0 || x.q > 0);
+}
+
+let menuMetric = 'g';   // 'g' = revenue, 'q' = plates sold
+function setMenuMetric(m, btn) {
+  menuMetric = m;
+  if (btn) { btn.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('on')); btn.classList.add('on'); }
+  renderMenu();
+}
+// The Menu tab shares the dashboard's period state so its "timeline" always
+// matches the rest of the app; these just set that shared state and re-render.
+function setMenuFilter(filter, btn) {
+  currentDashFilter = filter; dashMonthISO = null;
+  document.querySelectorAll('#menu-filters .dfbtn').forEach(b => b.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const ms = document.getElementById('menu-month'); if (ms) ms.value = '';
+  renderMenu();
+}
+function setMenuMonth(sel) {
+  if (!sel.value) return;
+  currentDashFilter = 'specificmonth'; dashMonthISO = sel.value;
+  document.querySelectorAll('#menu-filters .dfbtn').forEach(b => b.classList.remove('active'));
+  sel.classList.add('active');
+  renderMenu();
+}
+function toggleMenuRow(el) { el.classList.toggle('open'); }
+
+function renderMenu() {
+  const body = document.getElementById('menu-body'); if (!body) return;
+  // month dropdown + button highlight track the shared period state
+  const ms = document.getElementById('menu-month');
+  if (ms && ms.options.length <= 1) { try { populateMonthFilter('menu-month'); } catch (e) {} }
+  document.querySelectorAll('#menu-filters .dfbtn').forEach(b => b.classList.remove('active'));
+  if (currentDashFilter === 'specificmonth') { if (ms) ms.value = dashMonthISO || ''; }
+  else { const b = document.querySelector('#menu-filters .dfbtn[data-f="' + currentDashFilter + '"]'); if (b) b.classList.add('active'); }
+  // period label (same wording as the dashboard's)
+  const pl = document.getElementById('menu-period');
+  if (pl) {
+    if (currentDashFilter === 'lifetime') pl.textContent = 'All time · since day 1 (5 March 2026)';
+    else { const r = computeDashRange();
+      if (r.from && r.to) { const d = iso => { const [y,m,day]=iso.split('-'); return `${+day} ${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m-1]} ${y}`; };
+        pl.textContent = (r.from === r.to ? d(r.from) : `${d(r.from)} – ${d(r.to)}`) + `  ·  FY ${fyLabel(nowIST())} (Apr–Mar)`; }
+      else pl.textContent = ''; }
+  }
+
+  const range = computeDashRange();
+  const items = menuItemsInRange(range.from, range.to);
+  const inr = n => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN');
+
+  if (!items.length) {
+    body.innerHTML = `<div class="mt-empty">No dish-level data in this period yet.<br>Dish breakdowns started with the live Pet Pooja item sync in <b>July 2026</b>; earlier days hold sales totals only. Pick <b>This Month</b> or <b>Lifetime</b> to see dishes.</div>`;
+    return;
+  }
+
+  const metric = menuMetric;
+  const sortDesc = arr => arr.slice().sort((a, b) => b[metric] - a[metric] || b.g - a.g);
+  const under = sortDesc(items.filter(x => x.q <= 3));
+  const rest = sortDesc(items.filter(x => x.q > 3));
+  const stars = rest.slice(0, 10);
+  const steady = rest.slice(10);
+  const top = sortDesc(items)[0];
+
+  // insights
+  const totalG = items.reduce((s, x) => s + x.g, 0);
+  const top5 = sortDesc(items).slice(0, 5).reduce((s, x) => s + x.g, 0);
+  const catG = {}; items.forEach(x => catG[x.c] = (catG[x.c] || 0) + x.g);
+  const big3 = Object.values(catG).sort((a, b) => b - a).slice(0, 3).reduce((s, v) => s + v, 0);
+
+  const row = (it, rank) => {
+    const primary = metric === 'g' ? inr(it.g) : (it.q + ' plates');
+    const second = metric === 'g' ? (it.q + ' plates') : inr(it.g);
+    const avg = it.q ? Math.round(it.g / it.q) : 0;
+    return `<div class="mt-row" onclick="toggleMenuRow(this)">
+      <div class="mt-rmain"><div class="mt-rank">${rank}</div>
+        <div class="mt-nm"><div class="t">${esc(it.n)}</div><div class="m">${esc(it.c)} · ₹${avg} avg plate</div></div>
+        <div class="mt-rv"><div class="g">${primary}</div><div class="u">${second}</div></div></div>
+      <div class="mt-det"><div class="mt-dstats">
+        <div class="mt-dstat"><div class="dk">Plates</div><div class="dv">${it.q}</div></div>
+        <div class="mt-dstat"><div class="dk">Revenue</div><div class="dv">${inr(it.g)}</div></div>
+        <div class="mt-dstat"><div class="dk">Avg price</div><div class="dv">₹${avg}</div></div>
+      </div>
+      <div class="mt-dnote"><b>Trend over time</b> and <b>profit per plate</b> land here next — the trend builds as more daily data accrues, and profit unlocks once each dish's cost is added.</div></div></div>`;
+  };
+  const tier = (cls, name, desc, arr) => arr.length ? `<div class="mt-tierhd mt-${cls}"><span class="sw"></span><span class="tn">${name}</span><span class="td">· ${desc}</span><span class="tc">${arr.length}</span></div><div class="mt-lst">${arr.map((it, i) => row(it, i + 1)).join('')}</div>` : '';
+
+  body.innerHTML =
+    `<div class="mt-kpis">
+       <div class="mt-kpi"><div class="k">Dishes sold</div><div class="v">${items.length}</div><div class="s">${Object.keys(catG).length} categories</div></div>
+       <div class="mt-kpi"><div class="k">Top seller</div><div class="v" style="color:var(--green)">${esc(top.n)}</div><div class="s">${inr(top.g)} · ${top.q} plates</div></div>
+     </div>
+     <div style="display:flex;justify-content:space-between;align-items:center;margin:16px 2px 9px;">
+       <span style="font-size:10px;letter-spacing:1.4px;text-transform:uppercase;color:var(--text3);font-weight:600;">Ranked by</span>
+       <span class="mt-metric"><button class="${metric==='g'?'on':''}" onclick="event.stopPropagation();setMenuMetric('g',this)">Revenue ₹</button><button class="${metric==='q'?'on':''}" onclick="event.stopPropagation();setMenuMetric('q',this)">Plates</button></span>
+     </div>
+     ${tier('star', 'Stars', 'your winners', stars)}
+     ${tier('steady', 'Steady', 'reliable middle', steady)}
+     ${tier('under', 'Underperformers', 'fix or drop', under)}
+     <div style="font-size:10px;letter-spacing:1.4px;text-transform:uppercase;color:var(--text3);font-weight:600;margin:22px 2px 9px;">What to look at</div>
+     <div class="mt-insight"><div class="ic">🌟</div><div class="it"><b>Top 5 dishes = ${totalG ? Math.round(top5/totalG*100) : 0}% of menu revenue</b><div class="s">A handful of dishes drive the business — protect them and never let them run out.</div></div></div>
+     <div class="mt-insight"><div class="ic">🗑️</div><div class="it"><b>${under.length} dishes sold 3 times or fewer</b><div class="s">Your retire-or-rework shortlist. Trimming these speeds the kitchen and simplifies choosing.</div></div></div>
+     <div class="mt-insight"><div class="ic">🍽️</div><div class="it"><b>Top 3 categories = ${totalG ? Math.round(big3/totalG*100) : 0}% of revenue</b><div class="s">A few categories carry the menu; the thin ones are candidates to build up or trim.</div></div></div>
+     <div style="font-size:10.5px;color:var(--text3);margin:16px 2px 4px;line-height:1.5;">Dish data is live from Pet Pooja and reconciles to the Sales figures. Item-level history begins Jul 2026; sales/expense tabs stay full-history.</div>`;
 }
 
 let _ppPending = null;
