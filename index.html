@@ -838,6 +838,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
     #panel-menu .mt-tbrow .medal { font-size:10px; text-align:center; color:var(--text3); font-family:var(--num-font); font-variant-numeric:tabular-nums; }
     #panel-menu .mt-tbrow .nm { min-width:0; font-size:12px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
     #panel-menu .mt-tbrow .v { font-family:var(--num-font); font-weight:600; font-size:12px; font-variant-numeric:tabular-nums lining-nums; text-align:right; white-space:nowrap; }
+    #panel-menu .mt-pct { font-family:var(--num-font); font-weight:600; font-size:10px; color:var(--text3); font-variant-numeric:tabular-nums; margin-left:3px; }
     /* Accordion tiers */
     #panel-menu .mt-acc { border:1px solid var(--border); border-radius:14px; overflow:hidden; margin-bottom:10px; }
     #panel-menu .mt-acchd { display:flex; align-items:center; gap:8px; padding:12px 13px; cursor:pointer; background:var(--surface); }
@@ -1449,7 +1450,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-17-03';
+const APP_VERSION = '2026-07-17-04';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -6052,6 +6053,11 @@ function renderMenu() {
   const steady = rest.slice(10);
   const top = sortDesc(items)[0];
 
+  // Share-of-period, following the selected metric (revenue ₹ or plates).
+  const totMetric = items.reduce((s, x) => s + (x[metric] || 0), 0) || 1;
+  const pctStr = v => { const p = v / totMetric * 100; return (p < 1 ? p.toFixed(1) : Math.round(p)) + '%'; };
+  const fmtMetric = it => metric === 'g' ? inr(it.g) : (it.q + ' plates');
+
   // insights
   const totalG = items.reduce((s, x) => s + x.g, 0);
   const top5 = sortDesc(items).slice(0, 5).reduce((s, x) => s + x.g, 0);
@@ -6065,7 +6071,7 @@ function renderMenu() {
     return `<div class="mt-row" onclick="toggleMenuRow(this)">
       <div class="mt-rmain"><div class="mt-rank">${rank}</div>
         <div class="mt-nm"><div class="t">${esc(it.n)}</div><div class="m">${esc(it.c)} · ₹${avg} avg plate</div></div>
-        <div class="mt-rv"><div class="g">${primary}</div><div class="u">${second}</div></div></div>
+        <div class="mt-rv"><div class="g">${primary} <span class="mt-pct">${pctStr(it[metric])}</span></div><div class="u">${second}</div></div></div>
       <div class="mt-det"><div class="mt-dstats">
         <div class="mt-dstat"><div class="dk">Plates</div><div class="dv">${it.q}</div></div>
         <div class="mt-dstat"><div class="dk">Revenue</div><div class="dv">${inr(it.g)}</div></div>
@@ -6076,12 +6082,13 @@ function renderMenu() {
   // Accordion tier: header carries the tier's total; one open at a time.
   const tier = (cls, name, desc, arr) => {
     if (!arr.length) return '';
-    const sum = arr.reduce((s, x) => s + x.g, 0);
+    const sum = arr.reduce((s, x) => s + (x[metric] || 0), 0);
+    const disp = metric === 'g' ? inr(sum) : (sum + ' plates');
     const open = menuOpenTier === cls ? ' open' : '';
     return `<div class="mt-acc mt-${cls}${open}">
       <div class="mt-acchd" onclick="toggleMenuTier(this,'${cls}')">
         <span class="sw"></span><span class="tn">${name}</span><span class="td">· ${desc}</span>
-        <span class="tsum">${inr(sum)} · ${arr.length}</span><span class="mt-chev">▸</span>
+        <span class="tsum">${disp} · ${pctStr(sum)} · ${arr.length}</span><span class="mt-chev">▸</span>
       </div>
       <div class="mt-accbody"><div class="mt-lst">${arr.map((it, i) => row(it, i + 1)).join('')}</div></div>
     </div>`;
@@ -6090,21 +6097,20 @@ function renderMenu() {
   // Top 3 / Bottom 3 colored band (follows the selected ranking metric)
   const ranked = sortDesc(items);
   const tbRow = (it, i) => {
-    const val = metric === 'g' ? inr(it.g) : (it.q + ' plates');
     return `<div class="mt-tbrow"><div class="medal">${i + 1}</div>
-      <div class="nm t">${esc(it.n)}</div><div class="v">${val}</div></div>`;
+      <div class="nm t">${esc(it.n)}</div><div class="v">${fmtMetric(it)} <span class="mt-pct">${pctStr(it[metric])}</span></div></div>`;
   };
   const topN = ranked.slice(0, 5);
   const botN = ranked.slice(-5).reverse();
 
   body.innerHTML =
-    `<div class="mt-tb">
-       <div class="mt-tbcard top"><div class="mt-tbh">🏆 Top 5</div>${topN.map(tbRow).join('')}</div>
-       <div class="mt-tbcard bot"><div class="mt-tbh">⚠️ Bottom 5</div>${botN.map(tbRow).join('')}</div>
-     </div>
-     <div style="display:flex;justify-content:space-between;align-items:center;margin:16px 2px 9px;">
+    `<div style="display:flex;justify-content:space-between;align-items:center;margin:2px 2px 11px;">
        <span style="font-size:10px;letter-spacing:1.4px;text-transform:uppercase;color:var(--text3);font-weight:600;">Ranked by</span>
        <span class="mt-metric"><button class="${metric==='g'?'on':''}" onclick="event.stopPropagation();setMenuMetric('g',this)">Revenue ₹</button><button class="${metric==='q'?'on':''}" onclick="event.stopPropagation();setMenuMetric('q',this)">Plates</button></span>
+     </div>
+     <div class="mt-tb">
+       <div class="mt-tbcard top"><div class="mt-tbh">🏆 Top 5</div>${topN.map(tbRow).join('')}</div>
+       <div class="mt-tbcard bot"><div class="mt-tbh">⚠️ Bottom 5</div>${botN.map(tbRow).join('')}</div>
      </div>
      ${tier('star', 'Stars', 'your winners', stars)}
      ${tier('steady', 'Steady', 'reliable middle', steady)}
