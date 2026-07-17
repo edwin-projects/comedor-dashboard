@@ -94,8 +94,9 @@
   #sync-banner.bad  { background:rgba(224,82,82,0.12);  color:var(--red); }
 
   /* TABS */
-  .tabs { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 28px; gap: 0; overflow-x: auto; }
-  .tab { display:flex; align-items:center; gap:6px; padding: 12px 13px; font-size: 12.5px; font-weight: 500; color: var(--text3); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.2s; letter-spacing: 0.2px; }
+  .tabs { display: flex; background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 28px; gap: 0; overflow-x: hidden; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .tab { display:flex; align-items:center; justify-content:center; gap:6px; padding: 12px 13px; font-size: 12.5px; font-weight: 500; color: var(--text3); cursor: pointer; border-bottom: 2px solid transparent; white-space: nowrap; transition: all 0.2s; letter-spacing: 0.2px; text-transform: uppercase; min-width: 0; }
   .tab-ic { width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0; }
   /* Header control icon (theme toggle) — monoline, matches the tab icons */
   .hdr-ic { width:17px; height:17px; stroke:currentColor; fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; flex-shrink:0; }
@@ -345,7 +346,9 @@
     #role-badge { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #logout-btn { padding: 6px 10px; }
     .sync-pill { padding: 5px 9px; }
-    .tabs { padding: 0 15px; }
+    .tabs { padding: 0 6px; justify-content: space-between; }
+    .tab { padding: 11px 4px; font-size: 10.5px; gap: 3px; letter-spacing: 0; }
+    .tab-ic { width: 13px; height: 13px; }
     .note { padding: 11px 13px; font-size: 11.5px; }
     .note-kv { gap: 4px 12px; }
     .note-kv .kv-k { font-size: 9.5px; }
@@ -1464,7 +1467,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-17-07';
+const APP_VERSION = '2026-07-17-08';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
