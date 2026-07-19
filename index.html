@@ -1467,7 +1467,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-17-08';
+const APP_VERSION = '2026-07-19-01';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -3991,7 +3991,7 @@ function renderSalesCats() {
     const cat = e[0], amt = e[1], pct = (amt / total * 100).toFixed(0);
     const items = detail.byCat[cat] ? Object.entries(detail.byCat[cat]).filter(x => x[1] > 0.5).sort((a, b) => b[1] - a[1]) : [];
     const itemsHTML = items.length
-      ? `<table class="sc-itable"><tbody>${items.map(it => `<tr><td>${esc(it[0])}</td><td class="num">${inr(it[1])}</td></tr>`).join('')}</tbody></table>`
+      ? `<table class="sc-itable"><tbody>${items.map(it => `<tr><td>${esc(it[0])}</td><td class="num">${inr(it[1])} <span class="sc-share">${amt ? (it[1] / amt * 100).toFixed(0) : 0}%</span></td></tr>`).join('')}</tbody></table>`
       : `<div class="sc-nodetail">${detail.anyDetail ? 'No item detail in this report.' : 'Item detail appears here for Pet Pooja reports uploaded after this update.'}</div>`;
     return `<div class="sc-cat">
       <div class="sc-cat-head" onclick="toggleSalesCat(${i})">
