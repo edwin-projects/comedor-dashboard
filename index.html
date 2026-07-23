@@ -663,9 +663,15 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 .exp-basis-tog button { background:transparent; border:none; color:var(--text3); font-size:11px; padding:4px 10px; cursor:pointer; font-family:'Inter',sans-serif; letter-spacing:0.3px; }
 .exp-basis-tog button.on { background:var(--accent2); color:#17110a; font-weight:600; }
 .exp-basis-tog button:disabled { opacity:0.4; cursor:default; }
-.exp-ratio { display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin:0 0 9px; padding:6px 11px; background:var(--surface2); border:1px solid var(--border); border-radius:9px; font-family:'Inter',sans-serif; }
-.exp-ratio .k { font-size:10px; letter-spacing:0.5px; text-transform:uppercase; color:var(--text3); }
-.exp-ratio .v { font-family:var(--num-font); font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; }
+/* Mirror the category-row grid so MARGIN sits over the % column and the signed
+   figure sits over the ₹ column: a flex spacer stands in for the icon+name, the
+   two cells match the share/value columns, and a 12px stub matches the chevron
+   so the right edges line up with the rows below. Fonts are ~10% larger. */
+.exp-ratio { display:flex; align-items:center; gap:10px; margin:0 0 9px; padding:7px 12px; background:var(--surface2); border:1px solid var(--border); border-radius:9px; font-family:'Inter',sans-serif; }
+.exp-ratio .er-sp { flex:1; min-width:0; }
+.exp-ratio .k { min-width:44px; text-align:center; font-size:11px; letter-spacing:0.5px; text-transform:uppercase; color:var(--text3); flex-shrink:0; }
+.exp-ratio .v { min-width:80px; text-align:center; font-family:var(--num-font); font-size:14.5px; font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; flex-shrink:0; }
+.exp-ratio .er-chev { width:12px; flex-shrink:0; }
 .exp-ratio .v small { font-size:11px; color:var(--text3); font-weight:500; margin-left:7px; }
 /* People — mobile-friendly card list */
 .person-list { display:flex; flex-direction:column; gap:10px; }
@@ -1480,7 +1486,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-19-09';
+const APP_VERSION = '2026-07-19-10';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -4075,8 +4081,9 @@ function renderExpenseCats() {
   if (incomeTot > 0) {
     const marginPct = Math.round((incomeTot - total) / incomeTot * 100);
     const col = marginPct >= 0 ? 'var(--green)' : 'var(--red)';
-    ratio = `<div class="exp-ratio"><span class="k">Margin</span>`
-      + `<span class="v" style="color:${col}">${marginPct >= 0 ? '+' : '−'}${Math.abs(marginPct)}%</span></div>`;
+    ratio = `<div class="exp-ratio"><span class="er-sp"></span><span class="k">Margin</span>`
+      + `<span class="v" style="color:${col}">${marginPct >= 0 ? '+' : '−'}${Math.abs(marginPct)}%</span>`
+      + `<span class="er-chev"></span></div>`;
   }
   el.innerHTML = tog + ratio + '<div class="mcat-acc">' + ordered.map(([name, g], i) => {
     const subs = g.subs.sort((a, b) => b[1] - a[1]);
