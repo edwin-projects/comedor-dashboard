@@ -657,6 +657,12 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 .mcat-sub .sval { font-size:11.5px; color:var(--text2); font-variant-numeric:tabular-nums; white-space:nowrap; }
 .mcat-sub .schev { font-size:12px; color:var(--text3); line-height:1; }
 .mcat-sub .ssub-share { font-size:11px; color:var(--text3); font-variant-numeric:tabular-nums; white-space:nowrap; }
+.exp-basis { display:flex; gap:7px; align-items:center; margin:0 0 11px; font-family:'Inter',sans-serif; }
+.exp-basis-lbl { font-size:10px; letter-spacing:0.6px; text-transform:uppercase; color:var(--text3); }
+.exp-basis-tog { display:inline-flex; border:1px solid var(--border); border-radius:7px; overflow:hidden; }
+.exp-basis-tog button { background:transparent; border:none; color:var(--text3); font-size:11px; padding:4px 10px; cursor:pointer; font-family:'Inter',sans-serif; letter-spacing:0.3px; }
+.exp-basis-tog button.on { background:var(--accent2); color:#17110a; font-weight:600; }
+.exp-basis-tog button:disabled { opacity:0.4; cursor:default; }
 /* People — mobile-friendly card list */
 .person-list { display:flex; flex-direction:column; gap:10px; }
 .person-card { border:1px solid var(--border); border-radius:11px; background:var(--surface); padding:14px 15px; }
@@ -887,6 +893,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
   <div class="dash-filters" id="menu-filters">
     <button class="dfbtn" data-f="today" onclick="setMenuFilter('today',this)">Today</button>
     <button class="dfbtn" data-f="yesterday" onclick="setMenuFilter('yesterday',this)">Yesterday</button>
+    <button class="dfbtn" data-f="week" onclick="setMenuFilter('week',this)">This Week</button>
     <button class="dfbtn" data-f="lastmonth" onclick="setMenuFilter('lastmonth',this)">Last Month</button>
     <button class="dfbtn" data-f="month" onclick="setMenuFilter('month',this)">This Month</button>
     <select class="dfbtn dfselect" id="menu-month" onchange="setMenuMonth(this)" aria-label="Filter by month"></select>
@@ -902,6 +909,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
   <div class="dash-filters">
     <button class="dfbtn active" onclick="setDashFilter('today',this)">Today</button>
     <button class="dfbtn" onclick="setDashFilter('yesterday',this)">Yesterday</button>
+    <button class="dfbtn" onclick="setDashFilter('week',this)">This Week</button>
     <button class="dfbtn" onclick="setDashFilter('lastmonth',this)">Last Month</button>
     <button class="dfbtn" onclick="setDashFilter('month',this)">This Month</button>
     <select class="dfbtn dfselect" id="dash-month" onchange="setDashMonth(this)" aria-label="Filter by month"></select>
@@ -1468,7 +1476,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-19-03';
+const APP_VERSION = '2026-07-19-04';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -4043,13 +4051,24 @@ function renderExpenseCats() {
     groups[m].subs.push([tag, amt]);
   });
   const ordered = Object.entries(groups).sort((a, b) => b[1].total - a[1].total);
-  el.innerHTML = '<div class="mcat-acc">' + ordered.map(([name, g], i) => {
+  // Each row's % can be read against total spend (composition of the expense pie)
+  // or against income (how much of every rupee earned this cost eats). The toggle
+  // flips the basis for all rows; income basis is only offered when the period has
+  // sales, and each row's denominator is labelled so the two %s never get confused.
+  const incomeTot = incomeInRange(range.from, range.to);
+  const basis = (expenseShareBasis === 'income' && incomeTot > 0) ? 'income' : 'spend';
+  const denom = basis === 'income' ? incomeTot : total;
+  const tog = `<div class="exp-basis"><span class="exp-basis-lbl">Share of</span><span class="exp-basis-tog">`
+    + `<button class="${basis === 'spend' ? 'on' : ''}" onclick="setExpenseBasis('spend')">Spend</button>`
+    + `<button class="${basis === 'income' ? 'on' : ''}" onclick="setExpenseBasis('income')"${incomeTot > 0 ? '' : ' disabled'}>Income</button>`
+    + `</span></div>`;
+  el.innerHTML = tog + '<div class="mcat-acc">' + ordered.map(([name, g], i) => {
     const subs = g.subs.sort((a, b) => b[1] - a[1]);
     return `<div class="mcat">
       <div class="mcat-head" onclick="toggleMcat(this)">
         <span class="mcat-ic">${iconOf(name)}</span>
         <span class="mcat-name">${esc(name)}</span>
-        <span class="mcat-share">${(g.total / total * 100).toFixed(0)}%</span>
+        <span class="mcat-share">${denom ? (g.total / denom * 100).toFixed(0) : 0}%</span>
         <span class="mcat-val">₹${Math.round(g.total).toLocaleString('en-IN')}</span>
         <span class="mcat-chev">▸</span>
       </div>
@@ -4057,6 +4076,10 @@ function renderExpenseCats() {
     </div>`;
   }).join('') + '</div>';
 }
+// Expenses-by-category %: 'spend' = share of total expenses, 'income' = share of
+// sales for the period. Flipped by the toggle in the section header.
+let expenseShareBasis = 'spend';
+function setExpenseBasis(b) { expenseShareBasis = b; try { renderExpenseCats(); } catch (e) {} }
 // Accordion: expand one master category at a time in "Expenses by category".
 function toggleMcat(head) {
   const row = head.parentElement;
