@@ -1372,6 +1372,26 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
       <div id="rec-list" style="margin-top:16px;"></div>
     </div>
   </div>
+
+  <!-- Backups & Restore -->
+  <div class="setcard collapsed tint-teal" id="setcard-backups">
+    <div class="setcard-head" onclick="toggleSet('backups')"><span class="setcard-title">Backups &amp; Restore</span><span class="setcard-chev">▾</span></div>
+    <div class="setcard-body">
+      <style>
+        .bk-row{display:flex;align-items:center;gap:10px;padding:11px 2px;border-top:1px solid var(--border);}
+        .bk-row:first-child{border-top:none;}
+        .bk-meta{flex:1;min-width:0;}
+        .bk-when{display:block;font-size:13px;color:var(--text);font-weight:600;font-family:var(--num-font);}
+        .bk-sub{display:block;font-size:11px;color:var(--text3);font-family:'Inter',sans-serif;margin-top:2px;}
+        .bk-restore{flex-shrink:0;background:transparent;border:1px solid var(--accent2);color:var(--accent2);border-radius:7px;padding:6px 14px;font-size:12px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;}
+        .bk-restore:active{background:var(--accent2);color:#17110a;}
+      </style>
+      <p class="exp-note">This is your <b>restore timeline</b>. Tap <b>Restore</b> on any point to roll the whole app back to exactly how it was then. The current data is always saved first, so a restore can be undone.</p>
+      <button id="backup-now-btn" class="btn" style="width:100%; padding:12px; margin-bottom:14px;" onclick="backupNow()">Back up now ✓</button>
+      <div id="backup-list"></div>
+      <div class="note" style="margin-top:14px;">Keeps the last 30 snapshots here for quick restore. A full daily history is also archived off-site in a private GitHub repo, fiscal year by fiscal year.</div>
+    </div>
+  </div>
 </div>
 
 </div><!-- end #app -->
@@ -1486,7 +1506,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-19-11';
+const APP_VERSION = '2026-07-19-12';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -1942,6 +1962,9 @@ function grantAccess(user) {
   const today = activeCashDay();
   const dateField = document.getElementById('entry-date');
   if (dateField) { dateField.value = today; hydrateFormForDate(today); }
+  // Partners only: take an automatic daily in-app snapshot shortly after login,
+  // so the restore timeline stays current even without a manual "Back up now".
+  if (currentRole === 'owner') setTimeout(maybeAutoSnapshot, 4000);
 }
 
 // "Now" as a Date whose local-getter components read Indian Standard Time
@@ -2363,7 +2386,7 @@ function showPanel(id) {
     }
   }
   if (id === 'bankexp') renderBankList();
-  if (id === 'people') { ensureUsersSeeded(); renderPeople(); }
+  if (id === 'people') { ensureUsersSeeded(); renderPeople(); renderBackups(); }
   if (id === 'menu') renderMenu();
 }
 
@@ -7046,6 +7069,112 @@ function toggleSet(key) {
     }
   }
   c.classList.toggle('collapsed');
+}
+
+// ─── IN-APP BACKUP & RESTORE ─────────────────────────────────────────────────
+// A rolling timeline of full-data snapshots, kept UNDER comedor/ (the only path
+// the DB rules allow) but off the paths the app subscribes to, so they never
+// bloat a normal sync. Each snapshot is the real data keys stringified; the tiny
+// index (comedor/_snapshots) drives the list, the payload (comedor/_snapshots_data)
+// is read only when a restore is actually run. The off-site GitHub Action remains
+// the durable daily archive — this is the convenient in-app "roll back" layer.
+const SNAP_KEEP = 30;
+const SNAP_KEYS = ['entries','bank_expenses','income','orders','recurring','users','meta',
+  'category_masters','category_masters_deleted','category_map',
+  'expense_categories','expense_categories_staff','expense_categories_partner','ledger'];
+
+// "23 July 2026, 2:00AM" in IST, regardless of device timezone.
+function bkLabel(at) {
+  const ist = new Date((Number(at) || 0) + 5.5 * 3600 * 1000);
+  const M = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  let h = ist.getUTCHours(); const mm = String(ist.getUTCMinutes()).padStart(2, '0');
+  const ap = h < 12 ? 'AM' : 'PM'; h = h % 12; if (h === 0) h = 12;
+  return `${ist.getUTCDate()} ${M[ist.getUTCMonth()]} ${ist.getUTCFullYear()}, ${h}:${mm}${ap}`;
+}
+function bkSize(b) { b = Number(b) || 0; return b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB'; }
+
+// Read every real data key in parallel and write one snapshot (index + payload),
+// then prune to the newest SNAP_KEEP.
+function createSnapshot(kind) {
+  if (!_db) return Promise.reject(new Error('offline'));
+  return Promise.all(SNAP_KEYS.map(k =>
+    _db.ref('comedor/' + k).once('value').then(s => [k, s.val()]).catch(() => [k, null])
+  )).then(parts => {
+    const data = {};
+    parts.forEach(([k, v]) => { if (v !== null && v !== undefined) data[k] = v; });
+    const json = JSON.stringify(data);
+    const id = String(Date.now());
+    const meta = { at: Date.now(), size: json.length, by: (currentUser ? currentUser.name : ''), kind: kind || 'manual' };
+    return _db.ref('comedor/_snapshots_data/' + id).set(json)
+      .then(() => _db.ref('comedor/_snapshots/' + id).set(meta))
+      .then(() => _db.ref('comedor/_snapshots').once('value'))
+      .then(snap => {
+        const ids = Object.keys(snap.val() || {}).sort();   // ascending epoch-ms strings
+        const excess = ids.length - SNAP_KEEP;
+        const jobs = [];
+        for (let i = 0; i < excess; i++) {
+          jobs.push(_db.ref('comedor/_snapshots/' + ids[i]).remove().catch(() => {}));
+          jobs.push(_db.ref('comedor/_snapshots_data/' + ids[i]).remove().catch(() => {}));
+        }
+        return Promise.all(jobs).then(() => id);
+      });
+  });
+}
+
+// Auto daily snapshot: if the newest is older than ~20h (or none exists), take one.
+function maybeAutoSnapshot() {
+  if (!_db || !currentUser) return;
+  _db.ref('comedor/_snapshots').once('value').then(snap => {
+    const idx = snap.val() || {};
+    const newest = Object.keys(idx).reduce((mx, id) => Math.max(mx, Number(idx[id] && idx[id].at) || 0), 0);
+    if (Date.now() - newest > 20 * 3600 * 1000) createSnapshot('auto').catch(() => {});
+  }).catch(() => {});
+}
+
+function backupNow() {
+  const btn = document.getElementById('backup-now-btn'); if (!btn) return;
+  const rest = btn.textContent; btn.disabled = true; btn.textContent = 'Backing up…';
+  createSnapshot('manual').then(() => {
+    btn.textContent = 'Backed up ✓'; renderBackups();
+    setTimeout(() => { btn.textContent = rest; btn.disabled = false; }, 1700);
+  }).catch(e => { btn.textContent = rest; btn.disabled = false; alert('Backup failed: ' + (e && e.message || e)); });
+}
+
+function renderBackups() {
+  const el = document.getElementById('backup-list'); if (!el) return;
+  if (!_db) { el.innerHTML = '<div class="exp-note">Backups need a connection.</div>'; return; }
+  _db.ref('comedor/_snapshots').once('value').then(snap => {
+    const idx = snap.val() || {};
+    const rows = Object.keys(idx).map(id => Object.assign({ id }, idx[id])).sort((a, b) => (b.at || 0) - (a.at || 0));
+    if (!rows.length) { el.innerHTML = '<div class="exp-note">No snapshots yet. Tap “Back up now”.</div>'; return; }
+    el.innerHTML = rows.map(r => {
+      const tag = r.kind === 'safety' ? ' · pre-restore' : (r.kind === 'auto' ? ' · auto' : '');
+      return `<div class="bk-row"><div class="bk-meta"><span class="bk-when">${bkLabel(r.at)}</span>`
+        + `<span class="bk-sub">${bkSize(r.size)}${tag}${r.by ? ' · ' + esc(r.by) : ''}</span></div>`
+        + `<button class="bk-restore" onclick="restoreSnapshot('${r.id}')">Restore</button></div>`;
+    }).join('');
+  }).catch(() => { el.innerHTML = '<div class="exp-note">Couldn’t load backups.</div>'; });
+}
+
+// Roll the live data back to a snapshot. Saves the current state first (a
+// 'safety' snapshot) so the restore itself can be undone, then overwrites each
+// data key and reloads so every listener re-hydrates.
+function restoreSnapshot(id) {
+  if (!_db) return;
+  _db.ref('comedor/_snapshots/' + id).once('value').then(s => {
+    const m = s.val();
+    if (!m) { alert('That snapshot is no longer available.'); return; }
+    if (!confirm('Restore everything to\n' + bkLabel(m.at) + '?\n\nThis overwrites ALL current data. The current state is saved first, so you can undo this.')) return;
+    createSnapshot('safety')
+      .then(() => _db.ref('comedor/_snapshots_data/' + id).once('value'))
+      .then(ds => {
+        let data; try { data = JSON.parse(ds.val()); } catch (e) { throw new Error('snapshot unreadable'); }
+        if (!data || typeof data !== 'object') throw new Error('snapshot is empty');
+        return Promise.all(Object.keys(data).map(k => _db.ref('comedor/' + k).set(data[k])));
+      })
+      .then(() => { alert('Restored. Reloading…'); location.reload(); })
+      .catch(e => alert('Restore failed: ' + (e && e.message || e)));
+  }).catch(e => alert('Restore failed: ' + (e && e.message || e)));
 }
 // Accordion for the Staff / Partner sub-lists inside the Expense Categories
 // card: opening one collapses its sibling, so only one list is open at a time.
