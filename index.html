@@ -663,9 +663,9 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 .exp-basis-tog button { background:transparent; border:none; color:var(--text3); font-size:11px; padding:4px 10px; cursor:pointer; font-family:'Inter',sans-serif; letter-spacing:0.3px; }
 .exp-basis-tog button.on { background:var(--accent2); color:#17110a; font-weight:600; }
 .exp-basis-tog button:disabled { opacity:0.4; cursor:default; }
-.exp-ratio { display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin:0 0 12px; padding:11px 13px; background:var(--surface2); border:1px solid var(--border); border-radius:11px; font-family:'Inter',sans-serif; }
-.exp-ratio .k { font-size:10.5px; letter-spacing:0.5px; text-transform:uppercase; color:var(--text3); }
-.exp-ratio .v { font-family:var(--num-font); font-size:15px; font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.exp-ratio { display:flex; justify-content:space-between; align-items:baseline; gap:12px; margin:0 0 9px; padding:6px 11px; background:var(--surface2); border:1px solid var(--border); border-radius:9px; font-family:'Inter',sans-serif; }
+.exp-ratio .k { font-size:10px; letter-spacing:0.5px; text-transform:uppercase; color:var(--text3); }
+.exp-ratio .v { font-family:var(--num-font); font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; white-space:nowrap; }
 .exp-ratio .v small { font-size:11px; color:var(--text3); font-weight:500; margin-left:7px; }
 /* People — mobile-friendly card list */
 .person-list { display:flex; flex-direction:column; gap:10px; }
@@ -1480,7 +1480,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-19-07';
+const APP_VERSION = '2026-07-19-08';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
