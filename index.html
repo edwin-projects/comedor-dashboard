@@ -1480,7 +1480,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-19-08';
+const APP_VERSION = '2026-07-19-09';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -4075,9 +4075,8 @@ function renderExpenseCats() {
   if (incomeTot > 0) {
     const marginPct = Math.round((incomeTot - total) / incomeTot * 100);
     const col = marginPct >= 0 ? 'var(--green)' : 'var(--red)';
-    const word = marginPct >= 0 ? 'Positive' : 'Negative';
     ratio = `<div class="exp-ratio"><span class="k">Margin</span>`
-      + `<span class="v" style="color:${col}">${word} ${Math.abs(marginPct)}%</span></div>`;
+      + `<span class="v" style="color:${col}">${marginPct >= 0 ? '+' : '−'}${Math.abs(marginPct)}%</span></div>`;
   }
   el.innerHTML = tog + ratio + '<div class="mcat-acc">' + ordered.map(([name, g], i) => {
     const subs = g.subs.sort((a, b) => b[1] - a[1]);
