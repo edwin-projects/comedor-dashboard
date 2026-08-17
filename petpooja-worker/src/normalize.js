@@ -81,11 +81,37 @@ function normalizeOrder(raw) {
   };
 }
 
+// A physical order can reach us under two different orderIDs — Pet Pooja emits
+// the SAME bill once from the push webhook (e.g. orderID "-30") and again from
+// the Get Orders pull (e.g. bill-number "C30"). Because comedor/orders is keyed
+// by orderID, both survive storage, and a naive rollup counts the bill twice
+// (seen in the wild on complimentary bills → doubled compValue). Collapse orders
+// that share the exact physical fingerprint — same timestamp, type, channel,
+// gross, item count and first item — keeping the first. Two genuinely distinct
+// bills matching all of that to the second is effectively impossible, so this is
+// safe for live sales too, not just comps.
+function orderSig(o) {
+  const it0 = (o.itemList && o.itemList[0]) || {};
+  return [o.date, o.createdOn, o.orderType, o.channel, o.status,
+    round2(o.gross), (o.itemList || []).length, it0.n || ''].join('¦');
+}
+function dedupeOrders(orders) {
+  const seen = new Set();
+  return (orders || []).filter(o => {
+    if (!o) return false;
+    const sig = orderSig(o);
+    if (seen.has(sig)) return false;
+    seen.add(sig);
+    return true;
+  });
+}
+
 // Roll a day's normalized orders up into the exact record shape the app already
 // reads from comedor/income/<date> — so the dashboard needs no change to consume
 // it. Cancelled orders are stored (audit) but excluded from every total. Extra
 // fields (payMix, channels, counts) are additive for later features.
-function rollupDay(date, orders) {
+function rollupDay(date, ordersRaw) {
+  const orders = dedupeOrders(ordersRaw);
   const live = orders.filter(o => o && !o.cancelled && !o.complimentary && o.date === date);
   const comps = orders.filter(o => o && o.complimentary && !o.cancelled && o.date === date);
   let gross = 0, discount = 0, tax = 0, units = 0;
@@ -132,4 +158,4 @@ function rollupDay(date, orders) {
 const round2 = n => Math.round((Number(n) || 0) * 100) / 100;
 const mapVals = (o, f) => { const r = {}; for (const k in o) r[k] = f(o[k]); return r; };
 
-export { normalizeOrder, rollupDay, payBucket, num, str };
+export { normalizeOrder, rollupDay, dedupeOrders, payBucket, num, str };

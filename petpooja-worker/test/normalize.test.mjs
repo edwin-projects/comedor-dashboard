@@ -150,3 +150,20 @@ test('idempotent: re-pushing the same orderID does not double-count', () => {
   assert.equal(rec.gross, 1158);   // not 2316
   assert.equal(rec.orders, 1);
 });
+
+test('twin-ID complimentary bill is counted once, not doubled', () => {
+  // Pet Pooja emits the SAME complimentary bill under two orderIDs: the push
+  // webhook sends "-30", the Get Orders pull sends bill-number "C30". Same
+  // timestamp, gross, items — one physical bill. compValue must be its face
+  // value (3126), not double (6252).
+  const comp = (orderID) => normalizeOrder({ properties: { Restaurant: {}, Order: {
+    orderID, total: 3126, order_type: 'Dine In', order_from: 'POS', payment_type: 'Cash',
+    created_on: '2026-08-16 23:17:13', status: 'Complimentary' },
+    OrderItem: [{ name: 'Horchata', categoryname: 'Bebidas', total: 299, quantity: 1, itemid: 'i1' }] } });
+  const store = {};
+  [comp('-30'), comp('C30')].forEach(o => { store[o.orderID] = o; });  // survive orderID-keyed storage
+  const rec = rollupDay('2026-08-16', Object.values(store));
+  assert.equal(rec.compValue, 3126);   // not 6252
+  assert.equal(rec.complimentary, 1);  // one bill
+  assert.equal(rec.gross, 0);          // comps never count as sales
+});
