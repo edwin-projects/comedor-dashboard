@@ -1506,7 +1506,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-19-14';
+const APP_VERSION = '2026-07-19-15';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -6033,7 +6033,7 @@ function applyCompFix(ordersByDate) {
 }
 // Full sweep of all stored days (used once at startup). Cheap one-shot read.
 function compHealAll() {
-  if (!window._db) return;
+  if (!_db) return;
   try {
     _db.ref('comedor/orders').once('value').then(snap => {
       if (snap.exists() && applyCompFix(snap.val())) { try { renderActivePanel(); } catch (e) {} }
@@ -6043,7 +6043,7 @@ function compHealAll() {
 // Light sweep of just the recent days the worker keeps re-doubling. Called
 // whenever the income record changes (i.e. right after the worker rewrites it).
 function compHealRecent() {
-  if (!window._db) return;
+  if (!_db) return;
   try {
     _db.ref('comedor/orders').orderByKey().limitToLast(14).once('value').then(snap => {
       if (snap.exists() && applyCompFix(snap.val())) { try { renderActivePanel(); } catch (e) {} }
