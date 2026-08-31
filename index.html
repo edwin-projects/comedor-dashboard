@@ -124,6 +124,34 @@
   .pnl-hero .card-value .cv-fig { position:relative; display:inline-block; }
   .pnl-hero .card-value .cv-pre { position:absolute; right:calc(100% + 4px); top:0; white-space:nowrap; }
   .pnl-hero .card-label { letter-spacing:1.4px; }
+  /* ── Sales-by-month bar chart (dashboard) ── */
+  .msc-card { padding:16px 15px 12px; margin-bottom:12px; }
+  .msc-head { display:flex; align-items:baseline; gap:10px; margin:0 1px 3px; }
+  .msc-head .card-label { letter-spacing:.8px; }
+  .msc-fy { margin-left:auto; font-size:11px; color:var(--text3); font-family:var(--num-font); font-variant-numeric:tabular-nums lining-nums; }
+  .msc-total { display:flex; align-items:baseline; gap:9px; margin:0 1px 15px; }
+  .msc-amt { font-family:var(--num-font); font-weight:600; font-size:24px; color:var(--green); letter-spacing:.3px; font-variant-numeric:tabular-nums lining-nums; }
+  .msc-cap { font-size:11px; color:var(--text3); }
+  .msc-chart { position:relative; }
+  .msc-bars { display:flex; align-items:flex-end; gap:5px; height:150px; padding:0 1px; }
+  .msc-col { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  .msc-track { width:100%; height:100%; display:flex; align-items:flex-end; justify-content:center; }
+  .msc-bar { width:80%; max-width:24px; border-radius:5px 5px 2px 2px; background:linear-gradient(180deg, var(--green), #2C6B48); transition:filter .16s, box-shadow .16s; min-height:2px; }
+  .msc-col.ghost .msc-bar { background:transparent; border:1.5px dashed var(--border); min-height:24px; }
+  .msc-col.current .msc-bar { background:linear-gradient(180deg, #E4C46A, var(--accent2)); }
+  .msc-col.active .msc-bar { filter:brightness(1.12); box-shadow:0 0 0 2px var(--surface), 0 0 0 3.5px var(--green); }
+  .msc-col.current.active .msc-bar { box-shadow:0 0 0 2px var(--surface), 0 0 0 3.5px var(--accent2); }
+  .msc-lbl { margin-top:8px; font-size:10px; font-weight:600; letter-spacing:.3px; color:var(--text3); text-transform:uppercase; }
+  .msc-col.active .msc-lbl { color:var(--text); }
+  .msc-col.current .msc-lbl { color:var(--accent2); }
+  .msc-base { height:1px; background:var(--border); margin:0 1px; }
+  .msc-hint { font-size:10.5px; color:var(--text3); text-align:center; margin:11px 0 2px; transition:opacity .15s; }
+  .msc-pop { position:absolute; left:0; top:0; transform:translate(-50%,-100%); pointer-events:none; background:var(--surface2, var(--surface)); border:1px solid var(--border); border-radius:11px; padding:8px 12px; box-shadow:0 8px 26px rgba(0,0,0,.32); opacity:0; transition:opacity .13s; white-space:nowrap; z-index:5; }
+  .msc-pop.show { opacity:1; }
+  .msc-pm { font-size:10px; letter-spacing:.6px; text-transform:uppercase; color:var(--text3); font-weight:600; }
+  .msc-pv { font-family:var(--num-font); font-weight:600; font-size:17px; color:var(--text); font-variant-numeric:tabular-nums lining-nums; margin-top:1px; }
+  .msc-pd { font-size:10.5px; color:var(--text3); margin-top:2px; }
+  .msc-pop::after { content:""; position:absolute; left:50%; bottom:-5px; transform:translateX(-50%) rotate(45deg); width:9px; height:9px; background:var(--surface2, var(--surface)); border-right:1px solid var(--border); border-bottom:1px solid var(--border); }
   .pnl-divider { display:flex; align-items:center; gap:12px; margin:20px 2px 14px; }
   .pnl-divider::before, .pnl-divider::after { content:""; flex:1; height:1px; background:var(--border); }
   /* Consolidated capital & investment tile */
@@ -1506,7 +1534,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-19-15';
+const APP_VERSION = '2026-07-19-16';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -5317,6 +5345,7 @@ function renderPnlBank() {
       <div class="card-label">Net Profit / Loss</div>
       <div class="card-value ${net >= 0 ? 'green' : 'red'}">${heroNet}</div>
     </div>
+    ${monthlySalesChartHtml(range)}
     <div class="cards2">
       <div class="card card-click tile-avail" onclick="focusLog('bank')"><div class="card-label">Available Balance</div><div class="card-value">${inr(available)}</div><div class="card-sub">${splitGrid([{k:'Bank',v:bankBal||0,pct:pctTxt(bankBal||0,available)},{k:'Cash',v:cashBal,pct:pctTxt(cashBal,available)}])}</div>${cashOpen ? `<div class="tile-warn warn-amber" role="button" tabindex="0" title="Cash not closed — enter the closing count for ${lastCashEntry ? dChip(lastCashEntry.date) : ''}" onclick="event.stopPropagation(); goCloseCash('${lastCashEntry ? lastCashEntry.date : ''}')">ⓘ Cash not closed · ${lastCashEntry ? dChip(lastCashEntry.date) : ''}</div>` : ''}</div>
       <div class="card card-click tile-upc" onclick="toggleUpcoming(event)"><div class="card-label">Upcoming Expenses</div><div class="card-value ${(!fc.pastPeriod && !upcCovered && fc.expected>0)?'upc-neg':''}">${fc.pastPeriod ? '—' : inr(fc.expected)}</div><div class="card-sub">${upcTileSub}</div>${upcWarn}</div>
@@ -5345,6 +5374,97 @@ function renderPnlBank() {
   if (sEl) fitSplitLines(sEl);
   renderBankRich('dbank');
 }
+
+// ─── SALES BY MONTH (12-bar fiscal-year chart on the dashboard) ──────────────
+// One bar per fiscal month (Apr → Mar) of whatever FY the selected period falls
+// in. Tap a bar → the exact month's sales pop up. Months still to come render as
+// faint ghost bars. Monthly totals come from the same Pet Pooja day-owner logic
+// the rest of the P&L uses, so a bar always reconciles to the income figure.
+var MON3 = ['', 'Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+var MONFULL = ['', 'January','February','March','April','May','June','July','August','September','October','November','December'];
+function fyMonthlySales(anchorISO) {
+  const d = (anchorISO && /^\d{4}-\d{2}-\d{2}$/.test(anchorISO)) ? anchorISO : todayLocalISO();
+  const Y = +d.slice(0, 4), M = +d.slice(5, 7);
+  const fyStart = M >= 4 ? Y : Y - 1;               // calendar year of this FY's April
+  const months = [];
+  for (let i = 0; i < 12; i++) {
+    const mo = ((3 + i) % 12) + 1;                   // 4,5,…,12,1,2,3
+    const yr = mo >= 4 ? fyStart : fyStart + 1;
+    months.push({ key: yr + '-' + String(mo).padStart(2, '0'), mo, yr, label: MON3[mo], val: 0, hasData: false });
+  }
+  const idx = {}; months.forEach((m, i) => idx[m.key] = i);
+  const owner = incomeDayOwner();
+  const recs = loadIncome(); const byId = {}; recs.forEach(r => byId[r.id] = r);
+  for (const day in owner) {
+    const i = idx[day.slice(0, 7)]; if (i === undefined) continue;
+    const r = byId[owner[day]]; if (!r) continue;
+    const nd = daysInclusive(r.from, r.to);
+    if (nd > 0) { months[i].val += (Number(r.gross) || 0) / nd; months[i].hasData = true; }
+  }
+  const today = todayLocalISO(), tY = +today.slice(0, 4), tM = +today.slice(5, 7);
+  months.forEach(m => {
+    m.future = (m.yr > tY) || (m.yr === tY && m.mo > tM);
+    m.current = (m.yr === tY && m.mo === tM);
+    m.val = Math.round(m.val);
+  });
+  return { months, ytd: months.reduce((s, m) => s + m.val, 0), fyLabel: 'FY ' + fyStart + '–' + String(fyStart + 1).slice(2) };
+}
+function monthlySalesChartHtml(range) {
+  const data = fyMonthlySales(range && range.to);
+  window._salesBars = data;   // stash for the tap handler (re-render rebuilds this)
+  const max = Math.max(1, ...data.months.map(m => m.val));
+  const inr = n => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN');
+  const cols = data.months.map((m, i) => {
+    const ghost = m.future && !m.hasData;
+    const h = ghost ? 0 : Math.max(m.val > 0 ? 5 : 0, Math.round(m.val / max * 100));
+    const cls = 'msc-col' + (ghost ? ' ghost' : '') + (m.current ? ' current' : '');
+    return `<div class="${cls}" onclick="salesBarTap(event, this, ${i})">`
+      + `<div class="msc-track"><div class="msc-bar" style="height:${h}%"></div></div>`
+      + `<div class="msc-lbl">${m.label}</div></div>`;
+  }).join('');
+  return `<div class="card msc-card">
+    <div class="msc-head"><span class="card-label">Sales by month</span><span class="msc-fy">${data.fyLabel}</span></div>
+    <div class="msc-total"><span class="msc-amt">${inr(data.ytd)}</span><span class="msc-cap">year to date</span></div>
+    <div class="msc-chart"><div class="msc-pop" id="msc-pop"><div class="msc-pm" id="msc-pm"></div><div class="msc-pv" id="msc-pv"></div><div class="msc-pd" id="msc-pd"></div></div>
+      <div class="msc-bars">${cols}</div></div>
+    <div class="msc-base"></div>
+    <div class="msc-hint" id="msc-hint">Tap a bar to see the month's sales</div>
+  </div>`;
+}
+function salesBarTap(ev, el, i) {
+  if (ev) ev.stopPropagation();
+  const data = window._salesBars; if (!data) return;
+  const m = data.months[i];
+  const pop = document.getElementById('msc-pop'), chart = el.closest('.msc-chart');
+  const wasActive = el.classList.contains('active');
+  chart.querySelectorAll('.msc-col').forEach(c => c.classList.remove('active'));
+  if (wasActive) { pop.classList.remove('show'); const h = document.getElementById('msc-hint'); if (h) h.style.opacity = ''; return; }
+  el.classList.add('active');
+  const inr = n => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN');
+  document.getElementById('msc-pm').textContent = MONFULL[m.mo] + ' ' + m.yr;
+  if (m.future && !m.hasData) {
+    document.getElementById('msc-pv').textContent = '—';
+    document.getElementById('msc-pd').textContent = 'Yet to come';
+  } else {
+    document.getElementById('msc-pv').textContent = inr(m.val);
+    const share = data.ytd > 0 ? Math.round(m.val / data.ytd * 100) : 0;
+    document.getElementById('msc-pd').textContent = (m.current ? 'Month to date · ' : '') + share + '% of year';
+  }
+  const cr = chart.getBoundingClientRect(), br = el.getBoundingClientRect();
+  const barTop = el.querySelector('.msc-bar').getBoundingClientRect().top - cr.top;
+  pop.style.left = (br.left - cr.left + br.width / 2) + 'px';
+  pop.style.top = Math.max(34, barTop - 8) + 'px';
+  pop.classList.add('show');
+  const hint = document.getElementById('msc-hint'); if (hint) hint.style.opacity = '0';
+}
+// Tapping anywhere else dismisses the popup.
+document.addEventListener('click', function (e) {
+  if (e.target.closest && e.target.closest('.msc-chart')) return;
+  const pop = document.getElementById('msc-pop'); if (!pop || !pop.classList.contains('show')) return;
+  pop.classList.remove('show');
+  document.querySelectorAll('.msc-col.active').forEach(c => c.classList.remove('active'));
+  const hint = document.getElementById('msc-hint'); if (hint) hint.style.opacity = '';
+});
 
 function bankCatOptions(force) {
   const sel = document.getElementById('be-category');
