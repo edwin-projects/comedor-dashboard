@@ -133,25 +133,18 @@
   .msc-amt { font-family:var(--num-font); font-weight:600; font-size:24px; color:var(--green); letter-spacing:.3px; font-variant-numeric:tabular-nums lining-nums; }
   .msc-cap { font-size:11px; color:var(--text3); }
   .msc-chart { position:relative; }
-  .msc-bars { display:flex; align-items:flex-end; gap:5px; height:75px; padding:0 1px; }
-  .msc-col { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; cursor:pointer; -webkit-tap-highlight-color:transparent; }
+  /* padding-top leaves headroom for the on-bar value labels above the tallest bar */
+  .msc-bars { display:flex; align-items:flex-end; gap:5px; height:75px; padding:15px 1px 0; }
+  .msc-col { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; -webkit-tap-highlight-color:transparent; }
   .msc-track { width:100%; height:100%; display:flex; align-items:flex-end; justify-content:center; }
-  .msc-bar { width:80%; max-width:24px; border-radius:5px 5px 2px 2px; background:linear-gradient(180deg, var(--green), #2C6B48); transition:filter .16s, box-shadow .16s; min-height:2px; }
+  .msc-bar { position:relative; width:80%; max-width:24px; border-radius:5px 5px 2px 2px; background:linear-gradient(180deg, var(--green), #2C6B48); min-height:2px; }
+  .msc-val { position:absolute; bottom:100%; left:50%; transform:translateX(-50%); margin-bottom:3px; font-family:var(--num-font); font-weight:600; font-size:9.5px; color:var(--text2); font-variant-numeric:tabular-nums lining-nums; white-space:nowrap; }
+  .msc-col.current .msc-val { color:var(--accent2); }
   .msc-col.ghost .msc-bar { background:transparent; border:1.5px dashed var(--border); min-height:12px; }
   .msc-col.current .msc-bar { background:linear-gradient(180deg, #E4C46A, var(--accent2)); }
-  .msc-col.active .msc-bar { filter:brightness(1.12); box-shadow:0 0 0 2px var(--surface), 0 0 0 3.5px var(--green); }
-  .msc-col.current.active .msc-bar { box-shadow:0 0 0 2px var(--surface), 0 0 0 3.5px var(--accent2); }
   .msc-lbl { margin-top:8px; font-size:10px; font-weight:600; letter-spacing:.3px; color:var(--text3); text-transform:uppercase; }
-  .msc-col.active .msc-lbl { color:var(--text); }
   .msc-col.current .msc-lbl { color:var(--accent2); }
-  .msc-base { height:1px; background:var(--border); margin:0 1px; }
-  .msc-hint { font-size:10.5px; color:var(--text3); text-align:center; margin:11px 0 2px; transition:opacity .15s; }
-  .msc-pop { position:absolute; left:0; top:0; transform:translate(-50%,-100%); pointer-events:none; background:var(--surface2, var(--surface)); border:1px solid var(--border); border-radius:11px; padding:8px 12px; box-shadow:0 8px 26px rgba(0,0,0,.32); opacity:0; transition:opacity .13s; white-space:nowrap; z-index:5; }
-  .msc-pop.show { opacity:1; }
-  .msc-pm { font-size:10px; letter-spacing:.6px; text-transform:uppercase; color:var(--text3); font-weight:600; }
-  .msc-pv { font-family:var(--num-font); font-weight:600; font-size:17px; color:var(--text); font-variant-numeric:tabular-nums lining-nums; margin-top:1px; }
-  .msc-pd { font-size:10.5px; color:var(--text3); margin-top:2px; }
-  .msc-pop::after { content:""; position:absolute; left:50%; bottom:-5px; transform:translateX(-50%) rotate(45deg); width:9px; height:9px; background:var(--surface2, var(--surface)); border-right:1px solid var(--border); border-bottom:1px solid var(--border); }
+  .msc-base { height:1px; background:var(--border); margin:8px 1px 0; }
   .pnl-divider { display:flex; align-items:center; gap:12px; margin:20px 2px 14px; }
   .pnl-divider::before, .pnl-divider::after { content:""; flex:1; height:1px; background:var(--border); }
   /* Consolidated capital & investment tile */
@@ -1534,7 +1527,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-19-17';
+const APP_VERSION = '2026-07-19-18';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -5409,62 +5402,34 @@ function fyMonthlySales(anchorISO) {
   });
   return { months, ytd: months.reduce((s, m) => s + m.val, 0), fyLabel: 'FY ' + fyStart + '–' + String(fyStart + 1).slice(2) };
 }
+// Compact lakh label sitting on each bar's top edge: 15,46,697 → "15.5L".
+// Under a lakh falls back to "k"; a whole-lakh value drops the decimal.
+function mscShort(v) {
+  if (!v) return '';
+  if (v >= 100000) { const l = v / 100000; return (l >= 10 ? l.toFixed(1) : l.toFixed(1)).replace(/\.0$/, '') + 'L'; }
+  if (v >= 1000) return Math.round(v / 1000) + 'k';
+  return String(Math.round(v));
+}
 function monthlySalesChartHtml(range) {
   const data = fyMonthlySales(range && range.to);
-  window._salesBars = data;   // stash for the tap handler (re-render rebuilds this)
   const max = Math.max(1, ...data.months.map(m => m.val));
   const inr = n => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN');
-  const cols = data.months.map((m, i) => {
+  const cols = data.months.map(m => {
     const ghost = m.future && !m.hasData;
-    const h = ghost ? 0 : Math.max(m.val > 0 ? 5 : 0, Math.round(m.val / max * 100));
+    const h = ghost ? 0 : Math.max(m.val > 0 ? 6 : 0, Math.round(m.val / max * 100));
     const cls = 'msc-col' + (ghost ? ' ghost' : '') + (m.current ? ' current' : '');
-    return `<div class="${cls}" onclick="salesBarTap(event, this, ${i})">`
-      + `<div class="msc-track"><div class="msc-bar" style="height:${h}%"></div></div>`
+    const val = ghost ? '' : `<span class="msc-val">${mscShort(m.val)}</span>`;
+    return `<div class="${cls}">`
+      + `<div class="msc-track"><div class="msc-bar" style="height:${h}%">${val}</div></div>`
       + `<div class="msc-lbl">${m.label}</div></div>`;
   }).join('');
   return `<div class="card msc-card">
     <div class="msc-head"><span class="card-label">Sales by month</span><span class="msc-fy">${data.fyLabel}</span></div>
-    <div class="msc-total"><span class="msc-amt">${inr(data.ytd)}</span><span class="msc-cap">year to date</span></div>
-    <div class="msc-chart"><div class="msc-pop" id="msc-pop"><div class="msc-pm" id="msc-pm"></div><div class="msc-pv" id="msc-pv"></div><div class="msc-pd" id="msc-pd"></div></div>
-      <div class="msc-bars">${cols}</div></div>
+    <div class="msc-total"><span class="msc-amt">${inr(data.ytd)}</span><span class="msc-cap">(YTD)</span></div>
+    <div class="msc-chart"><div class="msc-bars">${cols}</div></div>
     <div class="msc-base"></div>
-    <div class="msc-hint" id="msc-hint">Tap a bar to see the month's sales</div>
   </div>`;
 }
-function salesBarTap(ev, el, i) {
-  if (ev) ev.stopPropagation();
-  const data = window._salesBars; if (!data) return;
-  const m = data.months[i];
-  const pop = document.getElementById('msc-pop'), chart = el.closest('.msc-chart');
-  const wasActive = el.classList.contains('active');
-  chart.querySelectorAll('.msc-col').forEach(c => c.classList.remove('active'));
-  if (wasActive) { pop.classList.remove('show'); const h = document.getElementById('msc-hint'); if (h) h.style.opacity = ''; return; }
-  el.classList.add('active');
-  const inr = n => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN');
-  document.getElementById('msc-pm').textContent = MONFULL[m.mo] + ' ' + m.yr;
-  if (m.future && !m.hasData) {
-    document.getElementById('msc-pv').textContent = '—';
-    document.getElementById('msc-pd').textContent = 'Yet to come';
-  } else {
-    document.getElementById('msc-pv').textContent = inr(m.val);
-    const share = data.ytd > 0 ? Math.round(m.val / data.ytd * 100) : 0;
-    document.getElementById('msc-pd').textContent = (m.current ? 'Month to date · ' : '') + share + '% of year';
-  }
-  const cr = chart.getBoundingClientRect(), br = el.getBoundingClientRect();
-  const barTop = el.querySelector('.msc-bar').getBoundingClientRect().top - cr.top;
-  pop.style.left = (br.left - cr.left + br.width / 2) + 'px';
-  pop.style.top = Math.max(34, barTop - 8) + 'px';
-  pop.classList.add('show');
-  const hint = document.getElementById('msc-hint'); if (hint) hint.style.opacity = '0';
-}
-// Tapping anywhere else dismisses the popup.
-document.addEventListener('click', function (e) {
-  if (e.target.closest && e.target.closest('.msc-chart')) return;
-  const pop = document.getElementById('msc-pop'); if (!pop || !pop.classList.contains('show')) return;
-  pop.classList.remove('show');
-  document.querySelectorAll('.msc-col.active').forEach(c => c.classList.remove('active'));
-  const hint = document.getElementById('msc-hint'); if (hint) hint.style.opacity = '';
-});
 
 function bankCatOptions(force) {
   const sel = document.getElementById('be-category');
