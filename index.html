@@ -129,7 +129,7 @@
   .msc-head { display:flex; align-items:baseline; gap:10px; margin:0 1px 3px; }
   .msc-head .card-label { letter-spacing:.8px; }
   .msc-fy { margin-left:auto; font-size:11px; color:var(--text3); font-family:var(--num-font); font-variant-numeric:tabular-nums lining-nums; }
-  .msc-total { display:flex; align-items:baseline; gap:9px; margin:0 1px 15px; }
+  .msc-total { display:flex; align-items:center; gap:5px; margin:0 1px 15px; }
   .msc-amt { font-family:var(--num-font); font-weight:600; font-size:24px; color:var(--green); letter-spacing:.3px; font-variant-numeric:tabular-nums lining-nums; }
   .msc-cap { font-size:11px; color:var(--text3); }
   .msc-chart { position:relative; }
@@ -141,7 +141,11 @@
   .msc-val { position:absolute; bottom:100%; left:50%; transform:translateX(-50%); margin-bottom:3px; font-family:var(--num-font); font-weight:600; font-size:9.5px; color:var(--text2); font-variant-numeric:tabular-nums lining-nums; white-space:nowrap; }
   .msc-col.current .msc-val { color:var(--accent2); }
   .msc-col.ghost .msc-bar { background:transparent; border:1.5px dashed var(--border); min-height:12px; }
+  .msc-col:not(.ghost) { cursor:pointer; }
   .msc-col.current .msc-bar { background:linear-gradient(180deg, #E4C46A, var(--accent2)); }
+  .msc-col.sel .msc-bar { box-shadow:0 0 0 2px var(--surface), 0 0 0 3.5px var(--green); }
+  .msc-col.sel.current .msc-bar { box-shadow:0 0 0 2px var(--surface), 0 0 0 3.5px var(--accent2); }
+  .msc-col.sel .msc-lbl { color:var(--text); }
   .msc-lbl { margin-top:8px; font-size:10px; font-weight:600; letter-spacing:.3px; color:var(--text3); text-transform:uppercase; }
   .msc-col.current .msc-lbl { color:var(--accent2); }
   .msc-base { height:1px; background:var(--border); margin:8px 1px 0; }
@@ -1527,7 +1531,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-19-18';
+const APP_VERSION = '2026-07-19-19';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -5414,12 +5418,15 @@ function monthlySalesChartHtml(range) {
   const data = fyMonthlySales(range && range.to);
   const max = Math.max(1, ...data.months.map(m => m.val));
   const inr = n => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN');
+  const selMonth = (currentDashFilter === 'specificmonth') ? dashMonthISO : null;
   const cols = data.months.map(m => {
     const ghost = m.future && !m.hasData;
     const h = ghost ? 0 : Math.max(m.val > 0 ? 6 : 0, Math.round(m.val / max * 100));
-    const cls = 'msc-col' + (ghost ? ' ghost' : '') + (m.current ? ' current' : '');
+    const cls = 'msc-col' + (ghost ? ' ghost' : '') + (m.current ? ' current' : '') + (m.key === selMonth ? ' sel' : '');
     const val = ghost ? '' : `<span class="msc-val">${mscShort(m.val)}</span>`;
-    return `<div class="${cls}">`
+    // Tapping a month with data filters the whole dashboard to that month.
+    const tap = ghost ? '' : ` onclick="salesBarMonth('${m.key}')"`;
+    return `<div class="${cls}"${tap}>`
       + `<div class="msc-track"><div class="msc-bar" style="height:${h}%">${val}</div></div>`
       + `<div class="msc-lbl">${m.label}</div></div>`;
   }).join('');
@@ -5429,6 +5436,18 @@ function monthlySalesChartHtml(range) {
     <div class="msc-chart"><div class="msc-bars">${cols}</div></div>
     <div class="msc-base"></div>
   </div>`;
+}
+// Tap a bar → filter the whole dashboard to that calendar month, exactly like
+// the Months dropdown (the 'specificmonth' filter). Re-uses the same state so
+// every tile (income, expenses, net, balances) recomputes for the month.
+function salesBarMonth(key) {
+  if (!key || !/^\d{4}-\d{2}$/.test(key)) return;
+  currentDashFilter = 'specificmonth';
+  dashMonthISO = key;
+  document.querySelectorAll('.dfbtn').forEach(b => b.classList.remove('active'));
+  const ms = document.getElementById('dash-month'); if (ms) { ms.value = key; ms.classList.add('active'); }
+  const cr = document.getElementById('custom-range'); if (cr) cr.style.display = 'none';
+  renderDashboard();
 }
 
 function bankCatOptions(force) {
