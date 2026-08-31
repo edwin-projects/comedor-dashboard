@@ -133,11 +133,11 @@
   .msc-amt { font-family:var(--num-font); font-weight:600; font-size:24px; color:var(--green); letter-spacing:.3px; font-variant-numeric:tabular-nums lining-nums; }
   .msc-cap { font-size:11px; color:var(--text3); }
   .msc-chart { position:relative; }
-  .msc-bars { display:flex; align-items:flex-end; gap:5px; height:150px; padding:0 1px; }
+  .msc-bars { display:flex; align-items:flex-end; gap:5px; height:75px; padding:0 1px; }
   .msc-col { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; cursor:pointer; -webkit-tap-highlight-color:transparent; }
   .msc-track { width:100%; height:100%; display:flex; align-items:flex-end; justify-content:center; }
   .msc-bar { width:80%; max-width:24px; border-radius:5px 5px 2px 2px; background:linear-gradient(180deg, var(--green), #2C6B48); transition:filter .16s, box-shadow .16s; min-height:2px; }
-  .msc-col.ghost .msc-bar { background:transparent; border:1.5px dashed var(--border); min-height:24px; }
+  .msc-col.ghost .msc-bar { background:transparent; border:1.5px dashed var(--border); min-height:12px; }
   .msc-col.current .msc-bar { background:linear-gradient(180deg, #E4C46A, var(--accent2)); }
   .msc-col.active .msc-bar { filter:brightness(1.12); box-shadow:0 0 0 2px var(--surface), 0 0 0 3.5px var(--green); }
   .msc-col.current.active .msc-bar { box-shadow:0 0 0 2px var(--surface), 0 0 0 3.5px var(--accent2); }
@@ -1534,7 +1534,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-19-16';
+const APP_VERSION = '2026-07-19-17';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
