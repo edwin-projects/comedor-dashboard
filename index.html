@@ -129,20 +129,20 @@
   .msc-head { display:flex; align-items:baseline; gap:10px; margin:0 1px 3px; }
   .msc-head .card-label { letter-spacing:.8px; }
   .msc-fy { margin-left:auto; font-size:11px; color:var(--text3); font-family:var(--num-font); font-variant-numeric:tabular-nums lining-nums; }
-  .msc-total { display:flex; align-items:center; gap:5px; margin:0 1px 15px; }
-  .msc-amt { font-family:var(--num-font); font-weight:600; font-size:24px; color:var(--green); letter-spacing:.3px; font-variant-numeric:tabular-nums lining-nums; }
-  .msc-cap { font-size:11px; color:var(--text3); }
-  /* legend rides on the right of the sales total, vertically centred to it */
-  .msc-total .msc-legend { margin:0 0 0 auto; }
+  /* Totals row: income/expense figures on the left, Net YTD pinned top-right —
+     the colour of each figure already tells sales from expenses, so no
+     separate swatch legend is needed. */
+  .msc-totrow { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin:0 1px 16px; }
+  .msc-io { display:flex; align-items:baseline; flex-wrap:wrap; }
+  .msc-io-amt { font-family:var(--num-font); font-weight:600; font-size:22px; letter-spacing:.2px; font-variant-numeric:tabular-nums lining-nums; }
+  .msc-io-amt.in { color:var(--green); }
+  .msc-io-amt.out { color:var(--red); margin-left:10px; }
+  .msc-io-cap { font-size:11px; color:var(--text3); margin:0 8px 0 5px; }
+  .msc-netytd { text-align:right; flex:0 0 auto; }
+  .msc-netytd-cap { font-size:9.5px; font-weight:600; letter-spacing:.9px; text-transform:uppercase; color:var(--text3); margin-bottom:3px; }
+  .msc-netytd-amt { font-family:var(--num-font); font-weight:600; font-size:19px; letter-spacing:.2px; font-variant-numeric:tabular-nums lining-nums; }
+  .msc-netytd-amt.pos { color:var(--green); } .msc-netytd-amt.neg { color:var(--red); }
   .msc-chart { position:relative; }
-  /* Legend: sales · expenses · net +/- */
-  .msc-legend { display:flex; gap:8px 11px; flex-wrap:wrap; justify-content:flex-end; max-width:58%; }
-  .msc-legend span { font-size:10px; color:var(--text2); display:flex; align-items:center; gap:5px; }
-  .msc-sw { width:10px; height:10px; border-radius:3px; flex:0 0 auto; }
-  .msc-sw.s { background:linear-gradient(180deg, var(--green), #2C6B48); }
-  .msc-sw.e { background:linear-gradient(180deg, var(--red), #9E4636); }
-  .msc-sw.np { color:var(--green); font-family:var(--num-font); font-weight:700; font-size:11px; }
-  .msc-sw.nn { color:var(--red); font-family:var(--num-font); font-weight:700; font-size:11px; }
   /* Diverging layout: sales bars up, expense bars mirrored down from a zero line */
   .msc-row { display:flex; gap:5px; padding:0 1px; }
   .msc-up .msc-col { flex:1; height:98px; display:flex; flex-direction:column; justify-content:space-between; align-items:center; -webkit-tap-highlight-color:transparent; }
@@ -152,7 +152,7 @@
   .msc-val { font-family:var(--num-font); font-weight:600; font-size:9.5px; color:var(--text2); margin-bottom:3px; font-variant-numeric:tabular-nums lining-nums; white-space:nowrap; }
   .msc-bar { width:80%; max-width:22px; min-height:2px; }
   .msc-bar.up { border-radius:5px 5px 0 0; background:linear-gradient(180deg, var(--green), #2C6B48); }
-  .msc-bar.dn { border-radius:0 0 5px 5px; background:linear-gradient(180deg, var(--red), #9E4636); }
+  .msc-bar.dn { border-radius:5px; background:linear-gradient(180deg, var(--red), #9E4636); }
   .msc-zero { height:1.5px; background:var(--text3); opacity:.5; border-radius:2px; margin:0 1px; }
   .msc-dn .msc-col { flex:1; height:70px; display:flex; flex-direction:column; align-items:center; -webkit-tap-highlight-color:transparent; }
   .msc-mn { width:80%; max-width:22px; text-align:center; font-size:8.5px; font-weight:600; letter-spacing:0; color:var(--text3); text-transform:uppercase; margin:4px 0 3px; }
@@ -160,6 +160,7 @@
   .msc-col:not(.ghost) { cursor:pointer; }
   .msc-col.current .msc-bar.up { background:linear-gradient(180deg, #E4C46A, var(--accent2)); }
   .msc-col.current .msc-val, .msc-col.current .msc-mn { color:var(--accent2); }
+  .msc-col.current .msc-mn { text-decoration:underline; text-decoration-color:var(--accent2); text-underline-offset:3px; }
   .msc-col.ghost .msc-bar.up { background:transparent; border:1.5px dashed var(--border); border-bottom:none; min-height:10px; }
   .msc-col.ghost .msc-bar.dn { background:transparent; border:1.5px dashed var(--border); border-top:none; min-height:10px; }
   .msc-col.ghost .msc-val, .msc-col.ghost .msc-eval, .msc-col.ghost .msc-net { visibility:hidden; }
@@ -1548,7 +1549,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-19-24';
+const APP_VERSION = '2026-07-19-25';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -5432,7 +5433,9 @@ function fyMonthlySales(anchorISO) {
     m.val = Math.round(m.val);
     m.net = m.val - m.exp;
   });
-  return { months, ytd: months.reduce((s, m) => s + m.val, 0), fyLabel: 'FY ' + fyStart + '–' + String(fyStart + 1).slice(2) };
+  const ytd = months.reduce((s, m) => s + m.val, 0);
+  const expYtd = months.reduce((s, m) => s + m.exp, 0);
+  return { months, ytd, expYtd, netYtd: ytd - expYtd, fyLabel: 'FY ' + fyStart + '–' + String(fyStart + 1).slice(2) };
 }
 // Total operating expense in [from,to], mirroring renderPnlBank()'s totalExp:
 // cash-drawer spend (skipping cash deposits) + IDFC bank spend + partner-direct
@@ -5491,8 +5494,11 @@ function monthlySalesChartHtml(range) {
       + `<span class="msc-eval">${ghost ? '' : mscShort(m.exp)}</span></div>`);
   });
   return `<div class="card msc-card">
-    <div class="msc-head"><span class="card-label">Sales &amp; expenses</span><span class="msc-fy">${data.fyLabel}</span></div>
-    <div class="msc-total"><span class="msc-amt">${inr(data.ytd)}</span><span class="msc-cap">(sales YTD)</span><span class="msc-legend"><span><i class="msc-sw s"></i> Sales</span><span><i class="msc-sw e"></i> Expenses</span></span></div>
+    <div class="msc-head"><span class="card-label">Income &amp; Expenses</span><span class="msc-fy">${data.fyLabel}</span></div>
+    <div class="msc-totrow">
+      <div class="msc-io"><span class="msc-io-amt in">${inr(data.ytd)}</span><span class="msc-io-cap">in</span><span class="msc-io-amt out">${inr(data.expYtd)}</span><span class="msc-io-cap">out</span></div>
+      <div class="msc-netytd"><div class="msc-netytd-cap">Net YTD</div><div class="msc-netytd-amt ${data.netYtd >= 0 ? 'pos' : 'neg'}">${data.netYtd >= 0 ? '+' : '−'}${inr(Math.abs(data.netYtd))}</div></div>
+    </div>
     <div class="msc-chart">
       <div class="msc-row msc-up">${up.join('')}</div>
       <div class="msc-zero"></div>
