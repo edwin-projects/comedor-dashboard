@@ -132,9 +132,11 @@
   .msc-total { display:flex; align-items:center; gap:5px; margin:0 1px 15px; }
   .msc-amt { font-family:var(--num-font); font-weight:600; font-size:24px; color:var(--green); letter-spacing:.3px; font-variant-numeric:tabular-nums lining-nums; }
   .msc-cap { font-size:11px; color:var(--text3); }
+  /* legend rides on the right of the sales total, vertically centred to it */
+  .msc-total .msc-legend { margin:0 0 0 auto; }
   .msc-chart { position:relative; }
   /* Legend: sales · expenses · net +/- */
-  .msc-legend { display:flex; gap:14px; margin:0 1px 11px; flex-wrap:wrap; }
+  .msc-legend { display:flex; gap:8px 11px; flex-wrap:wrap; justify-content:flex-end; max-width:58%; }
   .msc-legend span { font-size:10px; color:var(--text2); display:flex; align-items:center; gap:5px; }
   .msc-sw { width:10px; height:10px; border-radius:3px; flex:0 0 auto; }
   .msc-sw.s { background:linear-gradient(180deg, var(--green), #2C6B48); }
@@ -1546,7 +1548,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-19-20';
+const APP_VERSION = '2026-07-19-21';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -5490,8 +5492,7 @@ function monthlySalesChartHtml(range) {
   });
   return `<div class="card msc-card">
     <div class="msc-head"><span class="card-label">Sales &amp; expenses</span><span class="msc-fy">${data.fyLabel}</span></div>
-    <div class="msc-total"><span class="msc-amt">${inr(data.ytd)}</span><span class="msc-cap">(sales YTD)</span></div>
-    <div class="msc-legend"><span><i class="msc-sw s"></i> Sales</span><span><i class="msc-sw e"></i> Expenses</span><span><i class="msc-sw np">+</i>/<i class="msc-sw nn">−</i> Net</span></div>
+    <div class="msc-total"><span class="msc-amt">${inr(data.ytd)}</span><span class="msc-cap">(sales YTD)</span><span class="msc-legend"><span><i class="msc-sw s"></i> Sales</span><span><i class="msc-sw e"></i> Expenses</span><span><i class="msc-sw np">+</i>/<i class="msc-sw nn">−</i> Net</span></span></div>
     <div class="msc-chart">
       <div class="msc-row msc-up">${up.join('')}</div>
       <div class="msc-zero"></div>
