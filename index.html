@@ -138,7 +138,7 @@
   .msc-io-amt.in { color:var(--green); }
   .msc-io-amt.out { color:var(--red); margin-left:8px; }
   .msc-io-cap { font-size:10px; color:var(--text3); margin:0 5px 0 3px; white-space:nowrap; }
-  .msc-netytd-amt { font-family:var(--num-font); font-weight:400; font-size:15px; letter-spacing:.1px; font-variant-numeric:tabular-nums lining-nums; white-space:nowrap; flex:0 0 auto; }
+  .msc-netytd-amt { font-family:var(--num-font); font-weight:600; font-size:17px; letter-spacing:.1px; font-variant-numeric:tabular-nums lining-nums; white-space:nowrap; flex:0 0 auto; }
   .msc-netytd-amt.pos { color:var(--green); } .msc-netytd-amt.neg { color:var(--red); }
   .msc-chart { position:relative; }
   /* Diverging layout: sales bars up, expense bars mirrored down from a zero line */
@@ -152,7 +152,7 @@
   .msc-bar.up { border-radius:5px 5px 0 0; background:linear-gradient(180deg, var(--green), #2C6B48); }
   .msc-bar.dn { border-radius:5px; background:linear-gradient(180deg, var(--red), #9E4636); }
   .msc-zero { height:1.5px; background:var(--text3); opacity:.5; border-radius:2px; margin:0 1px; }
-  .msc-dn .msc-col { flex:1; height:70px; display:flex; flex-direction:column; align-items:center; -webkit-tap-highlight-color:transparent; }
+  .msc-dn .msc-col { flex:1; height:88px; display:flex; flex-direction:column; align-items:center; -webkit-tap-highlight-color:transparent; }
   .msc-mn { width:80%; max-width:22px; text-align:center; font-size:8.5px; font-weight:600; letter-spacing:0; color:var(--text3); text-transform:uppercase; margin:4px 0 3px; }
   .msc-eval { font-family:var(--num-font); font-weight:600; font-size:9px; color:var(--red); margin-top:3px; font-variant-numeric:tabular-nums lining-nums; white-space:nowrap; }
   .msc-col:not(.ghost) { cursor:pointer; }
@@ -1547,7 +1547,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-19-26';
+const APP_VERSION = '2026-07-19-27';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -5478,9 +5478,11 @@ function mscShort2(v) {
 function monthlySalesChartHtml(range) {
   const data = fyMonthlySales(range && range.to);
   const live = data.months.filter(m => !(m.future && !m.hasData && !m.hasExp));
-  const maxS = Math.max(1, ...live.map(m => m.val));
-  const maxE = Math.max(1, ...live.map(m => m.exp));
-  const UP = 58, DN = 40;                         // px budget for the tallest bar each side
+  // ONE scale for both directions: a rupee of expense must draw the same length
+  // as a rupee of sales, or a month that spent more than it sold (Apr) would
+  // wrongly show a shorter expense bar than its sales bar.
+  const max = Math.max(1, ...live.map(m => Math.max(m.val, m.exp)));
+  const BAR = 58;                                 // px budget for the tallest bar, either side
   const inr = n => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN');
   const selMonth = (currentDashFilter === 'specificmonth') ? dashMonthISO : null;
   const up = [], dn = [];
@@ -5488,8 +5490,8 @@ function monthlySalesChartHtml(range) {
     const ghost = m.future && !m.hasData && !m.hasExp;
     const cls = 'msc-col' + (ghost ? ' ghost' : '') + (m.current ? ' current' : '') + (m.key === selMonth ? ' sel' : '');
     const tap = ghost ? '' : ` onclick="salesBarMonth('${m.key}')"`;
-    const sh = ghost ? 10 : Math.max(m.val > 0 ? 3 : 0, Math.round(m.val / maxS * UP));
-    const eh = ghost ? 10 : Math.max(m.exp > 0 ? 3 : 0, Math.round(m.exp / maxE * DN));
+    const sh = ghost ? 10 : Math.max(m.val > 0 ? 3 : 0, Math.round(m.val / max * BAR));
+    const eh = ghost ? 10 : Math.max(m.exp > 0 ? 3 : 0, Math.round(m.exp / max * BAR));
     const netCls = m.net >= 0 ? 'pos' : 'neg';
     up.push(`<div class="${cls}"${tap}>`
       + `<div class="msc-net ${netCls}">${ghost ? '' : mscNet(m.net)}</div>`
