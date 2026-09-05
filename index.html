@@ -133,22 +133,37 @@
   .msc-amt { font-family:var(--num-font); font-weight:600; font-size:24px; color:var(--green); letter-spacing:.3px; font-variant-numeric:tabular-nums lining-nums; }
   .msc-cap { font-size:11px; color:var(--text3); }
   .msc-chart { position:relative; }
-  /* padding-top leaves headroom for the on-bar value labels above the tallest bar */
-  .msc-bars { display:flex; align-items:flex-end; gap:5px; height:75px; padding:15px 1px 0; }
-  .msc-col { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; -webkit-tap-highlight-color:transparent; }
-  .msc-track { width:100%; height:100%; display:flex; align-items:flex-end; justify-content:center; }
-  .msc-bar { position:relative; width:80%; max-width:24px; border-radius:5px 5px 2px 2px; background:linear-gradient(180deg, var(--green), #2C6B48); min-height:2px; }
-  .msc-val { position:absolute; bottom:100%; left:50%; transform:translateX(-50%); margin-bottom:3px; font-family:var(--num-font); font-weight:600; font-size:9.5px; color:var(--text2); font-variant-numeric:tabular-nums lining-nums; white-space:nowrap; }
-  .msc-col.current .msc-val { color:var(--accent2); }
-  .msc-col.ghost .msc-bar { background:transparent; border:1.5px dashed var(--border); min-height:12px; }
+  /* Legend: sales · expenses · net +/- */
+  .msc-legend { display:flex; gap:14px; margin:0 1px 11px; flex-wrap:wrap; }
+  .msc-legend span { font-size:10px; color:var(--text2); display:flex; align-items:center; gap:5px; }
+  .msc-sw { width:10px; height:10px; border-radius:3px; flex:0 0 auto; }
+  .msc-sw.s { background:linear-gradient(180deg, var(--green), #2C6B48); }
+  .msc-sw.e { background:linear-gradient(180deg, var(--red), #9E4636); }
+  .msc-sw.np { color:var(--green); font-family:var(--num-font); font-weight:700; font-size:11px; }
+  .msc-sw.nn { color:var(--red); font-family:var(--num-font); font-weight:700; font-size:11px; }
+  /* Diverging layout: sales bars up, expense bars mirrored down from a zero line */
+  .msc-row { display:flex; gap:5px; padding:0 1px; }
+  .msc-up .msc-col { flex:1; height:84px; display:flex; flex-direction:column; justify-content:space-between; align-items:center; -webkit-tap-highlight-color:transparent; }
+  .msc-net { height:14px; line-height:14px; font-family:var(--num-font); font-weight:400; font-size:9.5px; font-variant-numeric:tabular-nums lining-nums; letter-spacing:.2px; }
+  .msc-net.pos { color:var(--green); } .msc-net.neg { color:var(--red); }
+  .msc-barwrap { display:flex; flex-direction:column; justify-content:flex-end; align-items:center; width:100%; }
+  .msc-val { font-family:var(--num-font); font-weight:600; font-size:9.5px; color:var(--text2); margin-bottom:3px; font-variant-numeric:tabular-nums lining-nums; white-space:nowrap; }
+  .msc-bar { width:80%; max-width:22px; min-height:2px; }
+  .msc-bar.up { border-radius:5px 5px 0 0; background:linear-gradient(180deg, var(--green), #2C6B48); }
+  .msc-bar.dn { border-radius:0 0 5px 5px; background:linear-gradient(180deg, var(--red), #9E4636); }
+  .msc-zero { height:1.5px; background:var(--text3); opacity:.5; border-radius:2px; margin:0 1px; }
+  .msc-dn .msc-col { flex:1; height:70px; display:flex; flex-direction:column; align-items:center; -webkit-tap-highlight-color:transparent; }
+  .msc-mn { font-size:10px; font-weight:600; letter-spacing:.3px; color:var(--text3); text-transform:uppercase; margin:4px 0 3px; }
+  .msc-eval { font-family:var(--num-font); font-weight:600; font-size:9px; color:var(--red); margin-top:3px; font-variant-numeric:tabular-nums lining-nums; white-space:nowrap; }
   .msc-col:not(.ghost) { cursor:pointer; }
-  .msc-col.current .msc-bar { background:linear-gradient(180deg, #E4C46A, var(--accent2)); }
-  .msc-col.sel .msc-bar { box-shadow:0 0 0 2px var(--surface), 0 0 0 3.5px var(--green); }
-  .msc-col.sel.current .msc-bar { box-shadow:0 0 0 2px var(--surface), 0 0 0 3.5px var(--accent2); }
-  .msc-col.sel .msc-lbl { color:var(--text); }
-  .msc-lbl { margin-top:8px; font-size:10px; font-weight:600; letter-spacing:.3px; color:var(--text3); text-transform:uppercase; }
-  .msc-col.current .msc-lbl { color:var(--accent2); }
-  .msc-base { height:1px; background:var(--border); margin:8px 1px 0; }
+  .msc-col.current .msc-bar.up { background:linear-gradient(180deg, #E4C46A, var(--accent2)); }
+  .msc-col.current .msc-val, .msc-col.current .msc-mn { color:var(--accent2); }
+  .msc-col.ghost .msc-bar.up { background:transparent; border:1.5px dashed var(--border); border-bottom:none; min-height:10px; }
+  .msc-col.ghost .msc-bar.dn { background:transparent; border:1.5px dashed var(--border); border-top:none; min-height:10px; }
+  .msc-col.ghost .msc-val, .msc-col.ghost .msc-eval, .msc-col.ghost .msc-net { visibility:hidden; }
+  .msc-col.sel .msc-bar.up { box-shadow:0 0 0 2px var(--surface), 0 0 0 3.5px var(--green); }
+  .msc-col.sel.current .msc-bar.up { box-shadow:0 0 0 2px var(--surface), 0 0 0 3.5px var(--accent2); }
+  .msc-col.sel .msc-mn { color:var(--text); }
   .pnl-divider { display:flex; align-items:center; gap:12px; margin:20px 2px 14px; }
   .pnl-divider::before, .pnl-divider::after { content:""; flex:1; height:1px; background:var(--border); }
   /* Consolidated capital & investment tile */
@@ -1531,7 +1546,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-19-19';
+const APP_VERSION = '2026-07-19-20';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -5398,43 +5413,90 @@ function fyMonthlySales(anchorISO) {
     const nd = daysInclusive(r.from, r.to);
     if (nd > 0) { months[i].val += (Number(r.gross) || 0) / nd; months[i].hasData = true; }
   }
+  // Per-month operating expense, using the SAME sources & rules as the P&L
+  // Expenses tile (cash register + IDFC bank + partner-direct + pre-app ledger
+  // opex; capital/payouts/pass-through tax excluded) so the bars reconcile with
+  // the tile when a month is selected.
+  months.forEach(m => {
+    const from = m.key + '-01';
+    const to = m.key + '-' + String(new Date(m.yr, m.mo, 0).getDate()).padStart(2, '0');
+    m.exp = Math.round(expensesForRange(from, to));
+    if (m.exp > 0) m.hasExp = true;
+  });
   const today = todayLocalISO(), tY = +today.slice(0, 4), tM = +today.slice(5, 7);
   months.forEach(m => {
     m.future = (m.yr > tY) || (m.yr === tY && m.mo > tM);
     m.current = (m.yr === tY && m.mo === tM);
     m.val = Math.round(m.val);
+    m.net = m.val - m.exp;
   });
   return { months, ytd: months.reduce((s, m) => s + m.val, 0), fyLabel: 'FY ' + fyStart + '–' + String(fyStart + 1).slice(2) };
+}
+// Total operating expense in [from,to], mirroring renderPnlBank()'s totalExp:
+// cash-drawer spend (skipping cash deposits) + IDFC bank spend + partner-direct
+// + historical partner-paid ledger opex (bucket O). Capital, payouts and
+// pass-through taxes (GST/Service Tax) are never expenses, so they're excluded.
+function expensesForRange(from, to) {
+  if (!from || !to) return 0;
+  const cashExp = loadEntries()
+    .filter(e => e.date >= from && e.date <= to)
+    .reduce((s, e) => s + (e.expenses || []).reduce((t, x) => t + (isCashDeposit(x) ? 0 : (parseFloat(x.amount) || 0)), 0), 0);
+  const bank = loadBankEntries().filter(b => b.date >= from && b.date <= to);
+  const idfcExp = bank.filter(b => !b.capital && !b.direct && !b.payout && !isPassThruTax(b)).reduce((s, b) => s + (Number(b.amount) || 0), 0);
+  const directBankExp = bank.filter(b => b.direct).reduce((s, b) => s + (Number(b.amount) || 0), 0);
+  return cashExp + idfcExp + directBankExp + ledgerOpexInRange(from, to);
 }
 // Compact lakh label sitting on each bar's top edge: 15,46,697 → "15.5L".
 // Under a lakh falls back to "k"; a whole-lakh value drops the decimal.
 function mscShort(v) {
+  v = Math.abs(Number(v) || 0);
   if (!v) return '';
-  if (v >= 100000) { const l = v / 100000; return (l >= 10 ? l.toFixed(1) : l.toFixed(1)).replace(/\.0$/, '') + 'L'; }
+  if (v >= 100000) { const l = v / 100000; return l.toFixed(1).replace(/\.0$/, '') + 'L'; }
   if (v >= 1000) return Math.round(v / 1000) + 'k';
   return String(Math.round(v));
 }
+// Signed compact figure for the monthly net (+1.5L / −0.8L). Uses a real minus
+// sign (−) to match the app's hero P/L styling.
+function mscNet(v) { return (v >= 0 ? '+' : '−') + mscShort(v); }
+
+// Diverging bar chart: sales rise above a zero line, expenses hang mirrored
+// below it (each with its rupee figure), and the month's net shows as a light
+// coloured +/- at the top of every column. Tapping a month filters the whole
+// dashboard to it, exactly like the Months dropdown.
 function monthlySalesChartHtml(range) {
   const data = fyMonthlySales(range && range.to);
-  const max = Math.max(1, ...data.months.map(m => m.val));
+  const live = data.months.filter(m => !(m.future && !m.hasData && !m.hasExp));
+  const maxS = Math.max(1, ...live.map(m => m.val));
+  const maxE = Math.max(1, ...live.map(m => m.exp));
+  const UP = 58, DN = 40;                         // px budget for the tallest bar each side
   const inr = n => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN');
   const selMonth = (currentDashFilter === 'specificmonth') ? dashMonthISO : null;
-  const cols = data.months.map(m => {
-    const ghost = m.future && !m.hasData;
-    const h = ghost ? 0 : Math.max(m.val > 0 ? 6 : 0, Math.round(m.val / max * 100));
+  const up = [], dn = [];
+  data.months.forEach(m => {
+    const ghost = m.future && !m.hasData && !m.hasExp;
     const cls = 'msc-col' + (ghost ? ' ghost' : '') + (m.current ? ' current' : '') + (m.key === selMonth ? ' sel' : '');
-    const val = ghost ? '' : `<span class="msc-val">${mscShort(m.val)}</span>`;
-    // Tapping a month with data filters the whole dashboard to that month.
     const tap = ghost ? '' : ` onclick="salesBarMonth('${m.key}')"`;
-    return `<div class="${cls}"${tap}>`
-      + `<div class="msc-track"><div class="msc-bar" style="height:${h}%">${val}</div></div>`
-      + `<div class="msc-lbl">${m.label}</div></div>`;
-  }).join('');
+    const sh = ghost ? 10 : Math.max(m.val > 0 ? 3 : 0, Math.round(m.val / maxS * UP));
+    const eh = ghost ? 10 : Math.max(m.exp > 0 ? 3 : 0, Math.round(m.exp / maxE * DN));
+    const netCls = m.net >= 0 ? 'pos' : 'neg';
+    up.push(`<div class="${cls}"${tap}>`
+      + `<div class="msc-net ${netCls}">${ghost ? '' : mscNet(m.net)}</div>`
+      + `<div class="msc-barwrap"><span class="msc-val">${ghost ? '' : mscShort(m.val)}</span>`
+      + `<div class="msc-bar up" style="height:${sh}px"></div></div></div>`);
+    dn.push(`<div class="${cls}"${tap}>`
+      + `<div class="msc-mn">${m.label}</div>`
+      + `<div class="msc-bar dn" style="height:${eh}px"></div>`
+      + `<span class="msc-eval">${ghost ? '' : mscShort(m.exp)}</span></div>`);
+  });
   return `<div class="card msc-card">
-    <div class="msc-head"><span class="card-label">Sales by month</span><span class="msc-fy">${data.fyLabel}</span></div>
-    <div class="msc-total"><span class="msc-amt">${inr(data.ytd)}</span><span class="msc-cap">(YTD)</span></div>
-    <div class="msc-chart"><div class="msc-bars">${cols}</div></div>
-    <div class="msc-base"></div>
+    <div class="msc-head"><span class="card-label">Sales &amp; expenses</span><span class="msc-fy">${data.fyLabel}</span></div>
+    <div class="msc-total"><span class="msc-amt">${inr(data.ytd)}</span><span class="msc-cap">(sales YTD)</span></div>
+    <div class="msc-legend"><span><i class="msc-sw s"></i> Sales</span><span><i class="msc-sw e"></i> Expenses</span><span><i class="msc-sw np">+</i>/<i class="msc-sw nn">−</i> Net</span></div>
+    <div class="msc-chart">
+      <div class="msc-row msc-up">${up.join('')}</div>
+      <div class="msc-zero"></div>
+      <div class="msc-row msc-dn">${dn.join('')}</div>
+    </div>
   </div>`;
 }
 // Tap a bar → filter the whole dashboard to that calendar month, exactly like
