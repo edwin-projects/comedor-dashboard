@@ -1548,7 +1548,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-19-22';
+const APP_VERSION = '2026-07-19-23';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -5492,7 +5492,7 @@ function monthlySalesChartHtml(range) {
   });
   return `<div class="card msc-card">
     <div class="msc-head"><span class="card-label">Sales &amp; expenses</span><span class="msc-fy">${data.fyLabel}</span></div>
-    <div class="msc-total"><span class="msc-amt">${inr(data.ytd)}</span><span class="msc-cap">(sales YTD)</span><span class="msc-legend"><span><i class="msc-sw s"></i> Sales</span><span><i class="msc-sw e"></i> Expenses</span><span><i class="msc-sw np">+</i>/<i class="msc-sw nn">−</i> Net</span></span></div>
+    <div class="msc-total"><span class="msc-amt">${inr(data.ytd)}</span><span class="msc-cap">(sales YTD)</span><span class="msc-legend"><span><i class="msc-sw s"></i> Sales</span><span><i class="msc-sw e"></i> Expenses</span></span></div>
     <div class="msc-chart">
       <div class="msc-row msc-up">${up.join('')}</div>
       <div class="msc-zero"></div>
