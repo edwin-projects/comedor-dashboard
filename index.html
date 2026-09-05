@@ -155,7 +155,7 @@
   .msc-bar.dn { border-radius:0 0 5px 5px; background:linear-gradient(180deg, var(--red), #9E4636); }
   .msc-zero { height:1.5px; background:var(--text3); opacity:.5; border-radius:2px; margin:0 1px; }
   .msc-dn .msc-col { flex:1; height:70px; display:flex; flex-direction:column; align-items:center; -webkit-tap-highlight-color:transparent; }
-  .msc-mn { font-size:10px; font-weight:600; letter-spacing:.3px; color:var(--text3); text-transform:uppercase; margin:4px 0 3px; }
+  .msc-mn { width:80%; max-width:22px; text-align:center; font-size:8.5px; font-weight:600; letter-spacing:0; color:var(--text3); text-transform:uppercase; margin:4px 0 3px; }
   .msc-eval { font-family:var(--num-font); font-weight:600; font-size:9px; color:var(--red); margin-top:3px; font-variant-numeric:tabular-nums lining-nums; white-space:nowrap; }
   .msc-col:not(.ghost) { cursor:pointer; }
   .msc-col.current .msc-bar.up { background:linear-gradient(180deg, #E4C46A, var(--accent2)); }
@@ -1548,7 +1548,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-19-23';
+const APP_VERSION = '2026-07-19-24';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
