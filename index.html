@@ -129,18 +129,16 @@
   .msc-head { display:flex; align-items:baseline; gap:10px; margin:0 1px 3px; }
   .msc-head .card-label { letter-spacing:.8px; }
   .msc-fy { margin-left:auto; font-size:11px; color:var(--text3); font-family:var(--num-font); font-variant-numeric:tabular-nums lining-nums; }
-  /* Totals row: income/expense figures on the left, Net YTD pinned top-right —
+  /* Totals row: compact in/out lakh figures + Net YTD, all on one baseline —
      the colour of each figure already tells sales from expenses, so no
-     separate swatch legend is needed. */
-  .msc-totrow { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin:0 1px 16px; }
-  .msc-io { display:flex; align-items:baseline; flex-wrap:wrap; }
-  .msc-io-amt { font-family:var(--num-font); font-weight:600; font-size:22px; letter-spacing:.2px; font-variant-numeric:tabular-nums lining-nums; }
+     separate swatch legend is needed. Sizes shrink (not wrap) to fit one line. */
+  .msc-totrow { display:flex; align-items:baseline; justify-content:space-between; gap:8px; margin:0 1px 16px; flex-wrap:nowrap; }
+  .msc-io { display:flex; align-items:baseline; flex-wrap:nowrap; min-width:0; overflow:hidden; }
+  .msc-io-amt { font-family:var(--num-font); font-weight:600; font-size:17px; letter-spacing:.1px; font-variant-numeric:tabular-nums lining-nums; white-space:nowrap; }
   .msc-io-amt.in { color:var(--green); }
-  .msc-io-amt.out { color:var(--red); margin-left:10px; }
-  .msc-io-cap { font-size:11px; color:var(--text3); margin:0 8px 0 5px; }
-  .msc-netytd { text-align:right; flex:0 0 auto; }
-  .msc-netytd-cap { font-size:9.5px; font-weight:600; letter-spacing:.9px; text-transform:uppercase; color:var(--text3); margin-bottom:3px; }
-  .msc-netytd-amt { font-family:var(--num-font); font-weight:600; font-size:19px; letter-spacing:.2px; font-variant-numeric:tabular-nums lining-nums; }
+  .msc-io-amt.out { color:var(--red); margin-left:8px; }
+  .msc-io-cap { font-size:10px; color:var(--text3); margin:0 5px 0 3px; white-space:nowrap; }
+  .msc-netytd-amt { font-family:var(--num-font); font-weight:400; font-size:15px; letter-spacing:.1px; font-variant-numeric:tabular-nums lining-nums; white-space:nowrap; flex:0 0 auto; }
   .msc-netytd-amt.pos { color:var(--green); } .msc-netytd-amt.neg { color:var(--red); }
   .msc-chart { position:relative; }
   /* Diverging layout: sales bars up, expense bars mirrored down from a zero line */
@@ -1549,7 +1547,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-19-25';
+const APP_VERSION = '2026-07-19-26';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -5463,6 +5461,15 @@ function mscShort(v) {
 // Signed compact figure for the monthly net (+1.5L / −0.8L). Uses a real minus
 // sign (−) to match the app's hero P/L styling.
 function mscNet(v) { return (v >= 0 ? '+' : '−') + mscShort(v); }
+// Two-decimal lakh figure for the header totals (60.46L / 8.3k), so the in/out/
+// net line reads precisely at a glance without spelling out the full rupee sum.
+function mscShort2(v) {
+  v = Math.abs(Number(v) || 0);
+  if (!v) return '0';
+  if (v >= 100000) return (v / 100000).toFixed(2).replace(/\.?0+$/, '') + 'L';
+  if (v >= 1000) return (v / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+  return String(Math.round(v));
+}
 
 // Diverging bar chart: sales rise above a zero line, expenses hang mirrored
 // below it (each with its rupee figure), and the month's net shows as a light
@@ -5496,8 +5503,8 @@ function monthlySalesChartHtml(range) {
   return `<div class="card msc-card">
     <div class="msc-head"><span class="card-label">Income &amp; Expenses</span><span class="msc-fy">${data.fyLabel}</span></div>
     <div class="msc-totrow">
-      <div class="msc-io"><span class="msc-io-amt in">${inr(data.ytd)}</span><span class="msc-io-cap">in</span><span class="msc-io-amt out">${inr(data.expYtd)}</span><span class="msc-io-cap">out</span></div>
-      <div class="msc-netytd"><div class="msc-netytd-cap">Net YTD</div><div class="msc-netytd-amt ${data.netYtd >= 0 ? 'pos' : 'neg'}">${data.netYtd >= 0 ? '+' : '−'}${inr(Math.abs(data.netYtd))}</div></div>
+      <div class="msc-io"><span class="msc-io-amt in">₹${mscShort2(data.ytd)}</span><span class="msc-io-cap">in</span><span class="msc-io-amt out">₹${mscShort2(data.expYtd)}</span><span class="msc-io-cap">out</span></div>
+      <div class="msc-netytd-amt ${data.netYtd >= 0 ? 'pos' : 'neg'}">${data.netYtd >= 0 ? '+' : '−'}₹${mscShort2(Math.abs(data.netYtd))}</div>
     </div>
     <div class="msc-chart">
       <div class="msc-row msc-up">${up.join('')}</div>
