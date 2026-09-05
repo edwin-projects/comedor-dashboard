@@ -145,8 +145,8 @@
   .msc-sw.nn { color:var(--red); font-family:var(--num-font); font-weight:700; font-size:11px; }
   /* Diverging layout: sales bars up, expense bars mirrored down from a zero line */
   .msc-row { display:flex; gap:5px; padding:0 1px; }
-  .msc-up .msc-col { flex:1; height:84px; display:flex; flex-direction:column; justify-content:space-between; align-items:center; -webkit-tap-highlight-color:transparent; }
-  .msc-net { height:14px; line-height:14px; font-family:var(--num-font); font-weight:400; font-size:9.5px; font-variant-numeric:tabular-nums lining-nums; letter-spacing:.2px; }
+  .msc-up .msc-col { flex:1; height:98px; display:flex; flex-direction:column; justify-content:space-between; align-items:center; -webkit-tap-highlight-color:transparent; }
+  .msc-net { height:14px; line-height:14px; margin-bottom:2px; font-family:var(--num-font); font-weight:400; font-size:9.5px; font-variant-numeric:tabular-nums lining-nums; letter-spacing:.2px; }
   .msc-net.pos { color:var(--green); } .msc-net.neg { color:var(--red); }
   .msc-barwrap { display:flex; flex-direction:column; justify-content:flex-end; align-items:center; width:100%; }
   .msc-val { font-family:var(--num-font); font-weight:600; font-size:9.5px; color:var(--text2); margin-bottom:3px; font-variant-numeric:tabular-nums lining-nums; white-space:nowrap; }
@@ -1548,7 +1548,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-19-21';
+const APP_VERSION = '2026-07-19-22';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
