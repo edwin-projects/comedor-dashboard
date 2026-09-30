@@ -952,6 +952,10 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
     <button class="dfbtn" data-f="lifetime" onclick="setMenuFilter('lifetime',this)">Lifetime</button>
   </div>
   <div id="menu-period" style="font-size:11px; color:var(--text3); font-family:'Inter',sans-serif; letter-spacing:0.5px; margin:2px 0 16px;"></div>
+  <div class="mt-search" style="position:relative;margin:0 0 14px;">
+    <input type="search" id="menu-search" placeholder="Search dishes or menu types…" autocomplete="off" autocorrect="off" spellcheck="false" oninput="setMenuQuery(this.value)" aria-label="Search menu" style="width:100%;box-sizing:border-box;padding:13px 40px 13px 14px;font-size:16px;font-family:'Inter',sans-serif;color:var(--text);background:var(--card,transparent);border:1px solid var(--border,rgba(128,128,128,.3));border-radius:12px;outline:none;-webkit-appearance:none;appearance:none;">
+    <button type="button" id="menu-search-x" onclick="clearMenuSearch()" aria-label="Clear search" style="display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:0;background:none;color:var(--text3);font-size:20px;cursor:pointer;">×</button>
+  </div>
   <div id="menu-body"></div>
 </div>
 
@@ -1547,7 +1551,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-19-27';
+const APP_VERSION = '2026-07-19-28';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -6400,6 +6404,16 @@ function setMenuMonth(sel) {
   sel.classList.add('active');
   renderMenu();
 }
+let menuQuery = '';
+function setMenuQuery(v) {
+  menuQuery = String(v || '').trim().toLowerCase();
+  const x = document.getElementById('menu-search-x'); if (x) x.style.display = menuQuery ? 'block' : 'none';
+  renderMenu();
+}
+function clearMenuSearch() {
+  const i = document.getElementById('menu-search'); if (i) { i.value = ''; i.focus(); }
+  setMenuQuery('');
+}
 function toggleMenuRow(el) { el.classList.toggle('open'); }
 let menuOpenTier = null;   // which tier accordion is expanded — all collapsed by default, one at a time
 function toggleMenuTier(el, key) {
@@ -6485,6 +6499,22 @@ function renderMenu() {
       <div class="mt-accbody"><div class="mt-lst">${arr.map((it, i) => row(it, i + 1)).join('')}</div></div>
     </div>`;
   };
+
+  // Search: match dish name or menu type (category); every word must hit. Results land below the field.
+  if (menuQuery) {
+    const words = menuQuery.split(/\s+/).filter(Boolean);
+    const all = sortDesc(items);
+    const hits = all.map((it, i) => ({ it, rank: i + 1 }))
+      .filter(h => { const hay = (h.it.n + ' ' + h.it.c).toLowerCase(); return words.every(w => hay.includes(w)); });
+    if (!hits.length) { body.innerHTML = `<div class="mt-empty">No dish or menu type matches “${esc(menuQuery)}” in this period.<br>Try a shorter word, or a wider range like <b>Lifetime</b>.</div>`; return; }
+    const sum = hits.reduce((s, h) => s + (h.it[metric] || 0), 0);
+    const cats = {}; hits.forEach(h => cats[h.it.c] = (cats[h.it.c] || 0) + 1);
+    const catTxt = Object.keys(cats).slice(0, 4).map(c => esc(c)).join(', ') + (Object.keys(cats).length > 4 ? '…' : '');
+    body.innerHTML = `<div style="font-size:10px;letter-spacing:1.4px;text-transform:uppercase;color:var(--text3);font-weight:600;margin:2px 2px 4px;">${hits.length} match${hits.length === 1 ? '' : 'es'} · ${metric === 'g' ? inr(sum) : sum + ' plates'} · ${pctStr(sum)}</div>
+      <div style="font-size:11px;color:var(--text3);margin:0 2px 10px;">${catTxt}</div>
+      <div class="mt-lst">${hits.map(h => row(h.it, h.rank)).join('')}</div>`;
+    return;
+  }
 
   // Top 3 / Bottom 3 colored band (follows the selected ranking metric)
   const ranked = sortDesc(items);
