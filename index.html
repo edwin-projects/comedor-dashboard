@@ -901,6 +901,14 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
     #panel-menu .mt-tbh { font-size:9.5px; letter-spacing:.8px; text-transform:uppercase; font-weight:700; margin-bottom:3px; display:flex; align-items:center; gap:5px; }
     #panel-menu .mt-tbcard.top .mt-tbh { color:var(--green); }
     #panel-menu .mt-tbcard.bot .mt-tbh { color:var(--red); }
+    #panel-menu .mt-hit { background:rgba(201,160,64,.16) !important; box-shadow:inset 3px 0 0 var(--accent2); border-radius:8px; }
+    #panel-menu .mt-tbrow.mt-hit { padding:3px 6px; }
+    #panel-menu .mt-hitsum { border:1px solid var(--accent2); border-radius:12px; padding:10px 12px; margin:0 0 14px; background:rgba(201,160,64,.08); }
+    #panel-menu .mt-hitsum .hh { font-size:10px; letter-spacing:1.4px; text-transform:uppercase; color:var(--accent2); font-weight:600; margin-bottom:6px; }
+    #panel-menu .mt-hitsum .hr { display:flex; justify-content:space-between; gap:10px; align-items:baseline; padding:5px 0; font-size:13px; cursor:pointer; }
+    #panel-menu .mt-hitsum .hr .l { min-width:0; } #panel-menu .mt-hitsum .hr .l b { font-weight:600; }
+    #panel-menu .mt-hitsum .hr .l span { display:block; font-size:11px; color:var(--text3); }
+    #panel-menu .mt-hitsum .hr .r { font-family:var(--num-font); font-weight:600; white-space:nowrap; text-align:right; }
     #panel-menu .mt-tbrow { display:grid; grid-template-columns:15px 1fr auto; gap:8px; align-items:center; padding:3px 0; }
     #panel-menu .mt-tbrow .medal { font-size:10px; text-align:center; color:var(--text3); font-family:var(--num-font); font-variant-numeric:tabular-nums; }
     #panel-menu .mt-tbrow .nm { min-width:0; font-size:12px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -1551,7 +1559,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-19-29';
+const APP_VERSION = '2026-07-19-30';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -6409,6 +6417,13 @@ function setMenuQuery(v) {
   menuQuery = String(v || '').trim().toLowerCase();
   const x = document.getElementById('menu-search-x'); if (x) x.style.display = menuQuery ? 'block' : 'none';
   renderMenu();
+  clearTimeout(window._mqT);
+  if (menuQuery) window._mqT = setTimeout(() => { const h = document.querySelector('#menu-body .mt-hitsum'); if (h) h.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); }, 400);
+}
+function jumpMenuHit(rank) {
+  const all = document.querySelectorAll('#menu-body .mt-hit');
+  for (const el of all) { if (el.classList.contains('mt-row') && el.dataset.rank == rank) { el.scrollIntoView({ behavior: 'smooth', block: 'center' }); return; } }
+  if (all[0]) all[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
 }
 function clearMenuSearch() {
   const i = document.getElementById('menu-search'); if (i) { i.value = ''; i.focus(); }
@@ -6458,6 +6473,9 @@ function renderMenu() {
   const stars = rest.slice(0, 10);
   const steady = rest.slice(10);
   const top = sortDesc(items)[0];
+  const words = menuQuery ? menuQuery.split(/\s+/).filter(Boolean) : [];
+  const isHit = it => words.length && words.every(w => (it.n + ' ' + it.c).toLowerCase().includes(w));
+  const hc = it => isHit(it) ? ' mt-hit' : '';
 
   // Share-of-period, following the selected metric (revenue ₹ or plates).
   const totMetric = items.reduce((s, x) => s + (x[metric] || 0), 0) || 1;
@@ -6474,7 +6492,7 @@ function renderMenu() {
     const primary = metric === 'g' ? inr(it.g) : (it.q + ' plates');
     const second = metric === 'g' ? (it.q + ' plates') : inr(it.g);
     const avg = it.q ? Math.round(it.g / it.q) : 0;
-    return `<div class="mt-row" onclick="toggleMenuRow(this)">
+    return `<div class="mt-row${hc(it)}" data-rank="${ranked.indexOf(it)}" onclick="toggleMenuRow(this)">
       <div class="mt-rmain"><div class="mt-rank">${rank}</div>
         <div class="mt-nm"><div class="t">${esc(it.n)}</div><div class="m">${esc(it.c)} · ₹${avg} avg plate</div></div>
         <div class="mt-rv"><div class="g">${primary} <span class="mt-pct">${pctStr(it[metric])}</span></div><div class="u">${second}</div></div></div>
@@ -6490,7 +6508,7 @@ function renderMenu() {
     if (!arr.length) return '';
     const sum = arr.reduce((s, x) => s + (x[metric] || 0), 0);
     const disp = metric === 'g' ? inr(sum) : (sum + ' plates');
-    const open = menuOpenTier === cls ? ' open' : '';
+    const open = (words.length ? arr.some(isHit) : menuOpenTier === cls) ? ' open' : '';
     return `<div class="mt-acc mt-${cls}${open}">
       <div class="mt-acchd" onclick="toggleMenuTier(this,'${cls}')">
         <span class="sw"></span><span class="tn">${name}</span><span class="td">· ${desc}</span>
@@ -6500,32 +6518,28 @@ function renderMenu() {
     </div>`;
   };
 
-  // Search: match dish name or menu type (category); every word must hit. Results land below the field.
-  if (menuQuery) {
-    const words = menuQuery.split(/\s+/).filter(Boolean);
-    const all = sortDesc(items);
-    const hits = all.map((it, i) => ({ it, rank: i + 1 }))
-      .filter(h => { const hay = (h.it.n + ' ' + h.it.c).toLowerCase(); return words.every(w => hay.includes(w)); });
-    if (!hits.length) { body.innerHTML = `<div class="mt-empty">No dish or menu type matches “${esc(menuQuery)}” in this period.<br>Try a shorter word, or a wider range like <b>Lifetime</b>.</div>`; return; }
-    const sum = hits.reduce((s, h) => s + (h.it[metric] || 0), 0);
-    const cats = {}; hits.forEach(h => cats[h.it.c] = (cats[h.it.c] || 0) + 1);
-    const catTxt = Object.keys(cats).slice(0, 4).map(c => esc(c)).join(', ') + (Object.keys(cats).length > 4 ? '…' : '');
-    body.innerHTML = `<div style="font-size:10px;letter-spacing:1.4px;text-transform:uppercase;color:var(--text3);font-weight:600;margin:2px 2px 4px;">${hits.length} match${hits.length === 1 ? '' : 'es'} · ${metric === 'g' ? inr(sum) : sum + ' plates'} · ${pctStr(sum)}</div>
-      <div style="font-size:11px;color:var(--text3);margin:0 2px 10px;">${catTxt}</div>
-      <div class="mt-lst">${hits.map(h => row(h.it, h.rank)).join('')}</div>`;
-    return;
-  }
-
   // Top 3 / Bottom 3 colored band (follows the selected ranking metric)
   const ranked = sortDesc(items);
   const tbRow = (it, i) => {
-    return `<div class="mt-tbrow"><div class="medal">${i + 1}</div>
+    return `<div class="mt-tbrow${hc(it)}"><div class="medal">${i + 1}</div>
       <div class="nm t">${esc(it.n)}</div><div class="v">${fmtMetric(it)} <span class="mt-pct">${pctStr(it[metric])}</span></div></div>`;
   };
   const topN = ranked.slice(0, 5);
   const botN = ranked.slice(-5).reverse();
 
-  body.innerHTML =
+  let hitSum = '';
+  if (words.length) {
+    const tierOf = it => under.includes(it) ? 'Underperformer' : stars.includes(it) ? 'Star' : 'Steady';
+    const hits = ranked.map((it, i) => ({ it, i })).filter(h => isHit(h.it));
+    if (!hits.length) hitSum = `<div class="mt-empty" style="margin-bottom:14px;">No dish or menu type matches “${esc(menuQuery)}” in this period.</div>`;
+    else {
+      const sum = hits.reduce((t, h) => t + (h.it[metric] || 0), 0);
+      hitSum = `<div class="mt-hitsum"><div class="hh">${hits.length} match${hits.length === 1 ? '' : 'es'} · ${metric === 'g' ? inr(sum) : sum + ' plates'} · ${pctStr(sum)} of menu</div>` +
+        hits.slice(0, 8).map(h => `<div class="hr" onclick="jumpMenuHit(${h.i})"><div class="l"><b>${esc(h.it.n)}</b><span>${esc(h.it.c)} · ${tierOf(h.it)}</span></div><div class="r">#${h.i + 1} of ${ranked.length}<span style="color:var(--text2);font-size:11px;font-weight:500;">${fmtMetric(h.it)} · ${pctStr(h.it[metric])}</span></div></div>`).join('') +
+        (hits.length > 8 ? `<div style="font-size:11px;color:var(--text3);padding-top:4px;">+ ${hits.length - 8} more, highlighted below</div>` : '') + `</div>`;
+    }
+  }
+  body.innerHTML = hitSum +
     `<div style="display:flex;justify-content:space-between;align-items:center;margin:2px 2px 11px;">
        <span style="font-size:10px;letter-spacing:1.4px;text-transform:uppercase;color:var(--text3);font-weight:600;">Ranked by</span>
        <span class="mt-metric"><button class="${metric==='g'?'on':''}" onclick="event.stopPropagation();setMenuMetric('g',this)">Revenue ₹</button><button class="${metric==='q'?'on':''}" onclick="event.stopPropagation();setMenuMetric('q',this)">Plates</button></span>
