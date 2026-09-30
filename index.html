@@ -953,7 +953,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
   </div>
   <div id="menu-period" style="font-size:11px; color:var(--text3); font-family:'Inter',sans-serif; letter-spacing:0.5px; margin:2px 0 16px;"></div>
   <div class="mt-search" style="position:relative;margin:0 0 14px;">
-    <input type="search" id="menu-search" placeholder="Search dishes or menu types…" autocomplete="off" autocorrect="off" spellcheck="false" oninput="setMenuQuery(this.value)" aria-label="Search menu" style="width:100%;box-sizing:border-box;padding:13px 40px 13px 14px;font-size:16px;font-family:'Inter',sans-serif;color:var(--text);background:var(--card,transparent);border:1px solid var(--border,rgba(128,128,128,.3));border-radius:12px;outline:none;-webkit-appearance:none;appearance:none;">
+    <input type="search" id="menu-search" placeholder="Search dishes or menu types…" autocomplete="off" autocorrect="off" spellcheck="false" oninput="setMenuQuery(this.value)" aria-label="Search menu" style="width:100%;box-sizing:border-box;padding:13px 40px 13px 14px;font-size:16px;font-family:'Inter',sans-serif;color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:12px;outline:none;-webkit-appearance:none;appearance:none;">
     <button type="button" id="menu-search-x" onclick="clearMenuSearch()" aria-label="Clear search" style="display:none;position:absolute;right:6px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:0;background:none;color:var(--text3);font-size:20px;cursor:pointer;">×</button>
   </div>
   <div id="menu-body"></div>
@@ -1551,7 +1551,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-19-28';
+const APP_VERSION = '2026-07-19-29';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
