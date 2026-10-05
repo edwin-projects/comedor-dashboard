@@ -1559,7 +1559,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-19-30';
+const APP_VERSION = '2026-07-19-31';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -1604,7 +1604,7 @@ function setSyncStatus(state) {
   if (!banner) return;
   if (state === 'blocked') {
     banner.className = 'bad';
-    banner.innerHTML = '⚠ <b>Changes are not syncing to your partners.</b> The shared database is refusing connections. <a onclick="showSyncHelp()">How to fix →</a>';
+    banner.innerHTML = '⚠ <b>Changes are not syncing to your partners yet.</b> They are safe on this device and the app keeps retrying automatically. <a onclick="showSyncHelp()">Details →</a>';
     banner.style.display = 'block';
   } else if (state === 'offline' && _syncEverConnected) {
     banner.className = 'warn';
@@ -1615,11 +1615,104 @@ function setSyncStatus(state) {
   }
 }
 
-// Any write rejection means the server isn't accepting our changes → flag it loudly.
-function syncWriteErr(e) {
-  console.warn('Sync write failed:', e && e.message);
-  setSyncStatus('blocked');
+// ── Reliable writes ─────────────────────────────────────────────────────────
+// Every user write goes through syncOp(): it is parked in a persistent outbox
+// (localStorage) first, then sent. It leaves the outbox only once the server
+// acknowledges it, so a rejected write (expired/not-yet-refreshed auth token after
+// the phone slept), a killed app, or a dropped connection can never lose an entry —
+// it is re-sent after re-authenticating, on foreground, on reconnect and on a timer.
+const OB_KEY = 'comedor_outbox';
+let _wired = false, _flushing = false, _flushFails = 0, _flushTimer = null, _connected = false;
+function obLoad() { try { return JSON.parse(localStorage.getItem(OB_KEY) || '[]'); } catch (e) { return []; } }
+function obSave(l) { try { localStorage.setItem(OB_KEY, JSON.stringify(l)); } catch (e) { console.warn('Outbox save failed:', e && e.message); } }
+function syncOp(kind, path, val) {
+  if (!_db) return;
+  let v = null;
+  if (kind === 'set') { try { v = JSON.parse(JSON.stringify(val === undefined ? null : val)); } catch (e) { v = null; } }
+  const ob = obLoad().filter(o => o.path !== path);
+  ob.push({ kind: kind, path: path, val: v, t: Date.now() });
+  obSave(ob);
+  flushOutbox();
 }
+function ensureAuth(force) {
+  if (typeof firebase === 'undefined' || !firebase.auth) return Promise.resolve();
+  const a = firebase.auth(), u = a.currentUser;
+  if (!u) return a.signInAnonymously().then(function () {});
+  return force ? u.getIdToken(true).then(function () {}) : Promise.resolve();
+}
+function scheduleFlush(ms) {
+  clearTimeout(_flushTimer);
+  _flushTimer = setTimeout(flushOutbox, ms == null ? Math.min(60000, 2000 * Math.pow(2, Math.max(0, _flushFails - 1))) : ms);
+}
+function flushOutbox() {
+  if (!_db || !_wired || _flushing) return;
+  const ob = obLoad();
+  if (!ob.length) { if (_syncState === 'blocked' && _connected) syncRecovered(); return; }
+  _flushing = true;
+  const op = ob[0], ref = _db.ref(op.path);
+  const stuck = setTimeout(function () { _flushing = false; scheduleFlush(5000); }, 20000);   // offline: set() just waits — don't wedge the queue
+  (op.kind === 'remove' ? ref.remove() : ref.set(op.val)).then(function () {
+    clearTimeout(stuck);
+    obSave(obLoad().filter(o => !(o.path === op.path && o.t === op.t)));
+    _flushing = false; _flushFails = 0; flushOutbox();
+  }).catch(function (e) {
+    clearTimeout(stuck); _flushing = false;
+    const txt = String((e && e.code) || '') + ' ' + String((e && e.message) || '');
+    console.warn('Sync write failed:', txt);
+    if (/permission[_ ]denied/i.test(txt)) {
+      // Auth likely stale — mint a fresh token, re-attach listeners, retry with backoff.
+      // Only after repeated failures do we tell the user it's blocked.
+      _flushFails++;
+      if (_flushFails >= 3) setSyncStatus('blocked');
+      ensureAuth(true).catch(function () {}).then(function () { reattachListeners(); scheduleFlush(); });
+    } else if (/network|disconnect|unavailable|timeout|offline/i.test(txt)) {
+      _flushFails++; scheduleFlush();
+    } else {
+      // A write the server will never accept (bad data) — drop it rather than wedge the queue.
+      obSave(obLoad().filter(o => !(o.path === op.path && o.t === op.t)));
+      flushOutbox();
+    }
+  });
+}
+// Re-apply not-yet-acknowledged writes on top of a server snapshot so a listener
+// refresh can't make a pending entry vanish from the screen.
+function mergePending(prefix, list, keyOf) {
+  const depth = prefix.split('/').length;
+  obLoad().forEach(function (o) {
+    if (o.path.indexOf(prefix) !== 0 || o.path.split('/').length !== depth) return;
+    const key = o.path.slice(prefix.length);
+    list = list.filter(x => keyOf(x) !== key);
+    if (o.kind === 'set' && o.val) list.push(o.val);
+  });
+  return list;
+}
+// Listener registry: Firebase permanently cancels a listener the server rejects, so
+// we remember each one and can re-attach them all after re-authenticating.
+let _listeners = [], _recoverTimer = null, _recoverTries = 0, _origRef = null;
+function syncReadOk() { _recoverTries = 0; if (_syncState === 'blocked' && !obLoad().length) syncRecovered(); }
+function syncRecovered() { setSyncStatus(_connected ? 'live' : (_syncEverConnected ? 'offline' : 'connecting')); }
+function reattachListeners() {
+  if (!_origRef) return;
+  _listeners.forEach(function (l) { try { _origRef(l.path).off(l.ev, l.cb); } catch (e) {} _origRef(l.path).on(l.ev, l.cb, l.err); });
+}
+function scheduleRecover() {
+  if (_recoverTimer) return;
+  _recoverTries++;
+  if (_recoverTries >= 3) setSyncStatus('blocked');
+  _recoverTimer = setTimeout(function () {
+    _recoverTimer = null;
+    ensureAuth(true).catch(function () {}).then(function () { reattachListeners(); flushOutbox(); });
+  }, Math.min(30000, 1500 * Math.pow(2, _recoverTries - 1)));
+}
+// Wake-ups: foreground, network back, and a slow heartbeat while writes are pending.
+function syncKick() {
+  if (!_db || !_wired) return;
+  ensureAuth(false).catch(function () {}).then(function () { if (_syncState === 'blocked') reattachListeners(); flushOutbox(); });
+}
+document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') syncKick(); });
+window.addEventListener('online', syncKick);
+window.addEventListener('pageshow', syncKick);
+setInterval(function () { if (obLoad().length || _syncState === 'blocked') syncKick(); }, 30000);
 
 function showSyncHelp() {
   const st = ({ connecting:'connecting…', live:'LIVE — synced across every device', offline:'offline (will resync when back online)', blocked:'BLOCKED by the database rules' }[_syncState] || _syncState);
@@ -1642,6 +1735,20 @@ function initFirebase() {
   try {
     firebase.initializeApp(FIREBASE_CONFIG);
     _db = firebase.database();
+    // Track every value-listener so it can be re-attached after an auth refresh.
+    _origRef = _db.ref.bind(_db);
+    _db.ref = function (path) {
+      const r = _origRef(path);
+      if (path === '.info/connected') return r;
+      const on = r.on.bind(r);
+      r.on = function (ev, cb, err) {
+        const w = function (snap) { syncReadOk(); return cb(snap); };
+        _listeners = _listeners.filter(l => !(l.path === path && l.ev === ev));
+        _listeners.push({ path: path, ev: ev, cb: w, err: err });
+        return on(ev, w, err);
+      };
+      return r;
+    };
 
     // The database rules now require an authenticated client (auth != null), so we
     // sign in anonymously and only wire the listeners once we actually have a user.
@@ -1649,27 +1756,30 @@ function initFirebase() {
     // retried, so everything below runs inside wireSync(), triggered post-auth.
     var _synced = false;
     var wireSync = function () {
-      if (_synced) return; _synced = true;
+      if (_synced) return; _synced = true; _wired = true;
+      setTimeout(flushOutbox, 0);
 
     // Connection heartbeat → drives the Live / Offline pill.
     _db.ref('.info/connected').on('value', s => {
       const connected = s.val() === true;
-      if (connected) { _syncEverConnected = true; if (_syncState !== 'blocked') setSyncStatus('live'); }
+      _connected = connected;
+      if (connected) { _syncEverConnected = true; if (_syncState !== 'blocked') setSyncStatus('live'); flushOutbox(); }
       else if (_syncState !== 'blocked') setSyncStatus(_syncEverConnected ? 'offline' : 'connecting');
     });
 
     // A read error on any path = permission denied / rules closed. Surface it.
-    const onErr = label => err => { console.warn('Sync read failed (' + label + '):', err && err.message); setSyncStatus('blocked'); };
+    const onErr = label => err => { console.warn('Sync read failed (' + label + '):', err && err.message); scheduleRecover(); };
 
     // Real-time listeners: any device's save is reflected everywhere within a second.
     _db.ref('comedor/entries').on('value', snap => {
-      if (snap.exists()) localStorage.setItem('comedor_entries', JSON.stringify(Object.values(snap.val()).sort((a, b) => (a.date||'').localeCompare(b.date||''))));
+      const srv = mergePending('comedor/entries/', snap.exists() ? Object.values(snap.val()) : [], x => String(x.date || '').replace(/-/g, '_')).sort((a, b) => (a.date||'').localeCompare(b.date||''));
+      if (srv.length) localStorage.setItem('comedor_entries', JSON.stringify(srv));
       else localStorage.removeItem('comedor_entries');
       renderActivePanel();
     }, onErr('entries'));
 
     _db.ref('comedor/bank_expenses').on('value', snap => {
-      localStorage.setItem('comedor_bank', JSON.stringify(snap.exists() ? Object.values(snap.val()) : []));
+      localStorage.setItem('comedor_bank', JSON.stringify(mergePending('comedor/bank_expenses/', snap.exists() ? Object.values(snap.val()) : [], x => String(x.id))));
       migrateBankCategories();   // relabel legacy GST-via-Sohail 'Compliance' rows → 'GST'
       renderActivePanel();
     }, onErr('bank_expenses'));
@@ -1744,7 +1854,7 @@ function initFirebase() {
     }, onErr('category_masters_deleted'));
 
     _db.ref('comedor/income').on('value', snap => {
-      localStorage.setItem('comedor_income', JSON.stringify(snap.exists() ? Object.values(snap.val()) : []));
+      localStorage.setItem('comedor_income', JSON.stringify(mergePending('comedor/income/', snap.exists() ? Object.values(snap.val()) : [], x => String(x.id))));
       renderActivePanel();
       if (document.getElementById('panel-entry')?.classList.contains('active')) renderIncomeList();
       compHealRecent();   // re-derive true comp value; worker re-doubles recent days
@@ -1780,7 +1890,7 @@ function initFirebase() {
     firebase.auth().onAuthStateChanged(function (u) { if (u) wireSync(); });
     firebase.auth().signInAnonymously().catch(function (e) {
       console.warn('Anonymous sign-in failed:', e && e.message);
-      setSyncStatus('blocked');
+      if (!navigator.onLine) setSyncStatus('offline'); else { _flushFails = 3; setSyncStatus('blocked'); setTimeout(syncKick, 5000); }
     });
   } catch (e) { console.warn('Firebase init failed:', e); setSyncStatus('offline'); }
 }
@@ -2510,7 +2620,7 @@ function saveCategories(kind, list) {
   (list || []).forEach(c => { c = String(c || '').trim().toUpperCase(); if (c && !clean.some(x => x === c)) clean.push(c); });
   _markCatWrite();
   localStorage.setItem(_catKey(kind), JSON.stringify(clean));
-  if (_db) _db.ref(_catRef(kind)).set(clean).catch(syncWriteErr);
+  if (_db) syncOp('set', _catRef(kind), clean);
   // Refresh only the pickers that use this list.
   if (kind === 'partner') { bankCatOptions(true); capCatOptions(); }
   else { renderExpenseRows(); }
@@ -2562,7 +2672,7 @@ function saveDeletedMasters(list) {
   (list || []).forEach(x => { const n = String(x).trim().toUpperCase(); if (n && n !== MISC_MASTER && clean.indexOf(n) < 0) clean.push(n); });
   _markCatWrite();
   localStorage.setItem('comedor_catmasters_deleted', JSON.stringify(clean));
-  if (_db) _db.ref('comedor/category_masters_deleted').set(clean).catch(syncWriteErr);
+  if (_db) syncOp('set', 'comedor/category_masters_deleted', clean);
 }
 function _untombstoneMaster(name) {
   const up = String(name).trim().toUpperCase();
@@ -2629,7 +2739,7 @@ function saveMasters(list) {
   if (!clean.some(c => c.name === MISC_MASTER)) clean.push({ name: MISC_MASTER, icon: '🗂️' });
   _markCatWrite();
   localStorage.setItem('comedor_catmasters', JSON.stringify(clean));
-  if (_db) _db.ref('comedor/category_masters').set(clean).catch(syncWriteErr);
+  if (_db) syncOp('set', 'comedor/category_masters', clean);
 }
 function saveCatMap(map) {
   const clean = {};
@@ -2640,7 +2750,7 @@ function saveCatMap(map) {
   // contain '/' (e.g. "VENDOR / OTHER"), and Firebase forbids '/.#$[]' in keys —
   // an object-keyed .set() would reject and silently drop the whole map, so
   // reassignments never reached other devices. Pairs use integer indices → always valid.
-  if (_db) _db.ref('comedor/category_map').set(Object.keys(clean).map(k => [k, clean[k]])).catch(syncWriteErr);
+  if (_db) syncOp('set', 'comedor/category_map', Object.keys(clean).map(k => [k, clean[k]]));
 }
 function assignMaster(tag, master) { const map = loadCatMap(); map[String(tag).trim().toUpperCase()] = String(master).trim().toUpperCase(); saveCatMap(map); }
 // Every category that actually appears in spend for this list's domain — even
@@ -3528,7 +3638,7 @@ function saveEntry(entry) {
   rest.sort((a, b) => (a.date||'').localeCompare(b.date||''));
   localStorage.setItem('comedor_entries', JSON.stringify(rest));
   if (_db) {
-    _db.ref('comedor/entries/' + entry.date.replace(/-/g, '_')).set(entry).catch(syncWriteErr);
+    syncOp('set', 'comedor/entries/' + entry.date.replace(/-/g, '_'), entry);
   }
 }
 
@@ -4533,7 +4643,7 @@ function saveCashEditModal() {
     if (loadEntries().some(e => e.date === date)) return err('There is already a cash entry on ' + _fmtDay(date) + '.');
     const list = loadEntries().filter(e => e.date !== _cashEditOrig);
     localStorage.setItem('comedor_entries', JSON.stringify(list));
-    if (_db) _db.ref('comedor/entries/' + _cashEditOrig.replace(/-/g, '_')).remove().catch(syncWriteErr);
+    if (_db) syncOp('remove', 'comedor/entries/' + _cashEditOrig.replace(/-/g, '_'));
   }
   const rec = Object.assign({}, orig, { date, opening, cash, upi, card, totalSales, expenses: filled, totalExpenses, closing, editedBy: me, editedAt: new Date().toLocaleString('en-IN') });
   saveEntry(rec);
@@ -4550,7 +4660,7 @@ function deleteEntry(date) {
   if (!confirm('Delete the cash register entry for ' + when + '? This removes that day\'s record.')) return;
   const list = loadEntries().filter(e => e.date !== date);
   localStorage.setItem('comedor_entries', JSON.stringify(list));
-  if (_db) _db.ref('comedor/entries/' + date.replace(/-/g, '_')).remove().catch(syncWriteErr);
+  if (_db) syncOp('remove', 'comedor/entries/' + date.replace(/-/g, '_'));
   if (_editingEntry && _editingEntry.date === date) { _editingEntry = null; const sb = document.getElementById('form-success'); if (sb) sb.style.display = 'none'; }
   renderEntryRecent();
   if (document.getElementById('panel-dashboard').classList.contains('active')) renderDashboard();
@@ -4647,11 +4757,11 @@ function saveRecurringRec(rec) {
   const list = loadRecurring().filter(r => r.id !== rec.id);
   list.push(rec);
   localStorage.setItem('comedor_recurring', JSON.stringify(list));
-  if (_db) _db.ref('comedor/recurring/' + rec.id).set(rec).catch(syncWriteErr);
+  if (_db) syncOp('set', 'comedor/recurring/' + rec.id, rec);
 }
 function deleteRecurringRec(id) {
   localStorage.setItem('comedor_recurring', JSON.stringify(loadRecurring().filter(r => r.id !== id)));
-  if (_db) _db.ref('comedor/recurring/' + id).remove().catch(syncWriteErr);
+  if (_db) syncOp('remove', 'comedor/recurring/' + id);
 }
 // Clamp a day-of-month to a real day (e.g. "31st" → 30 in April, 28/29 in Feb).
 function _clampDom(year, month0, dom) { const last = new Date(year, month0 + 1, 0).getDate(); return Math.min(Math.max(dom, 1), last); }
@@ -5139,7 +5249,7 @@ function loadLedger(){
 // stored version is the source of truth on every device.
 function saveLedger(arr){
   try { localStorage.setItem('comedor_ledger', JSON.stringify(arr)); } catch(e){}
-  if (_db) _db.ref('comedor/ledger').set(arr).catch(syncWriteErr);
+  if (_db) syncOp('set', 'comedor/ledger', arr);
 }
 // Row = [date, INR, 'E'|'P', bucket 'C'apex | 'S'etup(pre-open) | 'O'perating, category]
 function ledgerCapitalBy(){ var o={Edwin:0,Prathvi:0}; loadLedger().forEach(function(r){ o[r[2]==='E'?'Edwin':'Prathvi']+=r[1]; }); return o; }
@@ -5775,7 +5885,7 @@ function saveBankExpense(entry) {
   const list = loadBankEntries().filter(b => b.id !== entry.id);
   list.push(entry);
   localStorage.setItem('comedor_bank', JSON.stringify(list));
-  if (_db) _db.ref('comedor/bank_expenses/' + entry.id).set(entry).catch(syncWriteErr);
+  if (_db) syncOp('set', 'comedor/bank_expenses/' + entry.id, entry);
 }
 
 // ─── PARTNER MONEY OUT — a partner withdrawing money (a "drawing") from the IDFC
@@ -5887,7 +5997,7 @@ function deleteBankExpense(id) {
   if (!confirm('Delete this bank entry?')) return;
   const list = loadBankEntries().filter(b => b.id !== id);
   localStorage.setItem('comedor_bank', JSON.stringify(list));
-  if (_db) _db.ref('comedor/bank_expenses/' + id).remove().catch(syncWriteErr);
+  if (_db) syncOp('remove', 'comedor/bank_expenses/' + id);
   renderBankList();
   if (document.getElementById('panel-dashboard').classList.contains('active')) renderDashboard();
 }
@@ -6248,11 +6358,11 @@ function saveIncomeRecord(rec) {
   const list = loadIncome().filter(r => r.id !== rec.id);
   list.push(rec);
   localStorage.setItem('comedor_income', JSON.stringify(list));
-  if (_db) _db.ref('comedor/income/' + rec.id).set(rec).catch(syncWriteErr);
+  if (_db) syncOp('set', 'comedor/income/' + rec.id, rec);
 }
 function deleteIncomeRecord(id) {
   localStorage.setItem('comedor_income', JSON.stringify(loadIncome().filter(r => r.id !== id)));
-  if (_db) _db.ref('comedor/income/' + id).remove().catch(syncWriteErr);
+  if (_db) syncOp('remove', 'comedor/income/' + id);
 }
 // Date math MUST be done in UTC. Parsing 'YYYY-MM-DDT00:00:00' (no zone) uses the
 // device's local time, and toISOString() then converts to UTC — in any UTC+ zone
@@ -7010,7 +7120,7 @@ function saveBankBalance() {
   let prev = null; try { prev = JSON.parse(localStorage.getItem('comedor_bankbal') || 'null'); } catch (e) {}
   const meta = { amount: amt, asOf: new Date(today + 'T00:00:00').toLocaleDateString('en-IN', { day:'numeric', month:'short', year:'numeric' }), asOfISO: today, by: (currentUser ? currentUser.name : '') };
   localStorage.setItem('comedor_bankbal', JSON.stringify(meta));
-  if (_db) _db.ref('comedor/meta/bankBalance').set(meta).catch(syncWriteErr);
+  if (_db) syncOp('set', 'comedor/meta/bankBalance', meta);
   btnFlash('bal-btn', 'Updating…', 'Updated ✓', 'Update balance');
   showBalReconNote(prev, amt, today);
   if (document.getElementById('panel-dashboard').classList.contains('active')) renderDashboard();
@@ -7263,7 +7373,7 @@ function saveUser(u) {
   users = users.filter(x => x.id !== u.id);
   users.push(u);
   localStorage.setItem('comedor_users', JSON.stringify(users));
-  if (_db) _db.ref('comedor/users/' + u.id).set(u).catch(syncWriteErr);
+  if (_db) syncOp('set', 'comedor/users/' + u.id, u);
 }
 
 let _editingUserId = null;
@@ -7362,7 +7472,7 @@ function removePerson(id) {
   if (!confirm('Remove ' + u.name + '? Their login PIN will stop working.')) return;
   const list = (loadUsers() || DEFAULT_USERS.slice()).filter(x => x.id !== id);
   localStorage.setItem('comedor_users', JSON.stringify(list));
-  if (_db) _db.ref('comedor/users/' + id).remove().catch(syncWriteErr);
+  if (_db) syncOp('remove', 'comedor/users/' + id);
   renderPeople();
 }
 
