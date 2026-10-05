@@ -1559,7 +1559,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-19-31';
+const APP_VERSION = '2026-07-19-32';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -1604,7 +1604,8 @@ function setSyncStatus(state) {
   if (!banner) return;
   if (state === 'blocked') {
     banner.className = 'bad';
-    banner.innerHTML = '⚠ <b>Changes are not syncing to your partners yet.</b> They are safe on this device and the app keeps retrying automatically. <a onclick="showSyncHelp()">Details →</a>';
+    const n = obLoad().length;
+    banner.innerHTML = '⚠ <b>' + (n ? n + (n === 1 ? ' entry has' : ' entries have') + ' not synced to your partners yet.' : 'Changes are not syncing to your partners.') + '</b> Safe on this device, retrying automatically. <a onclick="showSyncHelp()">See which →</a>';
     banner.style.display = 'block';
   } else if (state === 'offline' && _syncEverConnected) {
     banner.className = 'warn';
@@ -1622,7 +1623,7 @@ function setSyncStatus(state) {
 // the phone slept), a killed app, or a dropped connection can never lose an entry —
 // it is re-sent after re-authenticating, on foreground, on reconnect and on a timer.
 const OB_KEY = 'comedor_outbox';
-let _wired = false, _flushing = false, _flushFails = 0, _flushTimer = null, _connected = false;
+let _failShown = false, _wired = false, _flushing = false, _flushFails = 0, _flushTimer = null, _connected = false;
 function obLoad() { try { return JSON.parse(localStorage.getItem(OB_KEY) || '[]'); } catch (e) { return []; } }
 function obSave(l) { try { localStorage.setItem(OB_KEY, JSON.stringify(l)); } catch (e) { console.warn('Outbox save failed:', e && e.message); } }
 function syncOp(kind, path, val) {
@@ -1659,11 +1660,12 @@ function flushOutbox() {
     clearTimeout(stuck); _flushing = false;
     const txt = String((e && e.code) || '') + ' ' + String((e && e.message) || '');
     console.warn('Sync write failed:', txt);
+    obSave(obLoad().map(o => (o.path === op.path && o.t === op.t) ? Object.assign(o, { err: txt.trim().slice(0, 160), errAt: Date.now(), tries: (o.tries || 0) + 1 }) : o));
     if (/permission[_ ]denied/i.test(txt)) {
       // Auth likely stale — mint a fresh token, re-attach listeners, retry with backoff.
       // Only after repeated failures do we tell the user it's blocked.
       _flushFails++;
-      if (_flushFails >= 3) setSyncStatus('blocked');
+      if (_flushFails >= 3) { setSyncStatus('blocked'); if (!_failShown) { _failShown = true; setTimeout(showSyncHelp, 300); } }
       ensureAuth(true).catch(function () {}).then(function () { reattachListeners(); scheduleFlush(); });
     } else if (/network|disconnect|unavailable|timeout|offline/i.test(txt)) {
       _flushFails++; scheduleFlush();
@@ -1690,7 +1692,7 @@ function mergePending(prefix, list, keyOf) {
 // we remember each one and can re-attach them all after re-authenticating.
 let _listeners = [], _recoverTimer = null, _recoverTries = 0, _origRef = null;
 function syncReadOk() { _recoverTries = 0; if (_syncState === 'blocked' && !obLoad().length) syncRecovered(); }
-function syncRecovered() { setSyncStatus(_connected ? 'live' : (_syncEverConnected ? 'offline' : 'connecting')); }
+function syncRecovered() { _failShown = false; closeSyncHelp(); setSyncStatus(_connected ? 'live' : (_syncEverConnected ? 'offline' : 'connecting')); }
 function reattachListeners() {
   if (!_origRef) return;
   _listeners.forEach(function (l) { try { _origRef(l.path).off(l.ev, l.cb); } catch (e) {} _origRef(l.path).on(l.ev, l.cb, l.err); });
@@ -1714,19 +1716,67 @@ window.addEventListener('online', syncKick);
 window.addEventListener('pageshow', syncKick);
 setInterval(function () { if (obLoad().length || _syncState === 'blocked') syncKick(); }, 30000);
 
+// Human-readable description of one queued write, so the person who entered it can
+// see exactly which entry failed and re-check it.
+function describeOp(op) {
+  const v = op.val || {}, inr = n => '₹' + (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('en-IN');
+  const MN = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const day = iso => { const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})/); return m ? (+m[3]) + ' ' + MN[+m[2] - 1] + ' ' + m[1] : String(iso || '—'); };
+  const parts = op.path.split('/'), root = parts[1], key = parts.slice(2).join('/');
+  const del = op.kind === 'remove', L = [];
+  let title = 'Change to ' + (root || 'data');
+  if (root === 'entries') {
+    title = (del ? 'Deleted cash day · ' : 'Cash day · ') + day(del ? key.replace(/_/g, '-') : v.date);
+    if (!del) {
+      const ex = Array.isArray(v.expenses) ? v.expenses : [], tot = ex.reduce((t, x) => t + (Number(x.amount) || 0), 0);
+      if (v.opening != null) L.push('Opening cash ' + inr(v.opening));
+      if (ex.length) L.push(ex.length + ' expense' + (ex.length > 1 ? 's' : '') + ' totalling ' + inr(tot) + ': ' + ex.slice(0, 4).map(x => (x.category || '') + (x.desc ? ' – ' + x.desc : '') + ' ' + inr(x.amount)).join('; ') + (ex.length > 4 ? '…' : ''));
+      if (v.closing != null) L.push('Cash in hand ' + inr(v.closing));
+    }
+  } else if (root === 'bank_expenses') {
+    const kind = v.payout ? 'Partner withdrawal' : v.capital ? 'Capital in' : v.direct ? 'Direct expense' : 'Bank expense';
+    title = (del ? 'Deleted ' : '') + kind + (v.amount != null ? ' · ' + inr(v.amount) : '');
+    if (!del) { L.push(day(v.date) + (v.category ? ' · ' + v.category : '')); if (v.desc) L.push(v.desc); if (v.partner) L.push('Partner: ' + v.partner); }
+  } else if (root === 'income') {
+    title = (del ? 'Deleted sales report' : 'Sales report') + (v.gross != null ? ' · ' + inr(v.gross) : '');
+    if (!del) L.push(v.from ? day(v.from) + (v.to && v.to !== v.from ? ' – ' + day(v.to) : '') : (v.label || v.id || ''));
+  } else if (root === 'recurring') { title = (del ? 'Deleted' : 'Scheduled expense') + ' · ' + (v.label || key); if (v.amount != null) L.push(inr(v.amount)); }
+  else if (root === 'users') { title = (del ? 'Removed' : 'Updated') + ' person · ' + (v.name || key); }
+  else if (root === 'meta' && key === 'bankBalance') { title = 'Bank balance update' + (v.amount != null ? ' · ' + inr(v.amount) : ''); if (v.asOfISO) L.push('As of ' + day(v.asOfISO)); }
+  else if (root === 'ledger') title = 'Partner ledger edit';
+  else title = 'Settings change · ' + parts.slice(1).join('/');
+  if (v.addedBy || v.editedBy) L.push('By ' + (v.editedBy || v.addedBy));
+  return { title: title, lines: L.filter(Boolean) };
+}
+function closeSyncHelp() { const m = document.getElementById('sync-help-modal'); if (m) m.remove(); }
+function retrySyncNow() {
+  _flushFails = 0; _recoverTries = 0;
+  const b = document.getElementById('sync-retry-btn'); if (b) { b.textContent = 'Retrying…'; b.disabled = true; }
+  ensureAuth(true).catch(function () {}).then(function () { reattachListeners(); flushOutbox(); });
+  setTimeout(function () { if (document.getElementById('sync-help-modal')) { closeSyncHelp(); if (obLoad().length) showSyncHelp(); } }, 4000);
+}
 function showSyncHelp() {
-  const st = ({ connecting:'connecting…', live:'LIVE — synced across every device', offline:'offline (will resync when back online)', blocked:'BLOCKED by the database rules' }[_syncState] || _syncState);
-  alert(
-    'LIVE SYNC ACROSS DEVICES\n\n' +
-    'This device: ' + st + '\n\n' +
-    'If it says "Sync blocked", the app could not authenticate to the shared database. A partner with access to the Firebase project fixes it once:\n\n' +
-    '1. console.firebase.google.com  →  project "comedor-finance-dashboard"\n' +
-    '2. Build → Authentication → Sign-in method → enable "Anonymous".\n' +
-    '3. Build → Realtime Database → Rules tab → set the rules to:\n\n' +
-    '{\n  "rules": {\n    "comedor": { ".read": "auth != null", ".write": "auth != null" }\n  }\n}\n\n' +
-    '4. Press Publish.\n\n' +
-    'Every phone, iPad and browser then syncs within a second. (Make sure a Realtime Database has actually been created in that project — not only Firestore, and that Anonymous sign-in is enabled or no device can connect.)'
-  );
+  closeSyncHelp();
+  const ob = obLoad(), esc2 = x => String(x == null ? '' : x).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const st = ({ connecting:'connecting…', live:'live — synced across every device', offline:'offline (will sync when back online)', blocked:'not syncing' }[_syncState] || _syncState);
+  const items = ob.map(function (o) {
+    const d = describeOp(o);
+    return '<div style="border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin:0 0 8px;background:var(--surface2);">' +
+      '<div style="font-weight:600;font-size:13px;">' + esc2(d.title) + '</div>' +
+      d.lines.map(l => '<div style="font-size:12px;color:var(--text2);margin-top:3px;">' + esc2(l) + '</div>').join('') +
+      '<div style="font-size:11px;color:var(--red);margin-top:5px;">' + (o.err ? 'Rejected: ' + esc2(o.err) + (o.tries > 1 ? ' · ' + o.tries + ' attempts' : '') : 'Waiting to send') + '</div></div>';
+  }).join('');
+  const m = document.createElement('div');
+  m.id = 'sync-help-modal';
+  m.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;';
+  m.innerHTML = '<div style="background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:16px;max-width:460px;width:100%;max-height:85vh;overflow:auto;padding:18px;font-family:\'Inter\',sans-serif;">' +
+    '<div style="font-size:15px;font-weight:600;margin-bottom:4px;">' + (ob.length ? '⚠ ' + ob.length + (ob.length === 1 ? ' entry' : ' entries') + ' not saved to the shared database' : 'Live sync') + '</div>' +
+    '<div style="font-size:12px;color:var(--text3);margin-bottom:12px;">This device: ' + esc2(st) + '. ' + (ob.length ? 'Nothing is lost — each item below is kept on this phone and the app keeps retrying. Please don\'t clear the app data or re-enter them; if it still shows here after a few minutes, take a screenshot of this and send it to the admin.' : 'Everything is synced.') + '</div>' +
+    items +
+    '<div style="display:flex;gap:8px;margin-top:12px;">' + (ob.length ? '<button id="sync-retry-btn" onclick="retrySyncNow()" style="flex:1;padding:12px;border-radius:10px;border:0;background:var(--accent2);color:#0C1410;font-weight:600;font-size:14px;">Retry now</button>' : '') +
+    '<button onclick="closeSyncHelp()" style="flex:1;padding:12px;border-radius:10px;border:1px solid var(--border);background:none;color:var(--text);font-size:14px;">Close</button></div>' +
+    '<div style="font-size:11px;color:var(--text3);margin-top:12px;line-height:1.5;">Admin: if this persists, in Firebase Console enable Authentication → Anonymous and check Realtime Database rules allow <code>auth != null</code> under <code>comedor</code>.</div></div>';
+  document.body.appendChild(m);
 }
 
 function initFirebase() {
