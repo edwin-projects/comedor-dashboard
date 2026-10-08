@@ -60,3 +60,15 @@ the second layer. Do not remove either.
    overlaps it, and re-uploads never double-count. P&L income for a dashboard period = each
    report's gross spread evenly across its days, summed over the period. (Pet Pooja's item-wise
    "Gross Sales" already includes 5% GST and matches its "Total Sales" headline.)
+
+## Daily bank check (Bank tab)
+
+Partners upload the IDFC statement (PDF/Excel/CSV, any date range) in the Bank tab. Transactions are
+stored by month in `comedor/bankstmt/<YYYY_MM>` (union by date+debit+credit+balance, so overlapping or
+repeated uploads never double-count) with upload coverage in `comedor/bankcov` and partner "Reviewed"
+acknowledgements in `comedor/bankchk`. `bcCompute()` matches bank debits/credits to app entries
+(1:1 by amount ±4 days, then one app entry = several transfers) and lists what doesn't line up.
+- When a statement is loaded, the dashboard's **bank balance is the statement's closing balance** plus app
+  entries dated after the statement's last day. Card/UPI sales (register UPI+Card) settle to the bank the
+  next day (Sunday rolls to Monday); sales not yet received show as **"Yet to be credited"**, not in the balance.
+- Without a statement the old base-balance logic (`comedor/meta/bankBalance`) is used.

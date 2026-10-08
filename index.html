@@ -1203,6 +1203,41 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
   <div id="bank-form-errors" style="display:none; background:rgba(224,82,82,0.1); border:1px solid rgba(224,82,82,0.3); border-radius:7px; padding:12px 14px; font-size:12px; color:var(--red); font-family:'Inter',sans-serif; margin-bottom:14px;"></div>
   <div id="bank-form-success" style="display:none; background:rgba(76,175,125,0.1); border:1px solid rgba(76,175,125,0.3); border-radius:7px; padding:14px; font-size:13px; color:var(--text); margin-bottom:14px;"></div>
 
+  <!-- Daily bank check -->
+  <div class="setcard tint-gold" id="setcard-bankcheck">
+    <div class="setcard-head" onclick="toggleSet('bankcheck')"><span class="setcard-title">Daily bank check <span class="logcard-count" id="bc-badge">…</span></span><span class="setcard-chev">▾</span></div>
+    <div class="setcard-body">
+      <style>
+        #setcard-bankcheck .bc-pos{background:var(--surface2);border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-top:12px;}
+        #setcard-bankcheck .bc-row{display:flex;justify-content:space-between;gap:10px;align-items:baseline;padding:4px 0;font-size:13px;color:var(--text2);font-family:'Inter',sans-serif;}
+        #setcard-bankcheck .bc-row b{font-family:var(--num-font);font-size:15px;color:var(--text);white-space:nowrap;}
+        #setcard-bankcheck .bc-sec{display:flex;justify-content:space-between;gap:8px;margin:16px 0 6px;font-size:11px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:var(--text2);font-family:'Inter',sans-serif;}
+        #setcard-bankcheck .bc-cnt{font-family:var(--num-font);letter-spacing:0;text-transform:none;white-space:nowrap;color:var(--text3);}
+        #setcard-bankcheck .bc-item{border:1px solid var(--border);border-radius:9px;padding:10px 12px;margin-bottom:8px;background:var(--surface);}
+        #setcard-bankcheck .bc-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
+        #setcard-bankcheck .bc-date{font-size:12px;font-weight:600;color:var(--text2);font-family:var(--num-font);}
+        #setcard-bankcheck .bc-amt{font-family:var(--num-font);font-weight:600;font-size:15px;white-space:nowrap;}
+        #setcard-bankcheck .bc-title{font-size:13.5px;font-weight:600;color:var(--text);margin-top:3px;word-break:break-word;font-family:'Inter',sans-serif;}
+        #setcard-bankcheck .bc-sub{font-size:11.5px;color:var(--text3);margin-top:2px;line-height:1.45;word-break:break-word;font-family:'Inter',sans-serif;}
+        #setcard-bankcheck .bc-acts{display:flex;gap:8px;justify-content:flex-end;margin-top:8px;flex-wrap:wrap;}
+        #setcard-bankcheck .bc-btn{min-height:38px;padding:7px 14px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:12.5px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;}
+        #setcard-bankcheck .bc-btn-main{border-color:var(--accent2);color:var(--accent2);}
+        #setcard-bankcheck .bc-warn{margin-top:10px;padding:10px 12px;border-radius:8px;font-size:12.5px;line-height:1.5;background:rgba(201,160,64,.12);border:1px solid rgba(201,160,64,.35);color:var(--text);font-family:'Inter',sans-serif;}
+        #setcard-bankcheck .bc-err{margin-top:10px;font-size:12.5px;line-height:1.5;color:var(--red);font-family:'Inter',sans-serif;}
+        #setcard-bankcheck .bc-ok{margin-top:14px;font-size:13px;color:var(--green);font-family:'Inter',sans-serif;}
+        #setcard-bankcheck .bc-det{margin-top:14px;border-top:1px solid var(--border);padding-top:10px;}
+        #setcard-bankcheck .bc-det summary{cursor:pointer;font-size:12.5px;font-weight:600;color:var(--text2);padding:6px 0;font-family:'Inter',sans-serif;}
+        #setcard-bankcheck .bc-day{display:flex;justify-content:space-between;gap:8px;padding:6px 0;font-size:12.5px;border-bottom:1px solid var(--border);color:var(--text2);font-family:'Inter',sans-serif;}
+        #setcard-bankcheck .bc-day .bc-amt{font-size:12.5px;color:var(--text);}
+      </style>
+      <p class="exp-note">Upload the IDFC statement (PDF, Excel or CSV) for any dates. The app lines each bank payment and receipt up against its own entries and lists whatever doesn't match, for a partner to verify. If a day is missed, just upload yesterday and today together next time — nothing is double-counted.</p>
+      <input type="file" id="bc-file" accept=".pdf,.xlsx,.xls,.csv,application/pdf,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="bcHandleFile(this)" style="display:none;">
+      <button id="bc-upload-btn" class="btn" style="width:100%; padding:13px; font-size:15px;" onclick="document.getElementById('bc-file').click()">Upload bank statement</button>
+      <div id="bc-msg"></div>
+      <div id="bankcheck-dyn"></div>
+    </div>
+  </div>
+
   <div class="setcard collapsed tint-red" id="setcard-bankexp">
     <div class="setcard-head" onclick="toggleSet('bankexp')"><span class="setcard-title">Add Bank / Account Expense</span><span class="setcard-chev">▾</span></div>
     <div class="setcard-body">
@@ -1568,7 +1603,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-10-08-3';
+const APP_VERSION = '2026-10-08-4';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -1933,6 +1968,24 @@ function initFirebase() {
       if (snap.exists()) { const v = snap.val(); localStorage.setItem('comedor_ledger', JSON.stringify(Array.isArray(v) ? v : Object.values(v))); }
       renderActivePanel();
     }, onErr('ledger'));
+    _db.ref('comedor/bankstmt').on('value', snap => {
+      const months = {};
+      if (snap.exists()) { const v = snap.val(); Object.keys(v).forEach(k => { const a = v[k]; months[k] = Array.isArray(a) ? a : Object.values(a || {}); }); }
+      obLoad().forEach(o => { if (o.path.indexOf('comedor/bankstmt/') === 0 && o.kind === 'set' && o.val) months[o.path.slice(17)] = Array.isArray(o.val) ? o.val : Object.values(o.val); });
+      let list = []; Object.keys(months).sort().forEach(k => { list = list.concat(months[k].filter(Boolean)); });
+      if (list.length) localStorage.setItem('comedor_bankstmt', JSON.stringify(list)); else localStorage.removeItem('comedor_bankstmt');
+      renderActivePanel();
+    }, onErr('bankstmt'));
+    _db.ref('comedor/bankcov').on('value', snap => {
+      localStorage.setItem('comedor_bankcov', JSON.stringify(mergePending('comedor/bankcov/', snap.exists() ? Object.values(snap.val()) : [], x => String(x.f) + '_' + String(x.t))));
+      renderActivePanel();
+    }, onErr('bankcov'));
+    _db.ref('comedor/bankchk').on('value', snap => {
+      const m = snap.exists() ? snap.val() : {};
+      obLoad().forEach(o => { if (o.path.indexOf('comedor/bankchk/') === 0) { const k = o.path.slice(16); if (o.kind === 'set' && o.val) m[k] = o.val; else delete m[k]; } });
+      localStorage.setItem('comedor_bankchk', JSON.stringify(m));
+      renderActivePanel();
+    }, onErr('bankchk'));
     upgradeHistoricalIncome();
     compHealAll();   // one-shot: correct doubled complimentary values across all history
     seedHistoricalCashBook();
@@ -4618,7 +4671,7 @@ function downloadAuditExcel() {
       ['+ Cash deposits after base', depTot, ''],
       ['Yet to be credited (card/UPI sales in transit) — not in the balance', pendingTot, 'Shown separately on the dashboard tile'],
       ['= Balance computed by this export', base + capIn - expOut - drawOut + digTot + depTot, ''],
-      ['Balance the app shows (computeBankBalance)', shown == null ? '' : shown, 'Should equal the line above'],
+      ['Balance the app shows (computeBankBalance)', shown == null ? '' : shown, (bcStatementPosition() ? 'Taken from the uploaded statement, so it can differ from the workings above' : 'Should equal the line above')],
       ['Bank entries / cash days / income records', bank.length + ' / ' + cash.length + ' / ' + income.length, ''],
       ['Exported on', new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }), 'by ' + ((currentUser && currentUser.name) || '')]
     ];
@@ -4645,6 +4698,8 @@ function downloadAuditExcel() {
       return [dt(r[0]), num(r[1]), r[2] === 'E' ? 'Edwin' : 'Prathvi', { C: 'Capex', S: 'Setup', O: 'Operating (partner-paid)', I: 'Capital infusion' }[r[3]] || r[3] || '', r[4] || '', r[5] || ''];
     });
     add('Ledger (capital & partner-paid)', ['Date', 'Amount', 'Partner', 'Kind', 'Category', 'ID'], ledRows, [18, 16, 12, 26, 40, 10], ['d', 'm', '', '', '', '']);
+    const chk = bcCompute(), kindName = { bankOut: 'Paid from bank, not in app', appOut: 'In app, not paid from bank', bankIn: 'Money into bank, not in app', appIn: 'In app as money in, not in bank', tallyAhead: 'Card/UPI: bank received more than register' };
+    add('Bank check - to verify', ['Date', 'What', 'Amount', 'Item', 'Statement / entry text', 'Reviewed by'], chk.items.map(function (i) { return [dt(i.d), kindName[i.kind] || i.kind, i.amt, i.title, i.sub || '', i.ack ? (i.ack.by || 'yes') : '']; }), [18, 38, 16, 44, 80, 16], ['d', '', 'm', '', '', '']);
     add('Income (Pet Pooja)', ['From', 'To', 'Gross', 'Tax', 'Discount', 'Source', 'Uploaded by', 'ID'], incRows, [18, 18, 16, 14, 14, 14, 18, 22], ['d', 'd', 'm', 'm', 'm', '', '', '']);
     XLSX.writeFile(wb, 'comedor-audit-' + todayLocalISO() + '.xlsx', { cellDates: true });
   } catch (e) { alert('Export failed: ' + (e && e.message || e)); }
@@ -5643,7 +5698,7 @@ function renderPnlBank() {
     </div>
     ${monthlySalesChartHtml(range)}
     <div class="cards2">
-      <div class="card card-click tile-avail" onclick="focusLog('bank')"><div class="card-label">Available Balance</div><div class="card-value">${inr(available)}</div><div class="card-sub">${splitGrid([{k:'Bank',v:bankBal||0,pct:pctTxt(bankBal||0,available)},{k:'Cash',v:cashBal,pct:pctTxt(cashBal,available)}])}</div>${bankPending > 0 ? `<div class="card-sub" style="font-size:11px;color:var(--text3);margin-top:6px;">Yet to be credited to bank: <span style="font-family:var(--num-font);font-weight:600;color:var(--text2);">${inr(bankPending)}</span> (card/UPI sales in transit)</div>` : ''}${cashOpen ? `<div class="tile-warn warn-amber" role="button" tabindex="0" title="Cash not closed — enter the closing count for ${lastCashEntry ? dChip(lastCashEntry.date) : ''}" onclick="event.stopPropagation(); goCloseCash('${lastCashEntry ? lastCashEntry.date : ''}')">ⓘ Cash not closed · ${lastCashEntry ? dChip(lastCashEntry.date) : ''}</div>` : ''}</div>
+      <div class="card card-click tile-avail" onclick="focusLog('bank')"><div class="card-label">Available Balance</div><div class="card-value">${inr(available)}</div><div class="card-sub">${splitGrid([{k:'Bank',v:bankBal||0,pct:pctTxt(bankBal||0,available)},{k:'Cash',v:cashBal,pct:pctTxt(cashBal,available)}])}</div>${bankPending > 0 ? `<div class="card-sub" style="font-size:11px;color:var(--text3);margin-top:6px;">Yet to be credited to bank: <span style="font-family:var(--num-font);font-weight:600;color:var(--text2);">${inr(bankPending)}</span> (card/UPI sales in transit)</div>` : ''}${bankSplit && bankSplit.asOf ? `<div class="card-sub" style="font-size:10.5px;color:var(--text3);margin-top:4px;">Bank per statement of ${bcFmtDate(bankSplit.asOf)}</div>` : ''}${cashOpen ? `<div class="tile-warn warn-amber" role="button" tabindex="0" title="Cash not closed — enter the closing count for ${lastCashEntry ? dChip(lastCashEntry.date) : ''}" onclick="event.stopPropagation(); goCloseCash('${lastCashEntry ? lastCashEntry.date : ''}')">ⓘ Cash not closed · ${lastCashEntry ? dChip(lastCashEntry.date) : ''}</div>` : ''}</div>
       <div class="card card-click tile-upc" onclick="toggleUpcoming(event)"><div class="card-label">Upcoming Expenses</div><div class="card-value ${(!fc.pastPeriod && !upcCovered && fc.expected>0)?'upc-neg':''}">${fc.pastPeriod ? '—' : inr(fc.expected)}</div><div class="card-sub">${upcTileSub}</div>${upcWarn}</div>
     </div>
     <div class="card upc-detail" id="upc-detail" style="display:${_upcOpen ? 'block' : 'none'};">
@@ -6075,6 +6130,23 @@ function digitalCreditStatus(e, baseISO, todayISO) {
 }
 // Money in the account now, and sales still on their way to it.
 function computeBankSplit() {
+  var pos = bcStatementPosition();
+  if (pos) {
+    // An uploaded statement is the truth for the money in the account: its closing balance,
+    // then whatever the app knows happened after the statement's last day.
+    var sb = pos.closing;
+    loadBankEntries().forEach(function (bb) {
+      if (bb.direct) return;
+      if (bb.payout && bb.source === 'cash') return;
+      if (bb.date <= pos.lastDate) return;
+      sb += (bb.capital ? 1 : -1) * (Number(bb.amount) || 0);
+    });
+    loadEntries().forEach(function (e) {
+      if (!e || !e.date || e.date <= pos.lastDate) return;
+      (e.expenses || []).forEach(function (x) { if (isCashDeposit(x)) sb += (parseFloat(x.amount) || 0); });
+    });
+    return { bank: sb, pending: bcCompute().pending, asOf: pos.lastDate };
+  }
   var meta; try { meta = JSON.parse(localStorage.getItem('comedor_bankbal') || 'null'); } catch (e) { meta = null; }
   if (!meta) return null;
   var baseISO = meta.asOfISO || null, todayISO = todayLocalISO();
@@ -6194,6 +6266,7 @@ function renderBankList() {
   const cd = document.getElementById('cap-date'); if (cd && !cd.value) cd.value = today;
   const pd = document.getElementById('po-date'); if (pd && !pd.value) pd.value = today;
   renderBankRecent();
+  renderBankCheck();
   if (document.getElementById('panel-dashboard').classList.contains('active')) renderDashboard();
 }
 
@@ -7515,6 +7588,492 @@ function normalizeDate(s) {
   m = s.match(/^(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})$/);
   if (m) return `${m[1]}-${String(m[2]).padStart(2,'0')}-${String(m[3]).padStart(2,'0')}`;
   return todayLocalISO();
+}
+
+// ─── DAILY BANK CHECK ────────────────────────────────────────────────────────
+// Upload the IDFC statement (any date range — a missed day is simply picked up by
+// the next upload) and the app lines every bank debit/credit up against its own
+// entries, day by day. Anything that doesn't line up is listed for a partner to
+// verify. The bank balance shown on the dashboard comes from the statement itself;
+// card/UPI sales that haven't reached the bank yet show as "yet to be credited".
+var BS_KEY = 'comedor_bankstmt', BCHK_KEY = 'comedor_bankchk', BCOV_KEY = 'comedor_bankcov';
+var _bsMemo = { raw: null, list: [] }, _bcMemo = { sig: null, res: null };
+
+function bsKey(t) { return t.d + '_' + Math.round((t.dr || 0) * 100) + '_' + Math.round((t.cr || 0) * 100) + '_' + Math.round((t.bal || 0) * 100); }
+function bsLoad() {
+  var raw = ''; try { raw = localStorage.getItem(BS_KEY) || ''; } catch (e) {}
+  if (raw === _bsMemo.raw) return _bsMemo.list;
+  var list = []; try { list = JSON.parse(raw || '[]'); } catch (e) { list = []; }
+  if (!Array.isArray(list)) list = [];
+  list.forEach(function (t) { t.k = bsKey(t); });
+  _bsMemo = { raw: raw, list: list };
+  return list;
+}
+function bcAcks() { try { return JSON.parse(localStorage.getItem(BCHK_KEY) || '{}') || {}; } catch (e) { return {}; } }
+function bcCoverage() { try { var c = JSON.parse(localStorage.getItem(BCOV_KEY) || '[]'); return Array.isArray(c) ? c : []; } catch (e) { return []; } }
+function bcAddDays(iso, n) {
+  var d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+function bcDaysBetween(a, b) { return Math.round((new Date(b + 'T12:00:00') - new Date(a + 'T12:00:00')) / 86400000); }
+function bcFmtDate(iso) { return new Date(iso + 'T12:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }); }
+function bcFmtShort(iso) { return new Date(iso + 'T12:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }); }
+function bcInr(n) { n = Math.round(Number(n) || 0); return (n < 0 ? '−' : '') + '₹' + Math.abs(n).toLocaleString('en-IN'); }
+
+// ── Reading a statement ─────────────────────────────────────────────────────
+var BC_MON = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
+function bcISO(s) {
+  s = String(s == null ? '' : s).trim();
+  var m = s.match(/^(\d{1,2})[-\/ ]([A-Za-z]{3})[A-Za-z]*[-\/ ](\d{2,4})/);
+  if (m) { var y = m[3].length === 2 ? '20' + m[3] : m[3]; return y + '-' + String(BC_MON[m[2].toLowerCase()] || 1).padStart(2, '0') + '-' + m[1].padStart(2, '0'); }
+  m = s.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})/);
+  if (m) return m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0');
+  m = s.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{2,4})/);
+  if (m) { var yy = m[3].length === 2 ? '20' + m[3] : m[3]; return yy + '-' + m[2].padStart(2, '0') + '-' + m[1].padStart(2, '0'); }
+  return '';
+}
+var BC_AMT = /-?\d[\d,]*\.\d{2}/g;
+var BC_SKIP = /(Page \d+ of \d+|REGISTERED OFFICE|STATEMENT OF ACCOUNT|CUSTOMER ID|ACCOUNT NO\b|STATEMENT PERIOD|Cheque|Date\s+Particulars|Value Date|CUSTOMER NAME|COMMUNICATION|ADDRESS|EMAIL ID|PHONE NO|CKYC|NOMINATION|ACCOUNT (STATUS|TYPE|OPENING|BRANCH)|BRANCH ADDRESS|CURRENCY|IFSC|MICR|Opening Balance|Total Debit|Closing Balance|Customer Care|Toll|www\.)/i;
+var BC_START = /^(UPI|NEFT|IMPS|OPM|CHQ|POS|ECOM|ACH|NACH|RTGS|ATM|INT|CASH|MMT|BIL|CBDT|SI|FT|TPT|IB|DD|NET|REV|PCI|CMS)\b[\/ -]?/;
+
+// lines: array of strings (one per visual line, left→right). Returns {tx, opening, closing, from, to, breaks}.
+function bcParseIDFCLines(lines, hintPrev) {
+  var dre = /^\s*(\d{2}-[A-Za-z]{3}-\d{4})\s+(\d{2}-[A-Za-z]{3}-\d{4})\s*(.*)$/;
+  var rows = [], pend = [], opening = null, from = '', to = '';
+  lines.forEach(function (raw) {
+    var l = String(raw).replace(/\s+/g, ' ').trim();
+    if (!l) return;
+    var pm = l.match(/STATEMENT PERIOD\s*:?\s*(\d{4}-\d{2}-\d{2})\s+TO\s+(\d{4}-\d{2}-\d{2})/i);
+    if (pm) { from = from || pm[1]; to = pm[2]; }
+    var m = dre.exec(l);
+    if (m) {
+      var rest = m[3], a = rest.match(BC_AMT) || [];
+      var inline = rest.replace(BC_AMT, '').replace(/\s+/g, ' ').trim();
+      var pre = pend, idx = 0;
+      for (var k = pre.length - 1; k >= 0; k--) { if (BC_START.test(pre[k])) { idx = k; break; } }
+      if (rows.length && idx > 0) rows[rows.length - 1].post = pre.slice(0, idx);
+      rows.push({ d: bcISO(m[1]), pre: pre.slice(idx), inline: inline, post: [], a: a.map(function (x) { return parseFloat(x.replace(/,/g, '')); }) });
+      pend = [];
+      return;
+    }
+    var amts = l.match(BC_AMT) || [];
+    var om = l.match(/^Opening Balance\s+(-?\d[\d,]*\.\d{2})\s*$/i);
+    if (om && opening == null) opening = parseFloat(om[1].replace(/,/g, ''));
+    if (amts.length >= 3 && !/[A-Za-z]{3}/.test(l.replace(BC_AMT, ''))) { if (opening == null) opening = parseFloat(amts[0].replace(/,/g, '')); return; }   // summary row
+    if (BC_SKIP.test(l)) return;
+    pend.push(l);
+  });
+  if (rows.length && pend.length) rows[rows.length - 1].post = pend.slice(0, 3);
+  var tx = [], prev = null, breaks = 0;
+  var r0 = rows.filter(function (r) { return r.a.length >= 2 && r.d; })[0];
+  if (r0) {   // the balance before the first row: a stored one or the statement's opening — whichever fits that row's amount
+    var fits = [hintPrev, opening].filter(function (c) { return c != null && Math.abs(Math.abs(r0.a[r0.a.length - 1] - c) - r0.a[0]) <= 0.011; });
+    prev = fits.length ? fits[0] : null;
+  }
+  rows.forEach(function (r) {
+    if (r.a.length < 2 || !r.d) return;
+    var amt = r.a[0], bal = r.a[r.a.length - 1], dr = 0, cr = 0;
+    var n = r.pre.concat([r.inline]).concat(r.post).join(' ').replace(/\s+/g, ' ').trim().slice(0, 170);
+    if (prev != null) {
+      var delta = Math.round((bal - prev) * 100) / 100;
+      if (Math.abs(Math.abs(delta) - amt) > 0.011) breaks++;
+      if (delta >= 0) cr = amt; else dr = amt;
+    } else if (/^(UPI\/CR|CASH DEPOSIT|NEFT RETURN|REV\/)|\/CR\//i.test(n) || /PINE LABS/i.test(n) && /^NEFT/i.test(n)) cr = amt; else dr = amt;
+    prev = bal;
+    tx.push({ d: r.d, dr: dr, cr: cr, bal: bal, n: n });
+  });
+  return { tx: tx, opening: opening, closing: tx.length ? tx[tx.length - 1].bal : null, from: from || (tx[0] && tx[0].d) || '', to: to || (tx.length && tx[tx.length - 1].d) || '', breaks: breaks };
+}
+
+// Spreadsheet/CSV rows (array of arrays) → same shape. Debit/Credit/Balance columns by header name.
+function bcParseRows(rows) {
+  var tx = bcRowsToTxns(rows);
+  if (tx.length > 1 && tx[0].d > tx[tx.length - 1].d) tx.reverse();   // newest-first exports
+  var breaks = 0;
+  for (var i = 1; i < tx.length; i++) { var delta = Math.round((tx[i].bal - tx[i - 1].bal) * 100) / 100, s = tx[i].cr - tx[i].dr; if (Math.abs(delta - s) > 0.011) breaks++; }
+  return { tx: tx, opening: null, closing: tx.length ? tx[tx.length - 1].bal : null, from: tx[0] ? tx[0].d : '', to: tx.length ? tx[tx.length - 1].d : '', breaks: breaks };
+}
+function bcRowsToTxns(rows) {
+  rows = (rows || []).filter(function (r) { return Array.isArray(r) && r.some(function (c) { return c != null && String(c).trim() !== ''; }); });
+  var hi = -1, hdr = null;
+  for (var i = 0; i < rows.length; i++) {
+    var low = rows[i].map(function (c) { return String(c == null ? '' : c).toLowerCase(); });
+    if (low.some(function (h) { return /debit|withdrawal/.test(h); }) && low.some(function (h) { return /date|particular|narration|description/.test(h); })) { hi = i; hdr = low; break; }
+  }
+  if (hi < 0) return [];
+  var find = function () { var ks = [].slice.call(arguments); return hdr.findIndex(function (h) { return ks.some(function (k) { return h.indexOf(k) >= 0; }); }); };
+  var iDate = find('transaction date', 'txn date', 'date'), iDesc = find('particular', 'narration', 'description', 'remarks', 'details'),
+      iDr = find('debit', 'withdrawal'), iCr = find('credit', 'deposit'), iBal = find('balance');
+  var num = function (v) { var s = String(v == null ? '' : v).replace(/[^0-9.\-]/g, ''); return s ? parseFloat(s) || 0 : 0; };
+  var out = [];
+  rows.slice(hi + 1).forEach(function (r) {
+    var d = bcISO(iDate >= 0 ? r[iDate] : '');
+    if (!d) return;
+    var dr = iDr >= 0 ? num(r[iDr]) : 0, cr = iCr >= 0 ? num(r[iCr]) : 0;
+    if (!dr && !cr) return;
+    out.push({ d: d, dr: dr, cr: cr, bal: iBal >= 0 ? num(r[iBal]) : 0, n: String(iDesc >= 0 ? (r[iDesc] == null ? '' : r[iDesc]) : '').replace(/\s+/g, ' ').trim().slice(0, 170) });
+  });
+  return out;
+}
+
+// ── Storing (union by transaction — re-uploads and overlaps never double-count) ──
+function bsMerge(parsed) {
+  var cur = bsLoad(), byDay = {};
+  cur.forEach(function (t) { (byDay[t.d] = byDay[t.d] || []).push({ d: t.d, dr: t.dr, cr: t.cr, bal: t.bal, n: t.n }); });
+  var nbd = {}; parsed.tx.forEach(function (t) { (nbd[t.d] = nbd[t.d] || []).push(t); });
+  var added = 0, months = {};
+  Object.keys(nbd).forEach(function (d) {
+    var old = byDay[d] || [], oldK = {}, newK = {};
+    old.forEach(function (t) { oldK[bsKey(t)] = 1; });
+    nbd[d].forEach(function (t) { newK[bsKey(t)] = 1; });
+    var oldInNew = old.every(function (t) { return newK[bsKey(t)]; });
+    if (oldInNew) { nbd[d].forEach(function (t) { if (!oldK[bsKey(t)]) added++; }); byDay[d] = nbd[d]; }
+    else { nbd[d].forEach(function (t) { if (!oldK[bsKey(t)]) { old.push(t); added++; } }); byDay[d] = old; }
+    months[d.slice(0, 7).replace('-', '_')] = 1;
+  });
+  var list = []; Object.keys(byDay).sort().forEach(function (d) { list = list.concat(byDay[d]); });
+  try { localStorage.setItem(BS_KEY, JSON.stringify(list)); } catch (e) {}
+  if (typeof _db !== 'undefined' && _db) {
+    Object.keys(months).forEach(function (mk) {
+      syncOp('set', 'comedor/bankstmt/' + mk, list.filter(function (t) { return t.d.slice(0, 7).replace('-', '_') === mk; }).map(function (t) { return { d: t.d, dr: t.dr, cr: t.cr, bal: t.bal, n: t.n }; }));
+    });
+  }
+  var f = parsed.from || (parsed.tx[0] && parsed.tx[0].d), t2 = parsed.to || (parsed.tx.length && parsed.tx[parsed.tx.length - 1].d);
+  if (f && t2) {
+    var cov = bcCoverage(), key = f + '_' + t2;
+    if (!cov.some(function (c) { return c.f === f && c.t === t2; })) {
+      cov.push({ f: f, t: t2, by: (typeof currentUser !== 'undefined' && currentUser && currentUser.name) || '' });
+      try { localStorage.setItem(BCOV_KEY, JSON.stringify(cov)); } catch (e) {}
+      if (typeof _db !== 'undefined' && _db) syncOp('set', 'comedor/bankcov/' + key, cov[cov.length - 1]);
+    }
+  }
+  return { added: added, days: Object.keys(nbd).length };
+}
+function bcAck(key, amount) {
+  var a = bcAcks(); a[key] = { by: (currentUser && currentUser.name) || '', at: todayLocalISO(), amt: amount == null ? null : amount };
+  try { localStorage.setItem(BCHK_KEY, JSON.stringify(a)); } catch (e) {}
+  if (_db) syncOp('set', 'comedor/bankchk/' + key, a[key]);
+}
+function bcUnack(key) {
+  var a = bcAcks(); delete a[key];
+  try { localStorage.setItem(BCHK_KEY, JSON.stringify(a)); } catch (e) {}
+  if (_db) syncOp('remove', 'comedor/bankchk/' + key, null);
+}
+
+// ── The check itself ────────────────────────────────────────────────────────
+function bcDigitalCredit(t) { return t.cr > 0 && /PINE LABS|ZOMATO|SWIGGY|RAZORPAY|PAYTM|PHONEPE|CASHFREE|UPI\/CR/i.test(t.n); }
+function bcPayee(n) {
+  var s = String(n || '').replace(/\s+/g, ' ');
+  var m = s.match(/(?:OPM\/\d+\/|IMPS-? ?OPM\/\d+\/|NEFT\/ ?\S+\/|IMPS\/\d+\/|UPI\/DR\/\d+\/)\s*([A-Za-z0-9 .&'-]+?)\//);
+  return (m ? m[1] : s.slice(0, 40)).trim();
+}
+// Which bank rows/app rows count: everything dated after the statement base the app already carries.
+function bcBase() { var m = null; try { m = JSON.parse(localStorage.getItem('comedor_bankbal') || 'null'); } catch (e) {} return m && m.asOfISO ? m.asOfISO : ''; }
+
+function bcSubset(cands, target, tol) {
+  // 0/1 subset-sum over whole rupees; returns array of cand indexes (>=2) summing to target (within tol), else null
+  var T = Math.round(target); if (T < 1 || T > 2000000 || cands.length < 2) return null;
+  var amts = cands.map(function (c) { return Math.round(c.amt); });
+  var reach = new Int32Array(T + 1).fill(-1); reach[0] = cands.length;
+  for (var i = 0; i < amts.length; i++) {
+    var a = amts[i]; if (a < 1 || a > T) continue;
+    for (var s = T; s >= a; s--) if (reach[s] === -1 && reach[s - a] !== -1) reach[s] = i;
+  }
+  for (var best = T; best >= Math.max(1, T - tol); best--) {
+    if (reach[best] !== -1) {
+      var out = [], s2 = best;
+      while (s2 > 0) { var k = reach[s2]; out.push(k); s2 -= amts[k]; }
+      return out.length >= 2 ? { idx: out, diff: T - best } : null;
+    }
+  }
+  return null;
+}
+
+function bcCompute() {
+  var stmt = bsLoad(), base = bcBase();
+  var rawB = '', rawE = '', rawA = '';
+  try { rawB = localStorage.getItem('comedor_bank') || ''; rawE = localStorage.getItem('comedor_entries') || ''; rawA = localStorage.getItem(BCHK_KEY) || ''; } catch (e) {}
+  var sig = [stmt.length, stmt.length ? stmt[stmt.length - 1].k : '', rawB.length, rawE.length, rawA.length, base, todayLocalISO()].join('|');
+  if (_bcMemo.sig === sig) return _bcMemo.res;
+  var res = { empty: !stmt.length, base: base, S: '', last: '', closing: null, items: [], matched: 0, ignored: 0, days: [], tally: null, pending: 0, behind: 0, ahead: 0, pendingFuture: 0 };
+  if (!stmt.length) { _bcMemo = { sig: sig, res: res }; return res; }
+  var S = base ? bcAddDays(base, 1) : stmt[0].d;
+  res.S = S; res.last = stmt[stmt.length - 1].d; res.closing = stmt[stmt.length - 1].bal;
+  var acks = bcAcks();
+  var bd = [], bc = [], bdig = [], bdep = [], brev = [];
+  stmt.forEach(function (t) {
+    if (t.d < S) return;
+    var amt = t.dr || t.cr;
+    if (amt <= 1) { res.ignored++; return; }                       // ₹1 bank test transfers
+    if (t.dr) bd.push({ t: t, d: t.d, amt: t.dr });
+    else if (/NEFT RETURN|(^|\s)REV\//i.test(t.n)) brev.push({ t: t, d: t.d, amt: t.cr });
+    else if (bcDigitalCredit(t)) bdig.push(t);
+    else if (/CASH DEPOSIT/i.test(t.n)) bdep.push({ t: t, d: t.d, amt: t.cr });
+    else bc.push({ t: t, d: t.d, amt: t.cr });
+  });
+  // bank reversals cancel the debit they undo
+  brev.forEach(function (r) {
+    for (var i = 0; i < bd.length; i++) if (Math.abs(bd[i].amt - r.amt) < 0.5 && bd[i].d <= r.d && bcDaysBetween(bd[i].d, r.d) <= 10) { bd.splice(i, 1); res.ignored += 2; return; }
+    bc.push(r);
+  });
+  // the app's side
+  var ad = [], ac = [], adep = [];
+  loadBankEntries().forEach(function (b) {
+    if (!b || !b.date || b.date < S) return;
+    if (b.direct) return;
+    if (b.payout && b.source === 'cash') return;
+    var o = { id: b.id, d: b.date, amt: Number(b.amount) || 0, cat: b.category || '', desc: b.desc || '', who: b.addedBy || '', b: b };
+    if (b.capital) ac.push(o); else ad.push(o);
+  });
+  var digExp = {}, futureDue = 0, entries = loadEntries();
+  entries.forEach(function (e) {
+    if (!e || !e.date) return;
+    (e.expenses || []).forEach(function (x) { if (isCashDeposit(x) && e.date >= S) adep.push({ id: 'dep_' + e.date + '_' + Math.round((parseFloat(x.amount) || 0) * 100), d: e.date, amt: parseFloat(x.amount) || 0, cat: 'CASH DEPOSIT', desc: x.desc || '', who: e.addedBy || '' }); });
+    var dig = (Number(e.upi) || 0) + (Number(e.card) || 0); if (!dig) return;
+    var sd = digitalSettleISO(e.date);
+    if (sd < S) return;
+    if (sd > res.last) futureDue += dig; else digExp[sd] = (digExp[sd] || 0) + dig;
+  });
+  // pass 1 — one-to-one, same amount, nearest date within ±4 days
+  var matchPass = function (apps, banks, win) {
+    apps.sort(function (a, b) { return a.d < b.d ? -1 : 1; });
+    var left = [];
+    apps.forEach(function (a) {
+      var best = -1, bestD = 1e9;
+      banks.forEach(function (b, i) { if (b.used) return; if (Math.abs(b.amt - a.amt) >= 0.5) return; var dd = Math.abs(bcDaysBetween(a.d, b.d)); if (dd <= win && dd < bestD) { best = i; bestD = dd; } });
+      if (best >= 0) { banks[best].used = true; res.matched++; } else left.push(a);
+    });
+    return left;
+  };
+  var adLeft = matchPass(ad, bd, 4);
+  // pass 2 — one app entry paid as several bank transfers (salary batches, service charge)
+  var narrowPool = function (a, pool) {
+    var txt = (a.cat + ' ' + a.desc).toUpperCase(), f = [];
+    var has = function (b, re) { return re.test(b.t.n.toUpperCase().replace(/\s+/g, '')); };
+    if (/SALARY/.test(txt)) f.push(function (b) { return has(b, /SALARY/); });
+    if (/SERVICE CHARGE|\bSC\b/.test(txt)) f.push(function (b) { return has(b, /SC(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)/); });
+    if (/ADVANCE|\bADV\b/.test(txt)) f.push(function (b) { return has(b, /ADV/); });
+    if (/GST/.test(txt)) f.push(function (b) { return has(b, /GST/); });
+    if (/RENT/.test(txt)) f.push(function (b) { return has(b, /RENT/); });
+    return f.length ? pool.filter(function (b) { return f.some(function (fn) { return fn(b); }); }) : [];
+  };
+  var adLeft2 = [];
+  adLeft.sort(function (a, b) { return b.amt - a.amt; }).forEach(function (a) {
+    if (a.amt < 3000) { adLeft2.push(a); return; }
+    var pool = bd.filter(function (b) { return !b.used && b.d >= bcAddDays(a.d, -3) && b.d <= bcAddDays(a.d, 12); });
+    var narrow = narrowPool(a, pool), sub = null, use = null;
+    if (narrow.length >= 2) { sub = bcSubset(narrow.slice(0, 80), a.amt, 150); use = narrow; }
+    if (!sub && pool.length >= 2 && pool.length <= 14) { sub = bcSubset(pool, a.amt, 0); use = pool; }
+    if (sub) { sub.idx.forEach(function (k) { use[k].used = true; }); res.matched++; } else adLeft2.push(a);
+  });
+  var bcLeft = matchPass(ac, bc, 5), depLeft = matchPass(adep, bdep, 5);
+  var unBD = bd.filter(function (b) { return !b.used; }), unBC = bc.filter(function (b) { return !b.used; }), unDEP = bdep.filter(function (b) { return !b.used; });
+
+  var add = function (kind, key, date, amt, title, sub, extra) {
+    var ak = acks[key];
+    res.items.push(Object.assign({ kind: kind, key: key, d: date, amt: amt, title: title, sub: sub, ack: ak || null }, extra || {}));
+  };
+  unBD.forEach(function (b) { add('bankOut', b.t.k, b.d, b.amt, bcPayee(b.t.n), b.t.n, { payee: bcPayee(b.t.n) }); });
+  adLeft2.forEach(function (a) { add('appOut', 'app_' + a.id, a.d, a.amt, (a.cat ? a.cat + ' · ' : '') + (a.desc || ''), 'Entered by ' + (a.who || '—'), {}); });
+  unBC.forEach(function (b) { add('bankIn', b.t.k, b.d, b.amt, bcPayee(b.t.n) || 'Money in', b.t.n, {}); });
+  bcLeft.forEach(function (a) { add('appIn', 'app_' + a.id, a.d, a.amt, 'Capital in · ' + (a.desc || a.cat || ''), 'Entered by ' + (a.who || '—'), {}); });
+  unDEP.forEach(function (b) { add('bankIn', b.t.k, b.d, b.amt, 'Cash deposit', b.t.n, {}); });
+  depLeft.forEach(function (a) { add('appIn', a.id, a.d, a.amt, 'Cash deposit in the Cash tab', 'No such deposit on the statement', {}); });
+
+  // card/UPI sales vs what the bank received (cumulative since the base)
+  var exp = 0, act = 0, rows = {};
+  Object.keys(digExp).forEach(function (d) { exp += digExp[d]; rows[d] = rows[d] || { exp: 0, act: 0 }; rows[d].exp += digExp[d]; });
+  bdig.forEach(function (t) { act += t.cr; rows[t.d] = rows[t.d] || { exp: 0, act: 0 }; rows[t.d].act += t.cr; });
+  var diff = Math.round((act - exp) * 100) / 100;
+  res.tally = { exp: exp, act: act, diff: diff, rows: rows };
+  res.pendingFuture = futureDue;
+  res.behind = diff < 0 ? -diff : 0;
+  res.ahead = diff > 0 ? diff : 0;
+  res.pending = res.pendingFuture + res.behind;
+  var tk = acks.tally;
+  if (res.ahead > 0 && (!tk || Math.abs(res.ahead - (tk.amt || 0)) > 5000)) add('tallyAhead', 'tally', res.last, res.ahead, 'Bank received more card/UPI money than the sales register shows', 'Since ' + bcFmtDate(S) + ': bank ₹' + Math.round(act).toLocaleString('en-IN') + ' vs register ₹' + Math.round(exp).toLocaleString('en-IN') + '. Late-settled earlier sales, or sales missing from the register?', {});
+  // day-by-day
+  var dayMap = {};
+  var touch = function (d) { return dayMap[d] || (dayMap[d] = { d: d, open: 0, bal: null }); };
+  stmt.forEach(function (t) { if (t.d >= S) touch(t.d).bal = t.bal; });
+  res.items.forEach(function (it) { if (it.kind !== 'tallyAhead' && !it.ack) touch(it.d).open++; });
+  res.days = Object.keys(dayMap).sort().map(function (d) { return dayMap[d]; });
+  _bcMemo = { sig: sig, res: res };
+  return res;
+}
+
+// Bank figure for the dashboard: the statement's own closing balance, then anything the
+// app knows happened after the statement's last day.
+function bcStatementPosition() {
+  var st = bsLoad(); if (!st.length) return null;
+  var last = st[st.length - 1], base = bcBase();
+  if (base && last.d < base) return null;      // statement older than the app's stored base — ignore it
+  return { lastDate: last.d, closing: last.bal };
+}
+
+// ── Uploading ───────────────────────────────────────────────────────────────
+function bcHint(firstDate) {
+  var l = bsLoad(), h = null;
+  for (var i = 0; i < l.length; i++) { if (l[i].d < firstDate) h = l[i].bal; else break; }
+  return h;
+}
+async function bcReadFile(file) {
+  var name = (file.name || '').toLowerCase();
+  if (name.endsWith('.pdf') || file.type === 'application/pdf') {
+    if (!window.pdfjsLib) throw new Error('PDF reader not loaded — check your connection and retry.');
+    setupPdfWorker();
+    var pdf = await window.pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise, lines = [];
+    for (var pg = 1; pg <= pdf.numPages; pg++) {
+      var tc = await (await pdf.getPage(pg)).getTextContent(), bk = [];
+      tc.items.forEach(function (it) {
+        if (!it.str || !it.str.trim()) return;
+        var y = it.transform[5], b = bk.find(function (q) { return Math.abs(q.y - y) < 3.2; });
+        if (!b) { b = { y: y, items: [] }; bk.push(b); }
+        b.items.push({ x: it.transform[4], s: it.str });
+      });
+      bk.sort(function (a, b) { return b.y - a.y; });
+      bk.forEach(function (b) { b.items.sort(function (p, q) { return p.x - q.x; }); lines.push(b.items.map(function (i) { return i.s; }).join(' ')); });
+    }
+    var p = bcParseIDFCLines(lines, null);
+    if (p.tx.length) { var h = bcHint(p.tx[0].d); if (h != null) p = bcParseIDFCLines(lines, h); }
+    return p;
+  }
+  if (name.endsWith('.xlsx') || name.endsWith('.xls') || /spreadsheet|excel/.test(file.type || '')) {
+    if (!window.XLSX) throw new Error('Excel reader not loaded — check your connection and retry.');
+    var wb = XLSX.read(await file.arrayBuffer(), { type: 'array' }), best = null;
+    wb.SheetNames.forEach(function (nm) {
+      var q = bcParseRows(XLSX.utils.sheet_to_json(wb.Sheets[nm], { header: 1, raw: false, defval: '' }));
+      if (q.tx.length && (!best || q.tx.length > best.tx.length)) best = q;
+    });
+    return best || { tx: [] };
+  }
+  var text = await file.text();
+  var rows = text.split(/\r?\n/).filter(function (r) { return r.trim(); }).map(function (r) { return (r.match(/("([^"]|"")*"|[^,]*)(,|$)/g) || []).map(function (c) { return c.replace(/,$/, '').replace(/^"|"$/g, '').replace(/""/g, '"').trim(); }); });
+  return bcParseRows(rows);
+}
+async function bcHandleFile(input) {
+  var file = input.files && input.files[0]; if (!file) return;
+  var msg = document.getElementById('bc-msg'), btn = document.getElementById('bc-upload-btn');
+  if (msg) msg.innerHTML = '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Reading…'; }
+  try {
+    var parsed = await bcReadFile(file);
+    if (!parsed.tx.length) throw new Error('Couldn\'t find any transactions in this file. Use the statement PDF, Excel or CSV downloaded from IDFC net-banking (not a scanned picture).');
+    var r = bsMerge(parsed);
+    renderBankCheck(); renderActivePanel();
+    btnFlash('bc-upload-btn', 'Saving…', 'Loaded ✓ ' + r.added + ' new', 'Upload bank statement');
+    if (parsed.breaks && msg) msg.innerHTML = '<div class="bc-err">' + parsed.breaks + ' row(s) in this file didn\'t add up against the running balance, so they may be misread. Check the list below.</div>';
+  } catch (e) {
+    if (btn) { btn.disabled = false; btn.textContent = 'Upload bank statement'; }
+    if (msg) msg.innerHTML = '<div class="bc-err">' + esc(e && e.message || String(e)) + '</div>';
+  }
+  input.value = '';
+}
+
+// ── Showing the check ───────────────────────────────────────────────────────
+function bcMissingRanges(r) {
+  if (r.empty) return [];
+  var cov = bcCoverage(), have = {};
+  bsLoad().forEach(function (t) { have[t.d] = 1; });
+  var yest = bcAddDays(todayLocalISO(), -1), out = [], cur = null;
+  for (var d = r.S; d <= yest; d = bcAddDays(d, 1)) {
+    var ok = have[d] || cov.some(function (c) { return d >= c.f && d <= c.t; });
+    if (!ok) { if (cur) cur.t = d; else { cur = { f: d, t: d }; out.push(cur); } } else cur = null;
+  }
+  return out;
+}
+function bcTag(n) {
+  var u = String(n || '').toUpperCase().replace(/\s+/g, '');
+  if (/SALARY/.test(u)) return 'Salaries';
+  if (/ADV/.test(u)) return 'Staff advances';
+  if (/SC(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)/.test(u)) return 'Service charge';
+  return '';
+}
+var BC_TITLES = {
+  bankOut: ['Paid from the bank — not in the app', 'red'],
+  appOut: ['In the app — not paid from the bank', 'red'],
+  bankIn: ['Money into the bank — not in the app', 'green'],
+  appIn: ['In the app as money in — not in the bank', 'green'],
+  tallyAhead: ['Card / UPI sales vs bank', 'green']
+};
+function bcItemHTML(it, reviewed) {
+  var color = (it.kind === 'bankOut' || it.kind === 'appOut') ? 'var(--red)' : 'var(--green)';
+  var keys = it.keys || [it.key];
+  var acts = reviewed
+    ? '<button class="bc-btn" onclick="bcUndo(\'' + keys.join(',') + '\')">Undo</button>'
+    : (it.kind === 'bankOut' && !it.keys ? '<button class="bc-btn" onclick="bcAddToApp(\'' + it.key + '\')">Add to app</button>' : '') +
+      '<button class="bc-btn bc-btn-main" id="bc-rv-' + keys[0].replace(/[^A-Za-z0-9_]/g, '') + '" onclick="bcReview(this,\'' + keys.join(',') + '\',' + (it.kind === 'tallyAhead' ? Math.round(it.amt) : 'null') + ')">Reviewed ✓</button>';
+  var who = reviewed && it.ack ? '<div class="bc-sub">Reviewed by ' + esc(it.ack.by || '—') + (it.ack.at ? ' · ' + esc(bcFmtShort(it.ack.at)) : '') + '</div>' : '';
+  return '<div class="bc-item"><div class="bc-top"><span class="bc-date">' + esc(it.dateLabel || bcFmtShort(it.d)) + '</span><span class="bc-amt" style="color:' + color + ';">' + bcInr(it.amt) + '</span></div>' +
+    '<div class="bc-title">' + esc(it.title) + '</div>' + (it.sub && it.sub !== it.title ? '<div class="bc-sub">' + esc(String(it.sub).slice(0, 110)) + '</div>' : '') + who + '<div class="bc-acts">' + acts + '</div></div>';
+}
+function renderBankCheck() {
+  var host = document.getElementById('bankcheck-dyn'); if (!host) return;
+  var r = bcCompute(), h = '';
+  var badge = document.getElementById('bc-badge');
+  if (r.empty) {
+    if (badge) badge.textContent = 'upload';
+    host.innerHTML = '<div class="bc-sub" style="margin-top:12px;">No statement loaded yet. Upload the IDFC statement and the app will line every bank payment and receipt up against its own entries, day by day.</div>';
+    return;
+  }
+  var open = r.items.filter(function (i) { return !i.ack; }), done = r.items.filter(function (i) { return i.ack; });
+  if (badge) badge.textContent = open.length ? open.length + ' to check' : 'all matched ✓';
+  // position
+  h += '<div class="bc-pos"><div class="bc-row"><span>Bank balance · statement of ' + esc(bcFmtDate(r.last)) + '</span><b>' + bcInr(r.closing) + '</b></div>';
+  h += '<div class="bc-row"><span>Card / UPI sales yet to be credited</span><b>' + (r.pending > 0 ? bcInr(r.pending) : '₹0') + '</b></div></div>';
+  var gaps = bcMissingRanges(r), age = bcDaysBetween(r.last, todayLocalISO());
+  if (gaps.length) h += '<div class="bc-warn">No statement loaded for ' + gaps.map(function (g) { return g.f === g.t ? bcFmtDate(g.f) : bcFmtShort(g.f) + ' – ' + bcFmtDate(g.t); }).join(', ') + '. Upload a statement that covers ' + (gaps.length > 1 ? 'those days' : 'that day') + ' — anything missed is picked up from the next upload.</div>';
+  else if (age > 1) h += '<div class="bc-warn">The latest statement day loaded is ' + esc(bcFmtDate(r.last)) + ' (' + age + ' days ago). Upload the latest one.</div>';
+  // group salary-like bank payments made on one day
+  var bankOut = open.filter(function (i) { return i.kind === 'bankOut'; }), singles = [], groups = {};
+  bankOut.forEach(function (i) { var tg = bcTag(i.sub); if (tg) { var k = i.d + '|' + tg; (groups[k] = groups[k] || []).push(i); } else singles.push(i); });
+  var rowsOut = singles.slice();
+  Object.keys(groups).forEach(function (k) {
+    var g = groups[k];
+    if (g.length < 3) { g.forEach(function (i) { rowsOut.push(i); }); return; }
+    var tot = g.reduce(function (a, i) { return a + i.amt; }, 0);
+    rowsOut.push({ kind: 'bankOut', key: g[0].key, keys: g.map(function (i) { return i.key; }), d: g[0].d, amt: tot, title: k.split('|')[1] + ' · ' + g.length + ' payments', sub: g.map(function (i) { return i.title; }).join(', ') });
+  });
+  rowsOut.sort(function (a, b) { return a.d < b.d ? 1 : -1; });
+  var sect = function (kind, list) {
+    if (!list.length) return '';
+    var t = BC_TITLES[kind], tot = list.reduce(function (a, i) { return a + i.amt; }, 0);
+    list = list.slice().sort(function (a, b) { return a.d < b.d ? 1 : -1; });
+    return '<div class="bc-sec"><span>' + t[0] + '</span><span class="bc-cnt">' + list.length + ' · ' + bcInr(tot) + '</span></div>' + list.map(function (i) { return bcItemHTML(i, false); }).join('');
+  };
+  h += sect('bankOut', rowsOut) + sect('appOut', open.filter(function (i) { return i.kind === 'appOut'; })) + sect('bankIn', open.filter(function (i) { return i.kind === 'bankIn'; })) +
+       sect('appIn', open.filter(function (i) { return i.kind === 'appIn'; })) + sect('tallyAhead', open.filter(function (i) { return i.kind === 'tallyAhead'; }));
+  if (!open.length) h += '<div class="bc-ok">Everything on the statement from ' + esc(bcFmtDate(r.S)) + ' onwards is matched to an app entry (or reviewed). ✓</div>';
+  // day by day
+  var days = r.days.slice(-10).reverse();
+  h += '<details class="bc-det"><summary>Day by day · last ' + days.length + ' bank days</summary>' + days.map(function (d) {
+    return '<div class="bc-day"><span>' + esc(bcFmtShort(d.d)) + '</span><span>' + (d.open ? '<b style="color:var(--red);">⚠ ' + d.open + ' to check</b>' : '<span style="color:var(--green);">✓ matched</span>') + '</span><span class="bc-amt">' + (d.bal != null ? bcInr(d.bal) : '') + '</span></div>';
+  }).join('') + '</details>';
+  // card/UPI settlement detail
+  if (r.tally) {
+    var tr = Object.keys(r.tally.rows).sort().slice(-10).reverse();
+    h += '<details class="bc-det"><summary>Card / UPI: sales vs bank receipts · last ' + tr.length + ' days</summary><div class="bc-sub" style="margin:6px 0;">Card/UPI sales reach the bank the next day (Sunday\'s on Monday). Since ' + esc(bcFmtDate(r.S)) + ': register ' + bcInr(r.tally.exp) + ' · bank received ' + bcInr(r.tally.act) + '.</div>' +
+      tr.map(function (d) { var x = r.tally.rows[d]; return '<div class="bc-day"><span>' + esc(bcFmtShort(d)) + '</span><span class="bc-sub">due ' + bcInr(x.exp) + '</span><span class="bc-amt">got ' + bcInr(x.act) + '</span></div>'; }).join('') + '</details>';
+  }
+  if (done.length) {
+    h += '<details class="bc-det"><summary>Reviewed by a partner · ' + done.length + '</summary>' + done.slice().sort(function (a, b) { return a.d < b.d ? 1 : -1; }).map(function (i) { return bcItemHTML(i, true); }).join('') + '</details>';
+  }
+  host.innerHTML = h;
+}
+function bcReview(btn, keys, amt) {
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; setTimeout(function () { btn.textContent = 'Saved ✓'; }, 250); }
+  keys.split(',').forEach(function (k) { bcAck(k, amt); });
+  setTimeout(renderBankCheck, 700);
+}
+function bcUndo(keys) { keys.split(',').forEach(bcUnack); renderBankCheck(); }
+function bcAddToApp(key) {
+  var it = bcCompute().items.filter(function (i) { return i.key === key; })[0]; if (!it) return;
+  var card = document.getElementById('setcard-bankexp');
+  if (card && card.classList.contains('collapsed')) toggleSet('bankexp');
+  var d = document.getElementById('be-date'); if (d) d.value = it.d;
+  setMoney('be-amount', it.amt);
+  var ds = document.getElementById('be-desc'); if (ds) ds.value = (it.payee || it.title || '').toUpperCase();
+  if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 // ─── PEOPLE / ACCESS MANAGEMENT (Partners) ───────────────────────────────────
