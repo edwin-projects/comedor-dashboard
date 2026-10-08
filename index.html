@@ -212,12 +212,13 @@
   .tile-income .card-value, .tile-exp .card-value, .tile-avail .card-value, .tile-upc .card-value { font-size:30px; }
   .tile-avail .card-value { color:#4d9de0; }
   .bal-rows { margin-top:12px; border-top:1px solid var(--border); padding-top:6px; }
-  .bal-row { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; padding:5px 0; font-size:12.5px; color:var(--text2); font-family:'Inter',sans-serif; line-height:1.3; }
-  .bal-row small { display:block; font-size:10.5px; color:var(--text3); margin-top:1px; }
-  .bal-row b { font-family:var(--num-font); font-size:15px; font-weight:600; color:var(--text); white-space:nowrap; }
+  .bal-row { display:flex; justify-content:space-between; align-items:flex-start; gap:6px; padding:5px 0; font-size:11.5px; color:var(--text2); font-family:'Inter',sans-serif; line-height:1.3; }
+  .bal-row span { white-space:nowrap; }
+  .bal-row small { display:block; white-space:nowrap; font-size:10px; color:var(--text3); margin-top:1px; }
+  .bal-row b { font-family:var(--num-font); font-size:14px; font-weight:600; color:var(--text); white-space:nowrap; }
   .bal-row b.bal-pos { color:var(--green); }
-  .bal-asof { font-size:10.5px; color:var(--text3); margin-top:6px; font-family:'Inter',sans-serif; }
-  .bal-asof.bal-old { color:var(--accent2); }
+  .bal-asof { font-size:10px; white-space:nowrap; color:var(--text3); margin-top:6px; font-family:'Inter',sans-serif; }
+  .bal-asof.bal-old { color:var(--accent2); white-space:normal; }
   .tile-disc .card-value { color:var(--accent2); }
   .card-sub { font-size: 11px; color: var(--text3); margin-top: 5px; font-family: 'Inter', sans-serif; overflow: hidden; }
   /* Tile sub-lines: two-column grid so every figure starts at the same x. */
@@ -1631,7 +1632,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-10-08-8';
+const APP_VERSION = '2026-10-08-9';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -5726,7 +5727,7 @@ function renderPnlBank() {
     </div>
     ${monthlySalesChartHtml(range)}
     <div class="cards2">
-      <div class="card card-click tile-avail" onclick="focusLog('bank')"><div class="card-label">Bank Balance</div><div class="card-value">${inr(bankBal||0)}</div><div class="bal-rows"><div class="bal-row"><span>+ Cash in hand</span><b>${inr(cashBal)}</b></div><div class="bal-row"><span>+ Yet to be credited<small>to bank · card / UPI sales</small></span><b class="${bankPending > 0 ? 'bal-pos' : ''}">${inr(bankPending)}</b></div></div>${bankSplit && bankSplit.asOf ? `<div class="bal-asof${bcDaysBetween(bankSplit.asOf, todayLocalISO()) > 1 ? ' bal-old' : ''}">Bank per statement of ${bcFmtDate(bankSplit.asOf)}${bcDaysBetween(bankSplit.asOf, todayLocalISO()) > 1 ? ' — upload the latest' : ''}</div>` : ''}${cashOpen ? `<div class="tile-warn warn-amber" role="button" tabindex="0" title="Cash not closed — enter the closing count for ${lastCashEntry ? dChip(lastCashEntry.date) : ''}" onclick="event.stopPropagation(); goCloseCash('${lastCashEntry ? lastCashEntry.date : ''}')">ⓘ Cash not closed · ${lastCashEntry ? dChip(lastCashEntry.date) : ''}</div>` : ''}</div>
+      <div class="card card-click tile-avail" onclick="focusLog('bank')"><div class="card-label">Bank Balance</div><div class="card-value">${inr(bankBal||0)}</div><div class="bal-rows"><div class="bal-row"><span>+ Cash in hand</span><b>${inr(cashBal)}</b></div><div class="bal-row"><span>+ Yet to be credited<small>to bank · card / UPI</small></span><b class="${bankPending > 0 ? 'bal-pos' : ''}">${inr(bankPending)}</b></div></div>${bankSplit && bankSplit.asOf ? `<div class="bal-asof${bcDaysBetween(bankSplit.asOf, todayLocalISO()) > 1 ? ' bal-old' : ''}">Statement of ${bcFmtDate(bankSplit.asOf)}${bcDaysBetween(bankSplit.asOf, todayLocalISO()) > 1 ? ' · upload latest' : ''}</div>` : ''}${cashOpen ? `<div class="tile-warn warn-amber" role="button" tabindex="0" title="Cash not closed — enter the closing count for ${lastCashEntry ? dChip(lastCashEntry.date) : ''}" onclick="event.stopPropagation(); goCloseCash('${lastCashEntry ? lastCashEntry.date : ''}')">ⓘ Cash not closed · ${lastCashEntry ? dChip(lastCashEntry.date) : ''}</div>` : ''}</div>
       <div class="card card-click tile-upc" onclick="toggleUpcoming(event)"><div class="card-label">Upcoming Expenses</div><div class="card-value ${(!fc.pastPeriod && !upcCovered && fc.expected>0)?'upc-neg':''}">${fc.pastPeriod ? '—' : inr(fc.expected)}</div><div class="card-sub">${upcTileSub}</div>${upcWarn}</div>
     </div>
     <div class="card upc-detail" id="upc-detail" style="display:${_upcOpen ? 'block' : 'none'};">
