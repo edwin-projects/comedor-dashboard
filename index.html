@@ -1426,6 +1426,15 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
     </div>
   </div>
 
+  <!-- Audit export (Excel) -->
+  <div class="setcard collapsed tint-gold" id="setcard-auditx">
+    <div class="setcard-head" onclick="toggleSet('auditx')"><span class="setcard-title">Audit export (Excel)</span><span class="setcard-chev">▾</span></div>
+    <div class="setcard-body">
+      <p class="exp-note">Downloads one Excel file with everything needed to reconcile this app against the IDFC bank statement: the balance workings, every bank entry (with whether it moves the balance), the daily cash register, cash-register expense lines, Pet Pooja income, and a day-by-day balance walk. Share it only with people who should see the books.</p>
+      <button id="audit-export-btn" class="btn" style="width:100%; padding:12px;" onclick="downloadAuditExcel()">Download audit Excel</button>
+    </div>
+  </div>
+
   <!-- Backups & Restore -->
   <div class="setcard collapsed tint-teal" id="setcard-backups">
     <div class="setcard-head" onclick="toggleSet('backups')"><span class="setcard-title">Backups &amp; Restore</span><span class="setcard-chev">▾</span></div>
@@ -1559,7 +1568,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-07-19-32';
+const APP_VERSION = '2026-10-08-1';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -4539,6 +4548,95 @@ function downloadCSV() {
   a.download = `comedor-cash-${currentDashFilter}-${todayLocalISO()}.csv`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+// ─── AUDIT EXPORT (Excel) ────────────────────────────────────────────────────
+// One workbook for reconciling the app against the bank statement. It mirrors
+// computeBankBalance() line by line, so each row says whether it moves the
+// displayed balance and by how much.
+function downloadAuditExcel() {
+  const rest = 'Download audit Excel';
+  if (!window.XLSX) { alert('Excel writer not loaded — check your connection and retry.'); return; }
+  btnFlash('audit-export-btn', 'Preparing…', 'Downloaded ✓', rest);
+  try {
+    const num = function (v) { return Number(v) || 0; };
+    const dt = function (iso) { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || ''); return m ? new Date(+m[1], +m[2] - 1, +m[3], 12) : (iso || ''); };
+    const MONEY = '[>=100000]##\\,##\\,##0.00;[<=-100000]-##\\,##\\,##0.00;#,##0.00', DATE = 'dd mmmm yyyy';
+    let meta = null; try { meta = JSON.parse(localStorage.getItem('comedor_bankbal') || 'null'); } catch (e) {}
+    const baseISO = meta && meta.asOfISO || null, base = meta ? num(meta.amount) : 0;
+    const bank = loadBankEntries().slice().sort(function (a, b) { return (a.date || '').localeCompare(b.date || ''); });
+    const cash = loadEntries().slice().sort(function (a, b) { return (a.date || '').localeCompare(b.date || ''); });
+    const income = loadIncome().slice().sort(function (a, b) { return (a.from || '').localeCompare(b.from || ''); });
+    const day = {};
+    const D = function (iso) { return day[iso] || (day[iso] = { bank: 0, digital: 0, dep: 0 }); };
+
+    // Bank entries — effect on the displayed balance, exactly as computeBankBalance() applies it.
+    const bankRows = bank.map(function (b) {
+      let effect = 0, why = '';
+      if (b.direct) why = 'Partner-direct spend: never touched the account';
+      else if (b.payout && b.source === 'cash') why = 'Cash drawing: never touched the account';
+      else if (baseISO && b.date <= baseISO) why = 'On/before statement date: already in the base balance';
+      else { effect = (b.capital ? 1 : -1) * num(b.amount); why = b.capital ? 'Capital in: adds to balance' : (b.payout ? 'IDFC drawing: lowers balance' : 'Expense: lowers balance'); D(b.date).bank += effect; }
+      const kind = b.capital ? 'Capital' : b.payout ? 'Partner money out' : b.direct ? 'Partner-direct spend' : 'Expense';
+      return [dt(b.date), kind, b.category || '', num(b.amount), effect, why, b.desc || '', b.partner || '', b.addedBy || '', b.editedBy || '', b.id || ''];
+    });
+
+    // Cash register — UPI + card are credited to the bank in the displayed balance; cash deposits too.
+    const cashRows = cash.map(function (e) {
+      const inBal = !(baseISO && e.date <= baseISO);
+      const dig = num(e.upi) + num(e.card);
+      let dep = 0; (e.expenses || []).forEach(function (x) { if (isCashDeposit(x)) dep += num(x.amount); });
+      if (inBal) { D(e.date).digital += dig; D(e.date).dep += dep; }
+      return [dt(e.date), num(e.opening), num(e.cash), num(e.upi), num(e.card), num(e.totalSales), num(e.totalExpenses), num(e.closing), inBal ? dig : 0, inBal ? dep : 0, inBal ? 'Yes' : 'No (on/before statement date)', e.addedBy || '', e.editedBy || ''];
+    });
+    const lineRows = [];
+    cash.forEach(function (e) { (e.expenses || []).forEach(function (x) { lineRows.push([dt(e.date), x.category || '', num(x.amount), isCashDeposit(x) ? 'Yes (credits bank)' : 'No', x.desc || '', e.addedBy || '']); }); });
+
+    // Day-by-day walk of the displayed balance.
+    let run = base;
+    const walkRows = Object.keys(day).sort().map(function (iso) {
+      const d = day[iso], net = d.bank + d.digital + d.dep; run += net;
+      return [dt(iso), d.bank, d.digital, d.dep, net, run];
+    });
+    let capIn = 0, expOut = 0, drawOut = 0;
+    bankRows.forEach(function (r, i) { const b = bank[i]; if (r[4] > 0) capIn += r[4]; else if (r[4] < 0) { if (b.payout) drawOut -= r[4]; else expOut -= r[4]; } });
+    const digTot = walkRows.reduce(function (a, r) { return a + r[2]; }, 0), depTot = walkRows.reduce(function (a, r) { return a + r[3]; }, 0);
+    const shown = computeBankBalance();
+    const summary = [
+      ['Item', 'Amount (₹)', 'Note'],
+      ['Statement base balance', base, meta ? 'As of ' + (meta.asOf || meta.asOfISO || '') + ' — ' + (meta.by || '') : 'No base set'],
+      ['+ Capital in after base', capIn, ''],
+      ['− Expenses out after base', -expOut, 'Bank entries dated after the base date'],
+      ['− IDFC partner drawings after base', -drawOut, ''],
+      ['+ UPI + card sales from cash register after base', digTot, 'The app assumes these reached the bank the same day, at gross value'],
+      ['+ Cash deposits after base', depTot, ''],
+      ['= Balance computed by this export', base + capIn - expOut - drawOut + digTot + depTot, ''],
+      ['Balance the app shows (computeBankBalance)', shown == null ? '' : shown, 'Should equal the line above'],
+      ['Bank entries / cash days / income records', bank.length + ' / ' + cash.length + ' / ' + income.length, ''],
+      ['Exported on', new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }), 'by ' + ((currentUser && currentUser.name) || '')]
+    ];
+    const incRows = income.map(function (r) { return [dt(r.from), dt(r.to), num(r.gross), num(r.tax), num(r.discount), r.source || '', r.uploadedBy || '', r.id || '']; });
+
+    const wb = XLSX.utils.book_new();
+    const add = function (name, head, rows, widths, fmts) {
+      const ws = XLSX.utils.aoa_to_sheet([head].concat(rows), { cellDates: true });
+      const ref = XLSX.utils.decode_range(ws['!ref']);
+      for (let R = 1; R <= ref.e.r; R++) for (let C = 0; C <= ref.e.c; C++) {
+        const c = ws[XLSX.utils.encode_cell({ r: R, c: C })]; if (!c) continue;
+        if (fmts[C] === 'd' && c.t === 'd') c.z = DATE; else if (fmts[C] === 'm' && c.t === 'n') c.z = MONEY;
+      }
+      ws['!cols'] = widths.map(function (w) { return { wch: w }; });
+      ws['!freeze'] = { xSplit: 0, ySplit: 1 };
+      XLSX.utils.book_append_sheet(wb, ws, name);
+    };
+    add('Balance check', summary[0], summary.slice(1), [48, 20, 70], ['', 'm', '']);
+    add('Bank entries', ['Date', 'Kind', 'Category', 'Amount', 'Effect on balance', 'Why', 'Description', 'Partner', 'Added by', 'Edited by', 'ID'], bankRows, [18, 18, 20, 16, 18, 48, 70, 14, 16, 16, 14], ['d', '', '', 'm', 'm', '', '', '', '', '', '']);
+    add('Cash register', ['Date', 'Opening', 'Cash sales', 'UPI', 'Card', 'Total sales', 'Expenses', 'Closing', 'UPI+Card credited to bank', 'Cash deposits to bank', 'Counted in balance?', 'Added by', 'Edited by'], cashRows, [18, 14, 14, 14, 14, 14, 14, 14, 20, 18, 28, 16, 16], ['d', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'm', '', '', '']);
+    add('Cash expense lines', ['Date', 'Category', 'Amount', 'Cash deposit?', 'Description', 'Added by'], lineRows, [18, 26, 14, 18, 60, 16], ['d', '', 'm', '', '', '']);
+    add('Balance walk', ['Date', 'Bank entries', 'UPI+Card credited', 'Cash deposits', 'Net for day', 'Running balance (as app computes)'], walkRows, [18, 16, 18, 16, 16, 30], ['d', 'm', 'm', 'm', 'm', 'm']);
+    add('Income (Pet Pooja)', ['From', 'To', 'Gross', 'Tax', 'Discount', 'Source', 'Uploaded by', 'ID'], incRows, [18, 18, 16, 14, 14, 14, 18, 22], ['d', 'd', 'm', 'm', 'm', '', '', '']);
+    XLSX.writeFile(wb, 'comedor-audit-' + todayLocalISO() + '.xlsx', { cellDates: true });
+  } catch (e) { alert('Export failed: ' + (e && e.message || e)); }
 }
 
 // ─── CLEAR ALL ENTRIES ───────────────────────────────────────────────────────
