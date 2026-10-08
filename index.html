@@ -1568,7 +1568,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-10-08-1';
+const APP_VERSION = '2026-10-08-2';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -4581,13 +4581,19 @@ function downloadAuditExcel() {
       return [dt(b.date), kind, b.category || '', num(b.amount), effect, why, b.desc || '', b.partner || '', b.addedBy || '', b.editedBy || '', b.id || ''];
     });
 
-    // Cash register — UPI + card are credited to the bank in the displayed balance; cash deposits too.
+    // Cash register — UPI + card reach the bank on their settlement date (next day; Sunday rolls to Monday).
+    const todayISO = todayLocalISO();
+    let pendingTot = 0;
     const cashRows = cash.map(function (e) {
-      const inBal = !(baseISO && e.date <= baseISO);
+      const st = digitalCreditStatus(e, baseISO, todayISO);
       const dig = num(e.upi) + num(e.card);
       let dep = 0; (e.expenses || []).forEach(function (x) { if (isCashDeposit(x)) dep += num(x.amount); });
-      if (inBal) { D(e.date).digital += dig; D(e.date).dep += dep; }
-      return [dt(e.date), num(e.opening), num(e.cash), num(e.upi), num(e.card), num(e.totalSales), num(e.totalExpenses), num(e.closing), inBal ? dig : 0, inBal ? dep : 0, inBal ? 'Yes' : 'No (on/before statement date)', e.addedBy || '', e.editedBy || ''];
+      const depIn = !(baseISO && e.date <= baseISO);
+      if (st.settled) D(st.settleISO).digital += st.settled;
+      if (depIn) D(e.date).dep += dep;
+      pendingTot += st.pending;
+      const state = !dig ? '' : st.pending ? 'In transit' : st.settled ? 'Credited' : 'In base balance';
+      return [dt(e.date), num(e.opening), num(e.cash), num(e.upi), num(e.card), num(e.totalSales), num(e.totalExpenses), num(e.closing), dig, st.settleISO ? dt(st.settleISO) : '', state, depIn ? dep : 0, e.addedBy || '', e.editedBy || ''];
     });
     const lineRows = [];
     cash.forEach(function (e) { (e.expenses || []).forEach(function (x) { lineRows.push([dt(e.date), x.category || '', num(x.amount), isCashDeposit(x) ? 'Yes (credits bank)' : 'No', x.desc || '', e.addedBy || '']); }); });
@@ -4608,8 +4614,9 @@ function downloadAuditExcel() {
       ['+ Capital in after base', capIn, ''],
       ['− Expenses out after base', -expOut, 'Bank entries dated after the base date'],
       ['− IDFC partner drawings after base', -drawOut, ''],
-      ['+ UPI + card sales from cash register after base', digTot, 'The app assumes these reached the bank the same day, at gross value'],
+      ['+ UPI + card sales settled to the bank', digTot, 'Credited on settlement date: next day, Sunday rolls to Monday'],
       ['+ Cash deposits after base', depTot, ''],
+      ['Yet to be credited (card/UPI sales in transit) — not in the balance', pendingTot, 'Shown separately on the dashboard tile'],
       ['= Balance computed by this export', base + capIn - expOut - drawOut + digTot + depTot, ''],
       ['Balance the app shows (computeBankBalance)', shown == null ? '' : shown, 'Should equal the line above'],
       ['Bank entries / cash days / income records', bank.length + ' / ' + cash.length + ' / ' + income.length, ''],
@@ -4631,9 +4638,9 @@ function downloadAuditExcel() {
     };
     add('Balance check', summary[0], summary.slice(1), [48, 20, 70], ['', 'm', '']);
     add('Bank entries', ['Date', 'Kind', 'Category', 'Amount', 'Effect on balance', 'Why', 'Description', 'Partner', 'Added by', 'Edited by', 'ID'], bankRows, [18, 18, 20, 16, 18, 48, 70, 14, 16, 16, 14], ['d', '', '', 'm', 'm', '', '', '', '', '', '']);
-    add('Cash register', ['Date', 'Opening', 'Cash sales', 'UPI', 'Card', 'Total sales', 'Expenses', 'Closing', 'UPI+Card credited to bank', 'Cash deposits to bank', 'Counted in balance?', 'Added by', 'Edited by'], cashRows, [18, 14, 14, 14, 14, 14, 14, 14, 20, 18, 28, 16, 16], ['d', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'm', '', '', '']);
+    add('Cash register', ['Date', 'Opening', 'Cash sales', 'UPI', 'Card', 'Total sales', 'Expenses', 'Closing', 'UPI+Card', 'Expected in bank on', 'Status', 'Cash deposits to bank', 'Added by', 'Edited by'], cashRows, [18, 14, 14, 14, 14, 14, 14, 14, 16, 20, 18, 18, 16, 16], ['d', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'd', '', 'm', '', '']);
     add('Cash expense lines', ['Date', 'Category', 'Amount', 'Cash deposit?', 'Description', 'Added by'], lineRows, [18, 26, 14, 18, 60, 16], ['d', '', 'm', '', '', '']);
-    add('Balance walk', ['Date', 'Bank entries', 'UPI+Card credited', 'Cash deposits', 'Net for day', 'Running balance (as app computes)'], walkRows, [18, 16, 18, 16, 16, 30], ['d', 'm', 'm', 'm', 'm', 'm']);
+    add('Balance walk', ['Date (bank)', 'Bank entries', 'UPI+Card settled', 'Cash deposits', 'Net for day', 'Running balance (as app computes)'], walkRows, [18, 16, 18, 16, 16, 30], ['d', 'm', 'm', 'm', 'm', 'm']);
     add('Income (Pet Pooja)', ['From', 'To', 'Gross', 'Tax', 'Discount', 'Source', 'Uploaded by', 'ID'], incRows, [18, 18, 16, 14, 14, 14, 18, 22], ['d', 'd', 'm', 'm', 'm', '', '', '']);
     XLSX.writeFile(wb, 'comedor-audit-' + todayLocalISO() + '.xlsx', { cellDates: true });
   } catch (e) { alert('Export failed: ' + (e && e.message || e)); }
@@ -5512,7 +5519,9 @@ function renderPnlBank() {
   const cashOpen = !!(lastCashEntry && lastCashEntry.partial);
   // IDFC balance from the last statement + capital/expenses/payouts + digital
   // sales after it (shared with money-out guardrails, so they never drift).
-  const bankBal = computeBankBalance();
+  const bankSplit = computeBankSplit();
+  const bankBal = bankSplit ? bankSplit.bank : null;
+  const bankPending = bankSplit ? bankSplit.pending : 0;
   const inr = n => '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN');
   const available = (bankBal || 0) + cashBal;
   // Cash vs non-cash split of sales. Pet Pooja gross carries no pay-mode, so we
@@ -5630,7 +5639,7 @@ function renderPnlBank() {
     </div>
     ${monthlySalesChartHtml(range)}
     <div class="cards2">
-      <div class="card card-click tile-avail" onclick="focusLog('bank')"><div class="card-label">Available Balance</div><div class="card-value">${inr(available)}</div><div class="card-sub">${splitGrid([{k:'Bank',v:bankBal||0,pct:pctTxt(bankBal||0,available)},{k:'Cash',v:cashBal,pct:pctTxt(cashBal,available)}])}</div>${cashOpen ? `<div class="tile-warn warn-amber" role="button" tabindex="0" title="Cash not closed — enter the closing count for ${lastCashEntry ? dChip(lastCashEntry.date) : ''}" onclick="event.stopPropagation(); goCloseCash('${lastCashEntry ? lastCashEntry.date : ''}')">ⓘ Cash not closed · ${lastCashEntry ? dChip(lastCashEntry.date) : ''}</div>` : ''}</div>
+      <div class="card card-click tile-avail" onclick="focusLog('bank')"><div class="card-label">Available Balance</div><div class="card-value">${inr(available)}</div><div class="card-sub">${splitGrid([{k:'Bank',v:bankBal||0,pct:pctTxt(bankBal||0,available)},{k:'Cash',v:cashBal,pct:pctTxt(cashBal,available)}])}</div>${bankPending > 0 ? `<div class="card-sub" style="font-size:11px;color:var(--text3);margin-top:6px;">Yet to be credited to bank: <span style="font-family:var(--num-font);font-weight:600;color:var(--text2);">${inr(bankPending)}</span> (card/UPI sales in transit)</div>` : ''}${cashOpen ? `<div class="tile-warn warn-amber" role="button" tabindex="0" title="Cash not closed — enter the closing count for ${lastCashEntry ? dChip(lastCashEntry.date) : ''}" onclick="event.stopPropagation(); goCloseCash('${lastCashEntry ? lastCashEntry.date : ''}')">ⓘ Cash not closed · ${lastCashEntry ? dChip(lastCashEntry.date) : ''}</div>` : ''}</div>
       <div class="card card-click tile-upc" onclick="toggleUpcoming(event)"><div class="card-label">Upcoming Expenses</div><div class="card-value ${(!fc.pastPeriod && !upcCovered && fc.expected>0)?'upc-neg':''}">${fc.pastPeriod ? '—' : inr(fc.expected)}</div><div class="card-sub">${upcTileSub}</div>${upcWarn}</div>
     </div>
     <div class="card upc-detail" id="upc-detail" style="display:${_upcOpen ? 'block' : 'none'};">
@@ -6042,15 +6051,30 @@ function saveBankExpense(entry) {
 // that partner's capital.
 function totalDrawings() { return loadBankEntries().filter(b => b.payout).reduce((s, b) => s + (Number(b.amount) || 0), 0); }
 
-// Current IDFC balance = statement base + capital in − expenses/IDFC-drawings out
-// (dated after the statement) + digital sales settled after it. Partner-direct
-// spend and cash drawings never touched the account, so they're skipped. Same
-// maths as the Available-Balance tile — shared so guardrails and the tile agree.
-function computeBankBalance() {
+// Card/UPI sales reach the bank the next day (Pine Labs settles T+1; Sunday's
+// settlement lands Monday). Measured against the statement: median daily error ~₹450.
+function digitalSettleISO(dateISO) {
+  var d = new Date(dateISO + 'T12:00:00'); d.setDate(d.getDate() + 1);
+  if (d.getDay() === 0) d.setDate(d.getDate() + 1);
+  return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+// Digital sales are credited to the bank on their settlement date — not the day they
+// were rung up. A sale on/before the statement date that settles after it still counts
+// (the statement balance doesn't have that money yet); one that settles on/before the
+// statement date is already in the base.
+function digitalCreditStatus(e, baseISO, todayISO) {
+  var dig = (Number(e.upi) || 0) + (Number(e.card) || 0);
+  if (!dig || !e.date) return { settled: 0, pending: 0, settleISO: '' };
+  var sISO = digitalSettleISO(e.date);
+  if (baseISO && sISO <= baseISO) return { settled: 0, pending: 0, settleISO: sISO };
+  return sISO <= todayISO ? { settled: dig, pending: 0, settleISO: sISO } : { settled: 0, pending: dig, settleISO: sISO };
+}
+// Money in the account now, and sales still on their way to it.
+function computeBankSplit() {
   var meta; try { meta = JSON.parse(localStorage.getItem('comedor_bankbal') || 'null'); } catch (e) { meta = null; }
   if (!meta) return null;
-  var baseISO = meta.asOfISO || null;
-  var bal = Number(meta.amount) || 0;
+  var baseISO = meta.asOfISO || null, todayISO = todayLocalISO();
+  var bal = Number(meta.amount) || 0, pending = 0;
   loadBankEntries().forEach(function (bb) {
     if (bb.direct) return;                          // partner-direct never went through IDFC
     if (bb.payout && bb.source === 'cash') return;  // a cash drawing never touched the bank
@@ -6059,13 +6083,20 @@ function computeBankBalance() {
   });
   loadEntries().forEach(function (e) {
     if (!e || !e.date) return;
+    var st = digitalCreditStatus(e, baseISO, todayISO);
+    bal += st.settled; pending += st.pending;
     if (baseISO && e.date <= baseISO) return;
-    bal += (Number(e.upi) || 0) + (Number(e.card) || 0);
     // Cash deposited from the drawer INTO the IDFC account credits the bank.
     (e.expenses || []).forEach(function (x) { if (isCashDeposit(x)) bal += (parseFloat(x.amount) || 0); });
   });
-  return bal;
+  return { bank: bal, pending: pending };
 }
+// Current IDFC balance = statement base + capital in − expenses/IDFC-drawings out
+// (dated after the statement) + digital sales already settled to the account.
+// Sales still in transit are NOT in this number — see computeBankSplit().pending.
+// Partner-direct spend and cash drawings never touched the account, so they're
+// skipped. Shared so guardrails and the tile agree.
+function computeBankBalance() { var s = computeBankSplit(); return s ? s.bank : null; }
 
 // Cash in hand = the last day's counted closing, less any cash drawings taken
 // AFTER that count (drawings on/before are already reflected in the count).
