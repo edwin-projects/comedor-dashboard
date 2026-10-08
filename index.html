@@ -1227,10 +1227,19 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
         #setcard-bankcheck .bc-ok{margin-top:14px;font-size:13px;color:var(--green);font-family:'Inter',sans-serif;}
         #setcard-bankcheck .bc-det{margin-top:14px;border-top:1px solid var(--border);padding-top:10px;}
         #setcard-bankcheck .bc-det summary{cursor:pointer;font-size:12.5px;font-weight:600;color:var(--text2);padding:6px 0;font-family:'Inter',sans-serif;}
+        #setcard-bankcheck .bc-head{font-size:12.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-top:18px;font-family:'Inter',sans-serif;}
+        #setcard-bankcheck .bc-head-bad{color:var(--red);}
+        #setcard-bankcheck .bc-head-good{color:var(--green);margin-top:0;cursor:pointer;}
+        #setcard-bankcheck .bc-flag{border-left:3px solid var(--red);}
+        #setcard-bankcheck .bc-mline{display:flex;gap:8px;align-items:baseline;padding:4px 0;font-size:11.5px;color:var(--text3);border-bottom:1px solid var(--border);font-family:'Inter',sans-serif;}
+        #setcard-bankcheck .bc-mline .bc-mt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+        #setcard-bankcheck .bc-mline .bc-amt{font-size:11.5px;font-weight:500;color:var(--text2);}
+        #setcard-bankcheck .bc-up{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);}
+        #setcard-bankcheck .bc-btn-del{border-color:var(--red);color:var(--red);}
         #setcard-bankcheck .bc-day{display:flex;justify-content:space-between;gap:8px;padding:6px 0;font-size:12.5px;border-bottom:1px solid var(--border);color:var(--text2);font-family:'Inter',sans-serif;}
         #setcard-bankcheck .bc-day .bc-amt{font-size:12.5px;color:var(--text);}
       </style>
-      <p class="exp-note">Upload the IDFC statement (PDF, Excel or CSV) for any dates. The app lines each bank payment and receipt up against its own entries and lists whatever doesn't match, for a partner to verify. If a day is missed, just upload yesterday and today together next time — nothing is double-counted.</p>
+      <p class="exp-note">Upload the IDFC statement (PDF, Excel or CSV) for any dates. The app compares every bank payment and receipt with the app's entries. Mismatches are flagged in red for you to fix; matches are listed in small grey type for information only. Missed a day? Upload yesterday and today together next time — nothing is double-counted.</p>
       <input type="file" id="bc-file" accept=".pdf,.xlsx,.xls,.csv,application/pdf,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="bcHandleFile(this)" style="display:none;">
       <button id="bc-upload-btn" class="btn" style="width:100%; padding:13px; font-size:15px;" onclick="document.getElementById('bc-file').click()">Upload bank statement</button>
       <div id="bc-msg"></div>
@@ -1603,7 +1612,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-10-08-4';
+const APP_VERSION = '2026-10-08-5';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -1971,7 +1980,7 @@ function initFirebase() {
     _db.ref('comedor/bankstmt').on('value', snap => {
       const months = {};
       if (snap.exists()) { const v = snap.val(); Object.keys(v).forEach(k => { const a = v[k]; months[k] = Array.isArray(a) ? a : Object.values(a || {}); }); }
-      obLoad().forEach(o => { if (o.path.indexOf('comedor/bankstmt/') === 0 && o.kind === 'set' && o.val) months[o.path.slice(17)] = Array.isArray(o.val) ? o.val : Object.values(o.val); });
+      obLoad().forEach(o => { if (o.path.indexOf('comedor/bankstmt/') !== 0) return; if (o.kind === 'set' && o.val) months[o.path.slice(17)] = Array.isArray(o.val) ? o.val : Object.values(o.val); else if (o.kind === 'remove') delete months[o.path.slice(17)]; });
       let list = []; Object.keys(months).sort().forEach(k => { list = list.concat(months[k].filter(Boolean)); });
       if (list.length) localStorage.setItem('comedor_bankstmt', JSON.stringify(list)); else localStorage.removeItem('comedor_bankstmt');
       renderActivePanel();
@@ -7738,11 +7747,12 @@ function bsMerge(parsed) {
       syncOp('set', 'comedor/bankstmt/' + mk, list.filter(function (t) { return t.d.slice(0, 7).replace('-', '_') === mk; }).map(function (t) { return { d: t.d, dr: t.dr, cr: t.cr, bal: t.bal, n: t.n }; }));
     });
   }
-  var f = parsed.from || (parsed.tx[0] && parsed.tx[0].d), t2 = parsed.to || (parsed.tx.length && parsed.tx[parsed.tx.length - 1].d);
+  var f = parsed.tx[0] && parsed.tx[0].d, t2 = parsed.tx.length && parsed.tx[parsed.tx.length - 1].d;   // the file's real first/last day (a split PDF's header still quotes the whole period)
   if (f && t2) {
     var cov = bcCoverage(), key = f + '_' + t2;
-    if (!cov.some(function (c) { return c.f === f && c.t === t2; })) {
-      cov.push({ f: f, t: t2, by: (typeof currentUser !== 'undefined' && currentUser && currentUser.name) || '' });
+    cov = cov.filter(function (c) { return !(c.f === f && c.t === t2); });
+    {
+      cov.push({ f: f, t: t2, by: (typeof currentUser !== 'undefined' && currentUser && currentUser.name) || '', at: todayLocalISO(), name: parsed.name || '', n: parsed.tx.length });
       try { localStorage.setItem(BCOV_KEY, JSON.stringify(cov)); } catch (e) {}
       if (typeof _db !== 'undefined' && _db) syncOp('set', 'comedor/bankcov/' + key, cov[cov.length - 1]);
     }
@@ -7795,7 +7805,7 @@ function bcCompute() {
   try { rawB = localStorage.getItem('comedor_bank') || ''; rawE = localStorage.getItem('comedor_entries') || ''; rawA = localStorage.getItem(BCHK_KEY) || ''; } catch (e) {}
   var sig = [stmt.length, stmt.length ? stmt[stmt.length - 1].k : '', rawB.length, rawE.length, rawA.length, base, todayLocalISO()].join('|');
   if (_bcMemo.sig === sig) return _bcMemo.res;
-  var res = { empty: !stmt.length, base: base, S: '', last: '', closing: null, items: [], matched: 0, ignored: 0, days: [], tally: null, pending: 0, behind: 0, ahead: 0, pendingFuture: 0 };
+  var res = { empty: !stmt.length, base: base, S: '', last: '', closing: null, items: [], matchedItems: [], matched: 0, ignored: 0, days: [], tally: null, pending: 0, behind: 0, ahead: 0, pendingFuture: 0 };
   if (!stmt.length) { _bcMemo = { sig: sig, res: res }; return res; }
   var S = base ? bcAddDays(base, 1) : stmt[0].d;
   res.S = S; res.last = stmt[stmt.length - 1].d; res.closing = stmt[stmt.length - 1].bal;
@@ -7835,13 +7845,13 @@ function bcCompute() {
     if (sd > res.last) futureDue += dig; else digExp[sd] = (digExp[sd] || 0) + dig;
   });
   // pass 1 — one-to-one, same amount, nearest date within ±4 days
-  var matchPass = function (apps, banks, win) {
+  var matchPass = function (apps, banks, win, label) {
     apps.sort(function (a, b) { return a.d < b.d ? -1 : 1; });
     var left = [];
     apps.forEach(function (a) {
       var best = -1, bestD = 1e9;
       banks.forEach(function (b, i) { if (b.used) return; if (Math.abs(b.amt - a.amt) >= 0.5) return; var dd = Math.abs(bcDaysBetween(a.d, b.d)); if (dd <= win && dd < bestD) { best = i; bestD = dd; } });
-      if (best >= 0) { banks[best].used = true; res.matched++; } else left.push(a);
+      if (best >= 0) { banks[best].used = true; res.matched++; res.matchedItems.push({ d: banks[best].d, amt: a.amt, title: label || bcPayee(banks[best].t.n) }); } else left.push(a);
     });
     return left;
   };
@@ -7864,9 +7874,9 @@ function bcCompute() {
     var narrow = narrowPool(a, pool), sub = null, use = null;
     if (narrow.length >= 2) { sub = bcSubset(narrow.slice(0, 80), a.amt, 150); use = narrow; }
     if (!sub && pool.length >= 2 && pool.length <= 14) { sub = bcSubset(pool, a.amt, 0); use = pool; }
-    if (sub) { sub.idx.forEach(function (k) { use[k].used = true; }); res.matched++; } else adLeft2.push(a);
+    if (sub) { sub.idx.forEach(function (k) { use[k].used = true; }); res.matched++; res.matchedItems.push({ d: a.d, amt: a.amt, title: ((a.cat ? a.cat + ' · ' : '') + (a.desc || '')).slice(0, 60) + ' (paid as ' + sub.idx.length + ' transfers)' }); } else adLeft2.push(a);
   });
-  var bcLeft = matchPass(ac, bc, 5), depLeft = matchPass(adep, bdep, 5);
+  var bcLeft = matchPass(ac, bc, 5, 'Money in (capital)'), depLeft = matchPass(adep, bdep, 5, 'Cash deposit');
   var unBD = bd.filter(function (b) { return !b.used; }), unBC = bc.filter(function (b) { return !b.used; }), unDEP = bdep.filter(function (b) { return !b.used; });
 
   var add = function (kind, key, date, amt, title, sub, extra) {
@@ -7959,6 +7969,7 @@ async function bcHandleFile(input) {
   try {
     var parsed = await bcReadFile(file);
     if (!parsed.tx.length) throw new Error('Couldn\'t find any transactions in this file. Use the statement PDF, Excel or CSV downloaded from IDFC net-banking (not a scanned picture).');
+    parsed.name = file.name || '';
     var r = bsMerge(parsed);
     renderBankCheck(); renderActivePanel();
     btnFlash('bc-upload-btn', 'Saving…', 'Loaded ✓ ' + r.added + ' new', 'Upload bank statement');
@@ -7989,23 +8000,23 @@ function bcTag(n) {
   if (/SC(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)/.test(u)) return 'Service charge';
   return '';
 }
-var BC_TITLES = {
-  bankOut: ['Paid from the bank — not in the app', 'red'],
-  appOut: ['In the app — not paid from the bank', 'red'],
-  bankIn: ['Money into the bank — not in the app', 'green'],
-  appIn: ['In the app as money in — not in the bank', 'green'],
-  tallyAhead: ['Card / UPI sales vs bank', 'green']
+var BC_SECTIONS = {
+  bankOut: ['Paid from the bank — the app has no entry', 'The bank paid this. Add it to the app and it disappears from here by itself.', 'red'],
+  appOut: ['In the app — the bank never paid it', 'The app has this expense but no matching payment is on the bank statement. Fix or delete it in the app.', 'red'],
+  bankIn: ['Money came into the bank — the app has no entry', 'Money arrived that the app doesn\'t know about.', 'green'],
+  appIn: ['App shows money in — the bank never received it', 'The app counts this as money in, but it isn\'t on the bank statement.', 'green'],
+  tallyAhead: ['Card / UPI sales vs bank', 'The bank received more card/UPI money than the sales register shows.', 'green']
 };
-function bcItemHTML(it, reviewed) {
+function bcItemHTML(it, hidden) {
   var color = (it.kind === 'bankOut' || it.kind === 'appOut') ? 'var(--red)' : 'var(--green)';
   var keys = it.keys || [it.key];
-  var acts = reviewed
-    ? '<button class="bc-btn" onclick="bcUndo(\'' + keys.join(',') + '\')">Undo</button>'
-    : (it.kind === 'bankOut' && !it.keys ? '<button class="bc-btn" onclick="bcAddToApp(\'' + it.key + '\')">Add to app</button>' : '') +
-      '<button class="bc-btn bc-btn-main" id="bc-rv-' + keys[0].replace(/[^A-Za-z0-9_]/g, '') + '" onclick="bcReview(this,\'' + keys.join(',') + '\',' + (it.kind === 'tallyAhead' ? Math.round(it.amt) : 'null') + ')">Reviewed ✓</button>';
-  var who = reviewed && it.ack ? '<div class="bc-sub">Reviewed by ' + esc(it.ack.by || '—') + (it.ack.at ? ' · ' + esc(bcFmtShort(it.ack.at)) : '') + '</div>' : '';
-  return '<div class="bc-item"><div class="bc-top"><span class="bc-date">' + esc(it.dateLabel || bcFmtShort(it.d)) + '</span><span class="bc-amt" style="color:' + color + ';">' + bcInr(it.amt) + '</span></div>' +
-    '<div class="bc-title">' + esc(it.title) + '</div>' + (it.sub && it.sub !== it.title ? '<div class="bc-sub">' + esc(String(it.sub).slice(0, 110)) + '</div>' : '') + who + '<div class="bc-acts">' + acts + '</div></div>';
+  var acts = hidden
+    ? '<button class="bc-btn" onclick="bcUndo(\'' + keys.join(',') + '\')">Show again</button>'
+    : (it.kind === 'bankOut' && !it.keys ? '<button class="bc-btn bc-btn-main" onclick="bcAddToApp(\'' + it.key + '\')">Add to app</button>' : '') +
+      '<button class="bc-btn" id="bc-rv-' + keys[0].replace(/[^A-Za-z0-9_]/g, '') + '" onclick="bcReview(this,\'' + keys.join(',') + '\',' + (it.kind === 'tallyAhead' ? Math.round(it.amt) : 'null') + ')">Not a problem</button>';
+  var who = hidden && it.ack ? '<div class="bc-sub">Marked "not a problem" by ' + esc(it.ack.by || '—') + (it.ack.at ? ' · ' + esc(bcFmtShort(it.ack.at)) : '') + '</div>' : '';
+  return '<div class="bc-item ' + (hidden ? '' : 'bc-flag') + '"><div class="bc-top"><span class="bc-date">' + esc(bcFmtShort(it.d)) + '</span><span class="bc-amt" style="color:' + color + ';">' + bcInr(it.amt) + '</span></div>' +
+    '<div class="bc-title">' + esc(it.title) + '</div>' + (it.sub && it.sub !== it.title ? '<div class="bc-sub">' + esc(String(it.sub).slice(0, 230)) + '</div>' : '') + who + '<div class="bc-acts">' + acts + '</div></div>';
 }
 function renderBankCheck() {
   var host = document.getElementById('bankcheck-dyn'); if (!host) return;
@@ -8013,55 +8024,79 @@ function renderBankCheck() {
   var badge = document.getElementById('bc-badge');
   if (r.empty) {
     if (badge) badge.textContent = 'upload';
-    host.innerHTML = '<div class="bc-sub" style="margin-top:12px;">No statement loaded yet. Upload the IDFC statement and the app will line every bank payment and receipt up against its own entries, day by day.</div>';
+    host.innerHTML = '<div class="bc-sub" style="margin-top:12px;">No statement loaded yet. Upload the IDFC statement and the app will line every bank payment and receipt up against its own entries.</div>';
     return;
   }
   var open = r.items.filter(function (i) { return !i.ack; }), done = r.items.filter(function (i) { return i.ack; });
-  if (badge) badge.textContent = open.length ? open.length + ' to check' : 'all matched ✓';
-  // position
+  if (badge) badge.textContent = open.length ? open.length + ' to fix' : 'all matched ✓';
   h += '<div class="bc-pos"><div class="bc-row"><span>Bank balance · statement of ' + esc(bcFmtDate(r.last)) + '</span><b>' + bcInr(r.closing) + '</b></div>';
   h += '<div class="bc-row"><span>Card / UPI sales yet to be credited</span><b>' + (r.pending > 0 ? bcInr(r.pending) : '₹0') + '</b></div></div>';
   var gaps = bcMissingRanges(r), age = bcDaysBetween(r.last, todayLocalISO());
-  if (gaps.length) h += '<div class="bc-warn">No statement loaded for ' + gaps.map(function (g) { return g.f === g.t ? bcFmtDate(g.f) : bcFmtShort(g.f) + ' – ' + bcFmtDate(g.t); }).join(', ') + '. Upload a statement that covers ' + (gaps.length > 1 ? 'those days' : 'that day') + ' — anything missed is picked up from the next upload.</div>';
+  if (gaps.length) h += '<div class="bc-warn">No statement loaded for ' + gaps.map(function (g) { return g.f === g.t ? bcFmtDate(g.f) : bcFmtShort(g.f) + ' – ' + bcFmtDate(g.t); }).join(', ') + '. Upload a statement that covers ' + (gaps.length > 1 ? 'those days' : 'that day') + '.</div>';
   else if (age > 1) h += '<div class="bc-warn">The latest statement day loaded is ' + esc(bcFmtDate(r.last)) + ' (' + age + ' days ago). Upload the latest one.</div>';
-  // group salary-like bank payments made on one day
-  var bankOut = open.filter(function (i) { return i.kind === 'bankOut'; }), singles = [], groups = {};
-  bankOut.forEach(function (i) { var tg = bcTag(i.sub); if (tg) { var k = i.d + '|' + tg; (groups[k] = groups[k] || []).push(i); } else singles.push(i); });
-  var rowsOut = singles.slice();
-  Object.keys(groups).forEach(function (k) {
-    var g = groups[k];
-    if (g.length < 3) { g.forEach(function (i) { rowsOut.push(i); }); return; }
-    var tot = g.reduce(function (a, i) { return a + i.amt; }, 0);
-    rowsOut.push({ kind: 'bankOut', key: g[0].key, keys: g.map(function (i) { return i.key; }), d: g[0].d, amt: tot, title: k.split('|')[1] + ' · ' + g.length + ' payments', sub: g.map(function (i) { return i.title; }).join(', ') });
-  });
-  rowsOut.sort(function (a, b) { return a.d < b.d ? 1 : -1; });
-  var sect = function (kind, list) {
-    if (!list.length) return '';
-    var t = BC_TITLES[kind], tot = list.reduce(function (a, i) { return a + i.amt; }, 0);
-    list = list.slice().sort(function (a, b) { return a.d < b.d ? 1 : -1; });
-    return '<div class="bc-sec"><span>' + t[0] + '</span><span class="bc-cnt">' + list.length + ' · ' + bcInr(tot) + '</span></div>' + list.map(function (i) { return bcItemHTML(i, false); }).join('');
-  };
-  h += sect('bankOut', rowsOut) + sect('appOut', open.filter(function (i) { return i.kind === 'appOut'; })) + sect('bankIn', open.filter(function (i) { return i.kind === 'bankIn'; })) +
-       sect('appIn', open.filter(function (i) { return i.kind === 'appIn'; })) + sect('tallyAhead', open.filter(function (i) { return i.kind === 'tallyAhead'; }));
-  if (!open.length) h += '<div class="bc-ok">Everything on the statement from ' + esc(bcFmtDate(r.S)) + ' onwards is matched to an app entry (or reviewed). ✓</div>';
-  // day by day
-  var days = r.days.slice(-10).reverse();
-  h += '<details class="bc-det"><summary>Day by day · last ' + days.length + ' bank days</summary>' + days.map(function (d) {
-    return '<div class="bc-day"><span>' + esc(bcFmtShort(d.d)) + '</span><span>' + (d.open ? '<b style="color:var(--red);">⚠ ' + d.open + ' to check</b>' : '<span style="color:var(--green);">✓ matched</span>') + '</span><span class="bc-amt">' + (d.bal != null ? bcInr(d.bal) : '') + '</span></div>';
-  }).join('') + '</details>';
-  // card/UPI settlement detail
-  if (r.tally) {
-    var tr = Object.keys(r.tally.rows).sort().slice(-10).reverse();
-    h += '<details class="bc-det"><summary>Card / UPI: sales vs bank receipts · last ' + tr.length + ' days</summary><div class="bc-sub" style="margin:6px 0;">Card/UPI sales reach the bank the next day (Sunday\'s on Monday). Since ' + esc(bcFmtDate(r.S)) + ': register ' + bcInr(r.tally.exp) + ' · bank received ' + bcInr(r.tally.act) + '.</div>' +
-      tr.map(function (d) { var x = r.tally.rows[d]; return '<div class="bc-day"><span>' + esc(bcFmtShort(d)) + '</span><span class="bc-sub">due ' + bcInr(x.exp) + '</span><span class="bc-amt">got ' + bcInr(x.act) + '</span></div>'; }).join('') + '</details>';
+
+  // 1) what needs attention
+  if (!open.length) h += '<div class="bc-ok">✓ Nothing to fix. Every bank payment and receipt since ' + esc(bcFmtDate(r.S)) + ' matches an app entry.</div>';
+  else {
+    h += '<div class="bc-head bc-head-bad">Needs fixing · ' + open.length + '</div><div class="bc-sub" style="margin-bottom:4px;">These do NOT match between the bank and the app. Fix the entry in the app and it leaves this list by itself. Tap "Not a problem" only if nothing needs fixing.</div>';
+    var bankOut = open.filter(function (i) { return i.kind === 'bankOut'; }), rowsOut = [], groups = {};
+    bankOut.forEach(function (i) { var tg = bcTag(i.sub); if (tg) { var k = i.d + '|' + tg; (groups[k] = groups[k] || []).push(i); } else rowsOut.push(i); });
+    Object.keys(groups).forEach(function (k) {
+      var g = groups[k];
+      if (g.length < 3) { g.forEach(function (i) { rowsOut.push(i); }); return; }
+      rowsOut.push({ kind: 'bankOut', key: g[0].key, keys: g.map(function (i) { return i.key; }), d: g[0].d, amt: g.reduce(function (a, i) { return a + i.amt; }, 0), title: k.split('|')[1] + ' · ' + g.length + ' payments', sub: g.map(function (i) { return i.title; }).join(', ') });
+    });
+    var sect = function (kind, list) {
+      if (!list.length) return '';
+      var t = BC_SECTIONS[kind], tot = list.reduce(function (a, i) { return a + i.amt; }, 0);
+      list = list.slice().sort(function (a, b) { return a.d < b.d ? 1 : -1; });
+      return '<div class="bc-sec"><span>' + t[0] + '</span><span class="bc-cnt">' + list.length + ' · ' + bcInr(tot) + '</span></div><div class="bc-sub" style="margin:-2px 0 6px;">' + t[1] + '</div>' + list.map(function (i) { return bcItemHTML(i, false); }).join('');
+    };
+    h += sect('bankOut', rowsOut) + sect('appOut', open.filter(function (i) { return i.kind === 'appOut'; })) + sect('bankIn', open.filter(function (i) { return i.kind === 'bankIn'; })) +
+         sect('appIn', open.filter(function (i) { return i.kind === 'appIn'; })) + sect('tallyAhead', open.filter(function (i) { return i.kind === 'tallyAhead'; }));
   }
-  if (done.length) {
-    h += '<details class="bc-det"><summary>Reviewed by a partner · ' + done.length + '</summary>' + done.slice().sort(function (a, b) { return a.d < b.d ? 1 : -1; }).map(function (i) { return bcItemHTML(i, true); }).join('') + '</details>';
-  }
+
+  // 2) what matched — for information only, nothing to do
+  var mi = r.matchedItems.slice().sort(function (a, b) { return a.d < b.d ? 1 : -1; }), mt = mi.reduce(function (a, i) { return a + i.amt; }, 0);
+  h += '<details class="bc-det"><summary class="bc-head bc-head-good">✓ Matched · ' + mi.length + ' · ' + bcInr(mt) + '<span class="bc-sub" style="font-weight:400;"> — nothing to do</span></summary>' +
+    mi.slice(0, 150).map(function (i) { return '<div class="bc-mline"><span>' + esc(bcFmtShort(i.d)) + '</span><span class="bc-mt">' + esc(i.title) + '</span><span class="bc-amt">' + bcInr(i.amt) + '</span></div>'; }).join('') +
+    (mi.length > 150 ? '<div class="bc-sub">…and ' + (mi.length - 150) + ' older ones</div>' : '') +
+    (r.tally ? '<div class="bc-sub" style="margin-top:8px;">Card/UPI: sales rung up since ' + esc(bcFmtDate(r.S)) + ' ' + bcInr(r.tally.exp) + ' · received in the bank ' + bcInr(r.tally.act) + ' (sales reach the bank the next day).</div>' : '') + '</details>';
+  if (done.length) h += '<details class="bc-det"><summary>Marked "not a problem" · ' + done.length + '</summary>' + done.slice().sort(function (a, b) { return a.d < b.d ? 1 : -1; }).map(function (i) { return bcItemHTML(i, true); }).join('') + '</details>';
+
+  // 3) uploaded files — delete and re-upload
+  var cov = bcCoverage().slice().sort(function (a, b) { return a.f < b.f ? 1 : -1; });
+  h += '<details class="bc-det"><summary>Uploaded statements · ' + cov.length + '</summary><div class="bc-sub" style="margin:4px 0 8px;">Uploaded the wrong file? Delete it here (this removes its transactions from the app), then upload the right one.</div>' +
+    cov.map(function (c) {
+      return '<div class="bc-up"><div><div class="bc-title" style="font-size:12.5px;">' + esc(bcFmtShort(c.f)) + ' – ' + esc(bcFmtDate(c.t)) + '</div><div class="bc-sub">' + (c.name ? esc(c.name) + ' · ' : '') + (c.n ? c.n + ' transactions · ' : '') + 'uploaded' + (c.by ? ' by ' + esc(c.by) : '') + (c.at ? ' on ' + esc(bcFmtShort(c.at)) : '') + '</div></div><button class="bc-btn bc-btn-del" onclick="bcDeleteUpload(\'' + c.f + '\',\'' + c.t + '\')">Delete</button></div>';
+    }).join('') +
+    '<div style="margin-top:10px;"><button class="bc-btn bc-btn-del" onclick="bcDeleteAll()">Delete ALL statement data</button></div></details>';
   host.innerHTML = h;
 }
+// Remove one upload's date range (its transactions + the upload record) so the right file can be uploaded again.
+function bcDeleteUpload(f, t) {
+  if (!confirm('Delete the statement for ' + bcFmtDate(f) + ' – ' + bcFmtDate(t) + '?\n\nIts transactions are removed from the app for everyone (including any days another upload shares). Then upload the correct file.')) return;
+  var all = bsLoad(), months = {};
+  all.forEach(function (x) { if (x.d >= f && x.d <= t) months[x.d.slice(0, 7).replace('-', '_')] = 1; });
+  var keep = all.filter(function (x) { return !(x.d >= f && x.d <= t); });
+  try { if (keep.length) localStorage.setItem(BS_KEY, JSON.stringify(keep.map(function (x) { return { d: x.d, dr: x.dr, cr: x.cr, bal: x.bal, n: x.n }; }))); else localStorage.removeItem(BS_KEY); } catch (e) {}
+  if (_db) Object.keys(months).forEach(function (mk) {
+    var rest = keep.filter(function (x) { return x.d.slice(0, 7).replace('-', '_') === mk; }).map(function (x) { return { d: x.d, dr: x.dr, cr: x.cr, bal: x.bal, n: x.n }; });
+    if (rest.length) syncOp('set', 'comedor/bankstmt/' + mk, rest); else syncOp('remove', 'comedor/bankstmt/' + mk, null);
+  });
+  var cov = bcCoverage().filter(function (c) { return !(c.f === f && c.t === t); });
+  try { localStorage.setItem(BCOV_KEY, JSON.stringify(cov)); } catch (e) {}
+  if (_db) syncOp('remove', 'comedor/bankcov/' + f + '_' + t, null);
+  renderBankCheck(); renderActivePanel();
+}
+function bcDeleteAll() {
+  if (!confirm('Delete ALL uploaded bank statement data?\n\nThe daily check and the "bank per statement" balance go back to empty until you upload again.')) return;
+  ['BS_KEY', 'BCOV_KEY', 'BCHK_KEY'].forEach(function (k) { try { localStorage.removeItem({ BS_KEY: BS_KEY, BCOV_KEY: BCOV_KEY, BCHK_KEY: BCHK_KEY }[k]); } catch (e) {} });
+  if (_db) ['comedor/bankstmt', 'comedor/bankcov', 'comedor/bankchk'].forEach(function (p) { syncOp('remove', p, null); });
+  renderBankCheck(); renderActivePanel();
+}
 function bcReview(btn, keys, amt) {
-  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; setTimeout(function () { btn.textContent = 'Saved ✓'; }, 250); }
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; setTimeout(function () { btn.textContent = 'Done ✓'; }, 250); }
   keys.split(',').forEach(function (k) { bcAck(k, amt); });
   setTimeout(renderBankCheck, 700);
 }
