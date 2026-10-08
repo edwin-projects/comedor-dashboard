@@ -1624,7 +1624,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-10-08-6';
+const APP_VERSION = '2026-10-08-7';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -5719,7 +5719,7 @@ function renderPnlBank() {
     </div>
     ${monthlySalesChartHtml(range)}
     <div class="cards2">
-      <div class="card card-click tile-avail" onclick="focusLog('bank')"><div class="card-label">Available Balance</div><div class="card-value">${inr(available)}</div><div class="card-sub">${splitGrid([{k:'Bank',v:bankBal||0,pct:pctTxt(bankBal||0,available)},{k:'Cash',v:cashBal,pct:pctTxt(cashBal,available)}])}</div>${bankPending > 0 ? `<div class="card-sub" style="font-size:11px;color:var(--text3);margin-top:6px;">Yet to be credited to bank: <span style="font-family:var(--num-font);font-weight:600;color:var(--text2);">${inr(bankPending)}</span> (card/UPI sales in transit)</div>` : ''}${bankSplit && bankSplit.asOf ? `<div class="card-sub" style="font-size:10.5px;color:var(--text3);margin-top:4px;">Bank per statement of ${bcFmtDate(bankSplit.asOf)}</div>` : ''}${cashOpen ? `<div class="tile-warn warn-amber" role="button" tabindex="0" title="Cash not closed — enter the closing count for ${lastCashEntry ? dChip(lastCashEntry.date) : ''}" onclick="event.stopPropagation(); goCloseCash('${lastCashEntry ? lastCashEntry.date : ''}')">ⓘ Cash not closed · ${lastCashEntry ? dChip(lastCashEntry.date) : ''}</div>` : ''}</div>
+      <div class="card card-click tile-avail" onclick="focusLog('bank')"><div class="card-label">Bank Balance</div><div class="card-value">${inr(bankBal||0)}</div>${bankPending > 0 ? `<div class="card-sub" style="font-family:var(--num-font);font-weight:600;font-size:15px;color:var(--green);margin-top:2px;">+ ${inr(bankPending)} <span style="font-family:'Inter',sans-serif;font-weight:400;font-size:12px;color:var(--text3);">(card/UPI yet to be credited)</span></div>` : ''}<div class="card-sub" style="margin-top:10px;">Cash in hand <span style="font-family:var(--num-font);font-weight:600;color:var(--text);">${inr(cashBal)}</span></div>${bankSplit && bankSplit.asOf ? `<div class="card-sub" style="font-size:10.5px;color:${bcDaysBetween(bankSplit.asOf, todayLocalISO()) > 1 ? 'var(--gold, #C9A040)' : 'var(--text3)'};margin-top:4px;">Bank per statement of ${bcFmtDate(bankSplit.asOf)}${bcDaysBetween(bankSplit.asOf, todayLocalISO()) > 1 ? ' — upload the latest' : ''}</div>` : ''}${cashOpen ? `<div class="tile-warn warn-amber" role="button" tabindex="0" title="Cash not closed — enter the closing count for ${lastCashEntry ? dChip(lastCashEntry.date) : ''}" onclick="event.stopPropagation(); goCloseCash('${lastCashEntry ? lastCashEntry.date : ''}')">ⓘ Cash not closed · ${lastCashEntry ? dChip(lastCashEntry.date) : ''}</div>` : ''}</div>
       <div class="card card-click tile-upc" onclick="toggleUpcoming(event)"><div class="card-label">Upcoming Expenses</div><div class="card-value ${(!fc.pastPeriod && !upcCovered && fc.expected>0)?'upc-neg':''}">${fc.pastPeriod ? '—' : inr(fc.expected)}</div><div class="card-sub">${upcTileSub}</div>${upcWarn}</div>
     </div>
     <div class="card upc-detail" id="upc-detail" style="display:${_upcOpen ? 'block' : 'none'};">
@@ -7660,7 +7660,7 @@ var BC_START = /^(UPI|NEFT|IMPS|OPM|CHQ|POS|ECOM|ACH|NACH|RTGS|ATM|INT|CASH|MMT|
 // lines: array of strings (one per visual line, left→right). Returns {tx, opening, closing, from, to, breaks}.
 function bcParseIDFCLines(lines, hintPrev) {
   var dre = /^\s*(\d{2}-[A-Za-z]{3}-\d{4})\s+(\d{2}-[A-Za-z]{3}-\d{4})\s*(.*)$/;
-  var rows = [], pend = [], opening = null, from = '', to = '';
+  var rows = [], pend = [], opening = null, hdrClosing = null, from = '', to = '';
   lines.forEach(function (raw) {
     var l = String(raw).replace(/\s+/g, ' ').trim();
     if (!l) return;
@@ -7680,7 +7680,11 @@ function bcParseIDFCLines(lines, hintPrev) {
     var amts = l.match(BC_AMT) || [];
     var om = l.match(/^Opening Balance\s+(-?\d[\d,]*\.\d{2})\s*$/i);
     if (om && opening == null) opening = parseFloat(om[1].replace(/,/g, ''));
-    if (amts.length >= 3 && !/[A-Za-z]{3}/.test(l.replace(BC_AMT, ''))) { if (opening == null) opening = parseFloat(amts[0].replace(/,/g, '')); return; }   // summary row
+    if (amts.length >= 3 && !/[A-Za-z]{3}/.test(l.replace(BC_AMT, ''))) {   // summary row: opening, total debit, total credit, closing
+      if (opening == null) opening = parseFloat(amts[0].replace(/,/g, ''));
+      if (amts.length === 4 && hdrClosing == null) hdrClosing = parseFloat(amts[3].replace(/,/g, ''));
+      return;
+    }
     if (BC_SKIP.test(l)) return;
     pend.push(l);
   });
@@ -7703,7 +7707,12 @@ function bcParseIDFCLines(lines, hintPrev) {
     prev = bal;
     tx.push({ d: r.d, dr: dr, cr: cr, bal: bal, n: n });
   });
-  return { tx: tx, opening: opening, closing: tx.length ? tx[tx.length - 1].bal : null, from: from || (tx[0] && tx[0].d) || '', to: to || (tx.length && tx[tx.length - 1].d) || '', breaks: breaks };
+  var lastTx = tx.length ? tx[tx.length - 1] : null;
+  // A statement downloaded on the 8th that has no transactions on the 7th–8th still covers up to the 8th — but only trust the
+  // quoted period when this file really ends at the statement's own closing balance (a split PDF keeps the whole-year header).
+  var asOf = lastTx ? lastTx.d : '';
+  if (lastTx && hdrClosing != null && Math.abs(hdrClosing - lastTx.bal) < 0.011 && to && to > asOf) asOf = to;
+  return { tx: tx, opening: opening, closing: lastTx ? lastTx.bal : null, from: from || (tx[0] && tx[0].d) || '', to: to || (lastTx && lastTx.d) || '', asOf: asOf, breaks: breaks };
 }
 
 // Spreadsheet/CSV rows (array of arrays) → same shape. Debit/Credit/Balance columns by header name.
@@ -7759,7 +7768,8 @@ function bsMerge(parsed) {
       syncOp('set', 'comedor/bankstmt/' + mk, list.filter(function (t) { return t.d.slice(0, 7).replace('-', '_') === mk; }).map(function (t) { return { d: t.d, dr: t.dr, cr: t.cr, bal: t.bal, n: t.n }; }));
     });
   }
-  var f = parsed.tx[0] && parsed.tx[0].d, t2 = parsed.tx.length && parsed.tx[parsed.tx.length - 1].d;   // the file's real first/last day (a split PDF's header still quotes the whole period)
+  var f = parsed.tx[0] && parsed.tx[0].d, t2 = parsed.tx.length && parsed.tx[parsed.tx.length - 1].d;
+  if (t2 && parsed.asOf && parsed.asOf > t2 && parsed.asOf <= todayLocalISO()) t2 = parsed.asOf;   // the file's real first/last day (a split PDF's header still quotes the whole period)
   if (f && t2) {
     var cov = bcCoverage(), key = f + '_' + t2;
     cov = cov.filter(function (c) { return !(c.f === f && c.t === t2); });
@@ -7815,12 +7825,12 @@ function bcCompute() {
   var stmt = bsLoad(), base = bcBase();
   var rawB = '', rawE = '', rawA = '';
   try { rawB = localStorage.getItem('comedor_bank') || ''; rawE = localStorage.getItem('comedor_entries') || ''; rawA = localStorage.getItem(BCHK_KEY) || ''; } catch (e) {}
-  var sig = [stmt.length, stmt.length ? stmt[stmt.length - 1].k : '', rawB.length, rawE.length, rawA.length, base, todayLocalISO()].join('|');
+  var sig = [stmt.length, stmt.length ? stmt[stmt.length - 1].k : '', bcAsOf(), rawB.length, rawE.length, rawA.length, base, todayLocalISO()].join('|');
   if (_bcMemo.sig === sig) return _bcMemo.res;
   var res = { empty: !stmt.length, base: base, S: '', last: '', closing: null, items: [], matchedItems: [], matched: 0, ignored: 0, days: [], tally: null, pending: 0, behind: 0, ahead: 0, pendingFuture: 0 };
   if (!stmt.length) { _bcMemo = { sig: sig, res: res }; return res; }
   var S = base ? bcAddDays(base, 1) : stmt[0].d;
-  res.S = S; res.last = stmt[stmt.length - 1].d; res.closing = stmt[stmt.length - 1].bal;
+  res.S = S; res.last = bcAsOf(); res.closing = stmt[stmt.length - 1].bal;
   var acks = bcAcks();
   var bd = [], bc = [], bdig = [], bdep = [], brev = [];
   stmt.forEach(function (t) {
@@ -7926,11 +7936,18 @@ function bcCompute() {
 
 // Bank figure for the dashboard: the statement's own closing balance, then anything the
 // app knows happened after the statement's last day.
+// The day the loaded statements are good up to: the last transaction, or later if a statement vouches for a quieter last day.
+function bcAsOf() {
+  var st = bsLoad(); if (!st.length) return '';
+  var d = st[st.length - 1].d, today = todayLocalISO();
+  bcCoverage().forEach(function (c) { if (c.t > d && c.t <= today) d = c.t; });
+  return d;
+}
 function bcStatementPosition() {
   var st = bsLoad(); if (!st.length) return null;
   var last = st[st.length - 1], base = bcBase();
   if (base && last.d < base) return null;      // statement older than the app's stored base — ignore it
-  return { lastDate: last.d, closing: last.bal };
+  return { lastDate: bcAsOf(), closing: last.bal };
 }
 
 // ── Uploading ───────────────────────────────────────────────────────────────
