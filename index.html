@@ -1430,7 +1430,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
   <div class="setcard collapsed tint-gold" id="setcard-auditx">
     <div class="setcard-head" onclick="toggleSet('auditx')"><span class="setcard-title">Audit export (Excel)</span><span class="setcard-chev">▾</span></div>
     <div class="setcard-body">
-      <p class="exp-note">Downloads one Excel file with everything needed to reconcile this app against the IDFC bank statement: the balance workings, every bank entry (with whether it moves the balance), the daily cash register, cash-register expense lines, Pet Pooja income, and a day-by-day balance walk. Share it only with people who should see the books.</p>
+      <p class="exp-note">Downloads one Excel file with everything needed to reconcile this app against the IDFC bank statement: the balance workings, every bank entry (with whether it moves the balance), the daily cash register, cash-register expense lines, the capital &amp; partner-paid ledger, Pet Pooja income, and a day-by-day balance walk. Share it only with people who should see the books.</p>
       <button id="audit-export-btn" class="btn" style="width:100%; padding:12px;" onclick="downloadAuditExcel()">Download audit Excel</button>
     </div>
   </div>
@@ -1568,7 +1568,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-10-08-2';
+const APP_VERSION = '2026-10-08-3';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -4641,6 +4641,10 @@ function downloadAuditExcel() {
     add('Cash register', ['Date', 'Opening', 'Cash sales', 'UPI', 'Card', 'Total sales', 'Expenses', 'Closing', 'UPI+Card', 'Expected in bank on', 'Status', 'Cash deposits to bank', 'Added by', 'Edited by'], cashRows, [18, 14, 14, 14, 14, 14, 14, 14, 16, 20, 18, 18, 16, 16], ['d', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'm', 'd', '', 'm', '', '']);
     add('Cash expense lines', ['Date', 'Category', 'Amount', 'Cash deposit?', 'Description', 'Added by'], lineRows, [18, 26, 14, 18, 60, 16], ['d', '', 'm', '', '', '']);
     add('Balance walk', ['Date (bank)', 'Bank entries', 'UPI+Card settled', 'Cash deposits', 'Net for day', 'Running balance (as app computes)'], walkRows, [18, 16, 18, 16, 16, 30], ['d', 'm', 'm', 'm', 'm', 'm']);
+    const ledRows = loadLedger().slice().sort(function (a, b) { return (a[0] || '').localeCompare(b[0] || ''); }).map(function (r) {
+      return [dt(r[0]), num(r[1]), r[2] === 'E' ? 'Edwin' : 'Prathvi', { C: 'Capex', S: 'Setup', O: 'Operating (partner-paid)', I: 'Capital infusion' }[r[3]] || r[3] || '', r[4] || '', r[5] || ''];
+    });
+    add('Ledger (capital & partner-paid)', ['Date', 'Amount', 'Partner', 'Kind', 'Category', 'ID'], ledRows, [18, 16, 12, 26, 40, 10], ['d', 'm', '', '', '', '']);
     add('Income (Pet Pooja)', ['From', 'To', 'Gross', 'Tax', 'Discount', 'Source', 'Uploaded by', 'ID'], incRows, [18, 18, 16, 14, 14, 14, 18, 22], ['d', 'd', 'm', 'm', 'm', '', '', '']);
     XLSX.writeFile(wb, 'comedor-audit-' + todayLocalISO() + '.xlsx', { cellDates: true });
   } catch (e) { alert('Export failed: ' + (e && e.message || e)); }
