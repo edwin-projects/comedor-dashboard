@@ -1635,7 +1635,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-10-09-2';
+const APP_VERSION = '2026-10-09-3';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -4701,7 +4701,7 @@ function downloadAuditExcel() {
       ['− IDFC partner drawings after base', -drawOut, ''],
       ['+ UPI + card sales settled to the bank', digTot, 'Credited on settlement date: next day, Sunday rolls to Monday'],
       ['+ Cash deposits after base', depTot, ''],
-      ['Yet to be credited (card/UPI sales in transit) — not in the balance', pendingTot, 'Shown separately on the dashboard tile'],
+      ['Yet to be credited (card/UPI sales in transit) — not in the balance', (bcStatementPosition() ? computeBankSplit().pending : pendingTot), 'Shown separately on the dashboard tile'],
       ['= Balance computed by this export', base + capIn - expOut - drawOut + digTot + depTot, ''],
       ['Balance the app shows (computeBankBalance)', shown == null ? '' : shown, (bcStatementPosition() ? 'Taken from the uploaded statement, so it can differ from the workings above' : 'Should equal the line above')],
       ['Bank entries / cash days / income records', bank.length + ' / ' + cash.length + ' / ' + income.length, ''],
@@ -8074,7 +8074,7 @@ function renderBankCheck() {
     return;
   }
   var open = r.items.filter(function (i) { return !i.ack; }), done = r.items.filter(function (i) { return i.ack; });
-  if (badge) badge.textContent = open.length ? open.length + ' to fix' : 'all matched ✓';
+  if (badge) badge.textContent = open.length ? open.length + ' to fix' : (done.length ? done.length + ' set aside' : 'all matched ✓');
   h += '<div class="bc-pos"><div class="bc-row"><span>Bank balance · statement of ' + esc(bcFmtDate(r.last)) + '</span><b>' + bcInr(r.closing) + '</b></div>';
   h += '<div class="bc-row"><span>+ Cash in hand</span><b>' + bcInr(currentCashBalance()) + '</b></div>';
   h += '<div class="bc-row"><span>+ Yet to be credited to bank (card / UPI sales)</span><b' + (r.pending > 0 ? ' style="color:var(--green);"' : '') + '>' + bcInr(r.pending) + '</b></div></div>';
@@ -8123,7 +8123,7 @@ function renderBankCheck() {
   if (newF) {
     h += '<div class="bc-head bc-head-new">Latest upload · ' + (newF === newT ? esc(bcFmtDate(newF)) : esc(bcFmtShort(newF)) + ' – ' + esc(bcFmtDate(newT))) + '</div>';
     if (newOpen.length) h += '<div class="bc-sub" style="margin-bottom:4px;">' + newOpen.length + ' to check. Fix the entry in the app and it leaves this list by itself. If a partner paid it from their own pocket, tap "Paid by partner directly". Tap "Not a problem" only if nothing needs fixing.</div>' + fixBlock('n_', newOpen);
-    else h += '<div class="bc-ok">✓ Nothing to fix in this upload.</div>';
+    else h += '<div class="bc-ok">✓ Nothing to fix in this upload.' + (done.length ? ' (' + done.length + ' older items were marked "Not a problem" — see Past entries.)' : '') + '</div>';
     if (newMatch.length) h += matchBlock('n_', newMatch, true);
   }
   // 2) older items that still need fixing
