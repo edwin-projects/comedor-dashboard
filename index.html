@@ -1262,7 +1262,6 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
         #setcard-bankcheck .bc-day{display:flex;justify-content:space-between;gap:8px;padding:6px 0;font-size:12.5px;border-bottom:1px solid var(--border);color:var(--text2);font-family:'Inter',sans-serif;}
         #setcard-bankcheck .bc-day .bc-amt{font-size:12.5px;color:var(--text);}
       </style>
-      <p class="exp-note">Upload the IDFC statement (PDF, Excel or CSV) for any dates. The app compares every bank payment and receipt with the app's entries. Mismatches are flagged in red for you to fix; matches are listed in small grey type for information only. Missed a day? Upload yesterday and today together next time — nothing is double-counted.</p>
       <input type="file" id="bc-file" accept=".pdf,.xlsx,.xls,.csv,application/pdf,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onchange="bcHandleFile(this)" style="display:none;">
       <button id="bc-upload-btn" class="btn" style="width:100%; padding:13px; font-size:15px;" onclick="document.getElementById('bc-file').click()">Upload bank statement</button>
       <div id="bc-msg"></div>
@@ -1635,7 +1634,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-10-09-3';
+const APP_VERSION = '2026-10-09-4';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
