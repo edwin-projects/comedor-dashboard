@@ -1238,6 +1238,8 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
         #setcard-bankcheck .bc-det summary{cursor:pointer;font-size:12.5px;font-weight:600;color:var(--text2);padding:6px 0;font-family:'Inter',sans-serif;}
         #setcard-bankcheck .bc-head{font-size:12.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-top:18px;font-family:'Inter',sans-serif;}
         #setcard-bankcheck .bc-head-bad{color:var(--red);}
+        #setcard-bankcheck .bc-head-new{color:var(--accent2);}
+        #setcard-bankcheck .bc-head-past{color:var(--text3);}
         #setcard-bankcheck .bc-head-good{color:var(--green);margin-top:0;cursor:pointer;}
         #setcard-bankcheck .bc-flag{border-left:3px solid var(--red);}
         #setcard-bankcheck .bc-mline{display:flex;gap:8px;align-items:baseline;padding:4px 0;font-size:11.5px;color:var(--text3);border-bottom:1px solid var(--border);font-family:'Inter',sans-serif;}
@@ -1633,7 +1635,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-10-09-1';
+const APP_VERSION = '2026-10-09-2';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -8051,7 +8053,7 @@ function bcItemHTML(it, hidden) {
   var acts = hidden
     ? '<button class="bc-btn" onclick="bcUndo(\'' + keys.join(',') + '\')">Show again</button>'
     : (it.kind === 'bankOut' && !it.keys ? '<button class="bc-btn bc-btn-main" onclick="bcAddToApp(\'' + it.key + '\')">Add to app</button>' : '') +
-      '<button class="bc-btn" id="bc-rv-' + keys[0].replace(/[^A-Za-z0-9_]/g, '') + '" onclick="bcReview(this,\'' + keys.join(',') + '\',' + (it.kind === 'tallyAhead' ? Math.round(it.amt) : 'null') + ')">Not a problem</button>';
+      (it.kind === 'appOut' && !it.keys && it.key.indexOf('app_') === 0 ? '<button class="bc-btn bc-btn-main" onclick="bcMakeDirect(\''+it.key.slice(4)+'\')">Paid by partner directly</button>' : '') + '<button class="bc-btn" id="bc-rv-' + keys[0].replace(/[^A-Za-z0-9_]/g, '') + '" onclick="bcReview(this,\'' + keys.join(',') + '\',' + (it.kind === 'tallyAhead' ? Math.round(it.amt) : 'null') + ')">Not a problem</button>';
   var who = hidden && it.ack ? '<div class="bc-sub">Marked "not a problem" by ' + esc(it.ack.by || '—') + (it.ack.at ? ' · ' + esc(bcFmtShort(it.ack.at)) : '') + '</div>' : '';
   return '<div class="bc-item ' + (hidden ? '' : 'bc-flag') + '"><div class="bc-top"><span class="bc-date">' + esc(bcFmtShort(it.d)) + '</span><span class="bc-amt" style="color:' + color + ';">' + bcInr(it.amt) + '</span></div>' +
     '<div class="bc-title">' + esc(it.title) + '</div>' + (it.sub && it.sub !== it.title ? '<div class="bc-sub">' + esc(String(it.sub).slice(0, 230)) + '</div>' : '') + who + '<div class="bc-acts">' + acts + '</div></div>';
@@ -8080,34 +8082,57 @@ function renderBankCheck() {
   if (gaps.length) h += '<div class="bc-warn">No statement loaded for ' + gaps.map(function (g) { return g.f === g.t ? bcFmtDate(g.f) : bcFmtShort(g.f) + ' – ' + bcFmtDate(g.t); }).join(', ') + '. Upload a statement that covers ' + (gaps.length > 1 ? 'those days' : 'that day') + '.</div>';
   else if (age > 1) h += '<div class="bc-warn">The latest statement day loaded is ' + esc(bcFmtDate(r.last)) + ' (' + age + ' days ago). Upload the latest one.</div>';
 
-  // 1) what needs attention
-  if (!open.length) h += '<div class="bc-ok">✓ Nothing to fix. Every bank payment and receipt since ' + esc(bcFmtDate(r.S)) + ' matches an app entry.</div>';
-  else {
-    h += '<div class="bc-head bc-head-bad">Needs fixing · ' + open.length + '</div><div class="bc-sub" style="margin-bottom:4px;">These do NOT match between the bank and the app. Fix the entry in the app and it leaves this list by itself. Tap "Not a problem" only if nothing needs fixing.</div>';
-    var bankOut = open.filter(function (i) { return i.kind === 'bankOut'; }), rowsOut = [], groups = {};
-    bankOut.forEach(function (i) { var tg = bcTag(i.sub); if (tg) { var k = i.d + '|' + tg; (groups[k] = groups[k] || []).push(i); } else rowsOut.push(i); });
+  // newest upload(s) = the "fresh" batch; everything older is "past"
+  var covAll = bcCoverage(), newF = '', newT = '';
+  if (covAll.length) {
+    var latestAt = covAll.reduce(function (m, c) { return (c.at || '') > m ? (c.at || '') : m; }, '');
+    covAll.forEach(function (c) { if ((c.at || '') === latestAt) { if (!newF || c.f < newF) newF = c.f; if (!newT || c.t > newT) newT = c.t; } });
+  }
+  var isNew = function (d) { return !!newF && d >= newF && d <= newT; };
+  var bankOutRows = function (list) {
+    var rowsOut = [], groups = {};
+    list.forEach(function (i) { var tg = bcTag(i.sub); if (tg) { var k = i.d + '|' + tg; (groups[k] = groups[k] || []).push(i); } else rowsOut.push(i); });
     Object.keys(groups).forEach(function (k) {
       var g = groups[k];
       if (g.length < 3) { g.forEach(function (i) { rowsOut.push(i); }); return; }
       rowsOut.push({ kind: 'bankOut', key: g[0].key, keys: g.map(function (i) { return i.key; }), d: g[0].d, amt: g.reduce(function (a, i) { return a + i.amt; }, 0), title: k.split('|')[1] + ' · ' + g.length + ' payments', sub: g.map(function (i) { return i.title; }).join(', ') });
     });
-    var sect = function (kind, list) {
-      if (!list.length) return '';
-      var t = BC_SECTIONS[kind], tot = list.reduce(function (a, i) { return a + i.amt; }, 0);
-      list = list.slice().sort(function (a, b) { return a.d < b.d ? 1 : -1; });
-      return bcCat(kind, 'bad', t[0], list.length + ' · ' + bcInr(tot), '<div class="bc-sub" style="margin:0 0 8px;">' + t[1] + '</div>' + list.map(function (i) { return bcItemHTML(i, false); }).join(''));
+    return rowsOut;
+  };
+  var fixBlock = function (pre, list) {
+    var sect = function (kind, l) {
+      if (!l.length) return '';
+      var t = BC_SECTIONS[kind], tot = l.reduce(function (a, i) { return a + i.amt; }, 0);
+      l = l.slice().sort(function (a, b) { return a.d < b.d ? 1 : -1; });
+      return bcCat(pre + kind, 'bad', t[0], l.length + ' · ' + bcInr(tot), '<div class="bc-sub" style="margin:0 0 8px;">' + t[1] + '</div>' + l.map(function (i) { return bcItemHTML(i, false); }).join(''));
     };
-    h += sect('bankOut', rowsOut) + sect('appOut', open.filter(function (i) { return i.kind === 'appOut'; })) + sect('bankIn', open.filter(function (i) { return i.kind === 'bankIn'; })) +
-         sect('appIn', open.filter(function (i) { return i.kind === 'appIn'; })) + sect('tallyAhead', open.filter(function (i) { return i.kind === 'tallyAhead'; }));
-  }
+    var by = function (k) { return list.filter(function (i) { return i.kind === k; }); };
+    return sect('bankOut', bankOutRows(by('bankOut'))) + sect('appOut', by('appOut')) + sect('bankIn', by('bankIn')) + sect('appIn', by('appIn')) + sect('tallyAhead', by('tallyAhead'));
+  };
+  var matchBlock = function (pre, list, withTally) {
+    var mi = list.slice().sort(function (a, b) { return a.d < b.d ? 1 : -1; }), mt = mi.reduce(function (a, i) { return a + i.amt; }, 0);
+    return bcCat(pre + 'matched', 'good', '✓ Matched — nothing to do', mi.length + ' · ' + bcInr(mt),
+      mi.slice(0, 150).map(function (i) { return '<div class="bc-mline"><span>' + esc(bcFmtShort(i.d)) + '</span><span class="bc-mt">' + esc(i.title) + '</span><span class="bc-amt">' + bcInr(i.amt) + '</span></div>'; }).join('') +
+      (mi.length > 150 ? '<div class="bc-sub">…and ' + (mi.length - 150) + ' older ones</div>' : '') +
+      (withTally && r.tally ? '<div class="bc-sub" style="margin-top:8px;">Card/UPI: sales rung up since ' + esc(bcFmtDate(r.S)) + ' ' + bcInr(r.tally.exp) + ' · received in the bank ' + bcInr(r.tally.act) + ' (sales reach the bank the next day).</div>' : ''));
+  };
+  var newOpen = open.filter(function (i) { return isNew(i.d); }), oldOpen = open.filter(function (i) { return !isNew(i.d); });
+  var newMatch = r.matchedItems.filter(function (i) { return isNew(i.d); }), oldMatch = r.matchedItems.filter(function (i) { return !isNew(i.d); });
 
-  // 2) what matched — for information only, nothing to do
-  var mi = r.matchedItems.slice().sort(function (a, b) { return a.d < b.d ? 1 : -1; }), mt = mi.reduce(function (a, i) { return a + i.amt; }, 0);
-  h += bcCat('matched', 'good', '✓ Matched — nothing to do', mi.length + ' · ' + bcInr(mt),
-    mi.slice(0, 150).map(function (i) { return '<div class="bc-mline"><span>' + esc(bcFmtShort(i.d)) + '</span><span class="bc-mt">' + esc(i.title) + '</span><span class="bc-amt">' + bcInr(i.amt) + '</span></div>'; }).join('') +
-    (mi.length > 150 ? '<div class="bc-sub">…and ' + (mi.length - 150) + ' older ones</div>' : '') +
-    (r.tally ? '<div class="bc-sub" style="margin-top:8px;">Card/UPI: sales rung up since ' + esc(bcFmtDate(r.S)) + ' ' + bcInr(r.tally.exp) + ' · received in the bank ' + bcInr(r.tally.act) + ' (sales reach the bank the next day).</div>' : ''));
-  if (done.length) h += bcCat('hidden', 'plain', 'Marked "not a problem"', String(done.length), done.slice().sort(function (a, b) { return a.d < b.d ? 1 : -1; }).map(function (i) { return bcItemHTML(i, true); }).join(''));
+  // 1) the latest upload — what to look at now
+  if (newF) {
+    h += '<div class="bc-head bc-head-new">Latest upload · ' + (newF === newT ? esc(bcFmtDate(newF)) : esc(bcFmtShort(newF)) + ' – ' + esc(bcFmtDate(newT))) + '</div>';
+    if (newOpen.length) h += '<div class="bc-sub" style="margin-bottom:4px;">' + newOpen.length + ' to check. Fix the entry in the app and it leaves this list by itself. If a partner paid it from their own pocket, tap "Paid by partner directly". Tap "Not a problem" only if nothing needs fixing.</div>' + fixBlock('n_', newOpen);
+    else h += '<div class="bc-ok">✓ Nothing to fix in this upload.</div>';
+    if (newMatch.length) h += matchBlock('n_', newMatch, true);
+  }
+  // 2) older items that still need fixing
+  if (oldOpen.length) h += '<div class="bc-head bc-head-bad">Earlier — still needs fixing · ' + oldOpen.length + '</div>' + fixBlock('o_', oldOpen);
+  // 3) past entries — settled, collapsed
+  var pastCnt = oldMatch.length + done.length;
+  if (pastCnt) h += '<div class="bc-head bc-head-past">Past entries</div>' +
+    (oldMatch.length ? matchBlock('o_', oldMatch, !newF) : '') +
+    (done.length ? bcCat('hidden', 'plain', 'Marked "not a problem"', String(done.length), done.slice().sort(function (a, b) { return a.d < b.d ? 1 : -1; }).map(function (i) { return bcItemHTML(i, true); }).join('')) : '');
 
   // 3) uploaded files — delete and re-upload
   var cov = bcCoverage().slice().sort(function (a, b) { return a.f < b.f ? 1 : -1; });
@@ -8143,6 +8168,14 @@ function bcReview(btn, keys, amt) {
   if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; setTimeout(function () { btn.textContent = 'Done ✓'; }, 250); }
   keys.split(',').forEach(function (k) { bcAck(k, amt); });
   setTimeout(renderBankCheck, 700);
+}
+// An app expense the bank never paid because a partner paid the vendor from their own pocket: re-file it as partner-direct.
+function bcMakeDirect(id) {
+  var b = loadBankEntries().filter(function (x) { return x && x.id === id; })[0]; if (!b) return;
+  var who = b.addedBy || '';
+  if (!confirm('Mark ' + bcInr(b.amount) + ' (' + (b.desc || b.category || 'expense') + ') as paid directly by ' + (who || 'the partner') + '?\n\nIt stays an expense, adds to that partner\'s capital, and no longer counts against the bank balance.')) return;
+  saveBankExpense(Object.assign({}, b, { direct: true, capital: false, payout: false, partner: who, editedBy: (currentUser && currentUser.name) || '', editedAt: new Date().toLocaleString('en-IN') }));
+  renderBankList(); renderActivePanel();
 }
 function bcUndo(keys) { keys.split(',').forEach(bcUnack); renderBankCheck(); }
 function bcAddToApp(key) {
