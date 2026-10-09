@@ -1238,6 +1238,18 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
         #setcard-bankcheck .bc-det summary{cursor:pointer;font-size:12.5px;font-weight:600;color:var(--text2);padding:6px 0;font-family:'Inter',sans-serif;}
         #setcard-bankcheck .bc-head{font-size:12.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-top:18px;font-family:'Inter',sans-serif;}
         #setcard-bankcheck .bc-head-bad{color:var(--red);}
+        #setcard-bankcheck .bc-major{margin-top:14px;border:1px solid var(--border);border-radius:12px;background:var(--surface);}
+        #setcard-bankcheck .bc-major > summary{list-style:none;display:flex;align-items:center;gap:10px;padding:15px 12px;cursor:pointer;min-height:52px;font-family:'Inter',sans-serif;}
+        #setcard-bankcheck .bc-major > summary::-webkit-details-marker{display:none;}
+        #setcard-bankcheck .bc-major[open] > summary .bc-chev{transform:rotate(90deg);}
+        #setcard-bankcheck .bc-major > summary .bc-chev{width:18px;font-size:17px;color:var(--text2);}
+        #setcard-bankcheck .bc-major-t{flex:1;min-width:0;font-size:13.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);}
+        #setcard-bankcheck .bc-major-new{border-color:rgba(201,160,64,.45);}
+        #setcard-bankcheck .bc-major-new .bc-major-t{color:var(--accent2);}
+        #setcard-bankcheck .bc-major-bad{border-left:3px solid var(--red);}
+        #setcard-bankcheck .bc-major-bad .bc-major-t{color:var(--red);}
+        #setcard-bankcheck .bc-major-b{padding:0 10px 12px;}
+        #setcard-bankcheck .bc-major-b .bc-cat{background:var(--bg);}
         #setcard-bankcheck .bc-head-new{color:var(--accent2);}
         #setcard-bankcheck .bc-head-past{color:var(--text3);}
         #setcard-bankcheck .bc-head-good{color:var(--green);margin-top:0;cursor:pointer;}
@@ -1634,7 +1646,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-10-09-4';
+const APP_VERSION = '2026-10-09-5';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -8063,6 +8075,10 @@ function bcToggle(el) { _bcOpen[el.getAttribute('data-k')] = el.open; }
 function bcCat(k, tone, title, count, body) {
   return '<details class="bc-cat bc-cat-' + tone + '" data-k="' + k + '" ontoggle="bcToggle(this)"' + (_bcOpen[k] ? ' open' : '') + '><summary><span class="bc-chev">▸</span><span class="bc-cat-t">' + title + '</span><span class="bc-cnt">' + count + '</span></summary><div class="bc-cat-b">' + body + '</div></details>';
 }
+function bcMajor(k, cls, title, count, body, defOpen) {
+  var o = _bcOpen[k] === undefined ? defOpen : _bcOpen[k];
+  return '<details class="bc-major bc-major-' + cls + '" data-k="' + k + '" ontoggle="bcToggle(this)"' + (o ? ' open' : '') + '><summary><span class="bc-chev">▸</span><span class="bc-major-t">' + title + '</span><span class="bc-cnt">' + count + '</span></summary><div class="bc-major-b">' + body + '</div></details>';
+}
 function renderBankCheck() {
   var host = document.getElementById('bankcheck-dyn'); if (!host) return;
   var r = bcCompute(), h = '';
@@ -8120,25 +8136,23 @@ function renderBankCheck() {
 
   // 1) the latest upload — what to look at now
   if (newF) {
-    h += '<div class="bc-head bc-head-new">Latest upload · ' + (newF === newT ? esc(bcFmtDate(newF)) : esc(bcFmtShort(newF)) + ' – ' + esc(bcFmtDate(newT))) + '</div>';
-    if (newOpen.length) h += '<div class="bc-sub" style="margin-bottom:4px;">' + newOpen.length + ' to check. Fix the entry in the app and it leaves this list by itself. If a partner paid it from their own pocket, tap "Paid by partner directly". Tap "Not a problem" only if nothing needs fixing.</div>' + fixBlock('n_', newOpen);
-    else h += '<div class="bc-ok">✓ Nothing to fix in this upload.' + (done.length ? ' (' + done.length + ' older items were marked "Not a problem" — see Past entries.)' : '') + '</div>';
-    if (newMatch.length) h += matchBlock('n_', newMatch, true);
+    var nb = '';
+    if (newOpen.length) nb += '<div class="bc-sub" style="margin-bottom:4px;">' + newOpen.length + ' to check. Fix the entry in the app and it leaves this list by itself. If a partner paid it from their own pocket, tap "Paid by partner directly". Tap "Not a problem" only if nothing needs fixing.</div>' + fixBlock('n_', newOpen);
+    else nb += '<div class="bc-ok">✓ Nothing to fix in this upload.</div>';
+    if (newMatch.length) nb += matchBlock('n_', newMatch, true);
+    h += bcMajor('major_new', 'new', 'Latest upload · ' + (newF === newT ? esc(bcFmtDate(newF)) : esc(bcFmtShort(newF)) + ' – ' + esc(bcFmtDate(newT))), newOpen.length ? newOpen.length + ' to check' : '✓', nb, true);
   }
   // 2) older items that still need fixing
-  if (oldOpen.length) h += '<div class="bc-head bc-head-bad">Earlier — still needs fixing · ' + oldOpen.length + '</div>' + fixBlock('o_', oldOpen);
-  // 3) past entries — settled, collapsed
-  var pastCnt = oldMatch.length + done.length;
-  if (pastCnt) h += '<div class="bc-head bc-head-past">Past entries</div>' +
-    (oldMatch.length ? matchBlock('o_', oldMatch, !newF) : '') +
-    (done.length ? bcCat('hidden', 'plain', 'Marked "not a problem"', String(done.length), done.slice().sort(function (a, b) { return a.d < b.d ? 1 : -1; }).map(function (i) { return bcItemHTML(i, true); }).join('')) : '');
-
-  // 3) uploaded files — delete and re-upload
+  if (oldOpen.length) h += bcMajor('major_old', 'bad', 'Earlier — still needs fixing', String(oldOpen.length), fixBlock('o_', oldOpen), true);
+  // 3) past entries — settled, collapsed; includes the uploaded files
   var cov = bcCoverage().slice().sort(function (a, b) { return a.f < b.f ? 1 : -1; });
-  h += bcCat('uploads', 'plain', 'Uploaded statements', String(cov.length), '<div class="bc-sub" style="margin:0 0 8px;">Uploaded the wrong file? Delete it here (this removes its transactions from the app), then upload the right one.</div>' +
+  var pb = (oldMatch.length ? matchBlock('o_', oldMatch, !newF) : '') +
+    (done.length ? bcCat('hidden', 'plain', 'Marked "not a problem"', String(done.length), done.slice().sort(function (a, b) { return a.d < b.d ? 1 : -1; }).map(function (i) { return bcItemHTML(i, true); }).join('')) : '') +
+    bcCat('uploads', 'plain', 'Uploaded statements', String(cov.length), '<div class="bc-sub" style="margin:0 0 8px;">Uploaded the wrong file? Delete it here (this removes its transactions from the app), then upload the right one.</div>' +
     cov.map(function (c) {
       return '<div class="bc-up"><div><div class="bc-title" style="font-size:12.5px;">' + esc(bcFmtShort(c.f)) + ' – ' + esc(bcFmtDate(c.t)) + '</div><div class="bc-sub">' + (c.name ? esc(c.name) + ' · ' : '') + (c.n ? c.n + ' transactions · ' : '') + 'uploaded' + (c.by ? ' by ' + esc(c.by) : '') + (c.at ? ' on ' + esc(bcFmtShort(c.at)) : '') + '</div></div><button class="bc-btn bc-btn-del" onclick="bcDeleteUpload(\'' + c.f + '\',\'' + c.t + '\')">Delete</button></div>';
     }).join('') + '<div style="margin-top:10px;"><button class="bc-btn bc-btn-del" onclick="bcDeleteAll()">Delete ALL statement data</button></div>');
+  h += bcMajor('major_past', 'past', 'Past entries', String(oldMatch.length + done.length + cov.length), pb, false);
   host.innerHTML = h;
 }
 // Remove one upload's date range (its transactions + the upload record) so the right file can be uploaded again.
