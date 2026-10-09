@@ -212,12 +212,13 @@
   .tile-income .card-value, .tile-exp .card-value, .tile-avail .card-value, .tile-upc .card-value { font-size:30px; }
   .tile-avail .card-value { color:#4d9de0; }
   .bal-rows { margin-top:12px; border-top:1px solid var(--border); padding-top:6px; }
-  .bal-row { display:flex; justify-content:space-between; align-items:flex-start; gap:6px; padding:5px 0; font-size:11.5px; color:var(--text2); font-family:'Inter',sans-serif; line-height:1.3; }
+  .bal-row { display:flex; justify-content:space-between; align-items:flex-start; gap:6px; padding:6px 0; font-size:10px; color:var(--text2); font-family:'Inter',sans-serif; line-height:1.3; }
   .bal-row span { white-space:nowrap; }
-  .bal-row small { display:block; white-space:nowrap; font-size:10px; color:var(--text3); margin-top:1px; }
-  .bal-row b { font-family:var(--num-font); font-size:14px; font-weight:600; color:var(--text); white-space:nowrap; }
+  .bal-row small { display:block; white-space:nowrap; font-size:9px; color:var(--text3); margin-top:1px; }
+  .bal-row b { font-family:var(--num-font); font-size:12.5px; font-weight:600; color:var(--text); white-space:nowrap; }
+  .bal-row + .bal-row { border-top:1px solid var(--border); }
   .bal-row b.bal-pos { color:var(--green); }
-  .bal-asof { font-size:10px; white-space:nowrap; color:var(--text3); margin-top:6px; font-family:'Inter',sans-serif; }
+  .bal-asof { font-size:9px; white-space:nowrap; color:var(--text3); margin-top:0; padding-top:6px; border-top:1px solid var(--border); font-family:'Inter',sans-serif; }
   .bal-asof.bal-old { color:var(--accent2); white-space:normal; }
   .tile-disc .card-value { color:var(--accent2); }
   .card-sub { font-size: 11px; color: var(--text3); margin-top: 5px; font-family: 'Inter', sans-serif; overflow: hidden; }
@@ -1632,7 +1633,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-10-08-9';
+const APP_VERSION = '2026-10-09-1';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
