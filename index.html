@@ -245,10 +245,12 @@
   .tile-upc    { background:linear-gradient(140deg, rgba(176,110,40,0.26) 0%, rgba(224,150,77,0.05) 100%); border-color:rgba(224,150,77,0.34); }
   .tile-upc .card-value { color:#e0a04d; }
   .tile-upc .card-value.upc-neg { color:var(--red); }
-  .upc-line { display:flex; align-items:center; gap:5px; margin-top:10px; font-family:'Inter',sans-serif; font-size:10px; font-weight:500; letter-spacing:0.2px; line-height:1.3; color:var(--text2); white-space:nowrap; min-width:0; }
+  .upc-lines { margin-top:10px; display:flex; flex-direction:column; gap:3px; min-width:0; }
+  .upc-more { font-family:'Inter',sans-serif; font-size:10px; color:var(--text3); padding-left:12px; white-space:nowrap; }
+  .upc-line { display:flex; align-items:center; gap:5px; font-family:'Inter',sans-serif; font-size:10px; font-weight:500; letter-spacing:0.2px; line-height:1.3; color:var(--text2); white-space:nowrap; min-width:0; }
   .upc-line .fr-dot { color:var(--accent2); }
   .upc-line-t { overflow:hidden; text-overflow:ellipsis; min-width:0; }
-  .upc-line-m { flex:none; color:var(--text3); }
+  .upc-line-m { flex:none; color:var(--text); font-weight:600; }
   /* ── Atelier Noir (dark): flat cards + brass hairlines instead of neon glows;
      colour lives only in the figure. One focal tint on the Net P/L hero. ── */
   :root[data-theme="dark"] .tile-income,
@@ -1654,7 +1656,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-10-10-7';
+const APP_VERSION = '2026-10-10-8';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -5687,9 +5689,14 @@ function renderPnlBank() {
     : (upcItems.length
         ? `<div class="tsplit-note">${upcSummary}</div>`
         : '<div class="tsplit-note dim">Nothing scheduled yet</div>');
-  const _lbl = t => { t = String(t || '').toLowerCase(); return t.charAt(0).toUpperCase() + t.slice(1); };
+  const _ABBR = { accommodation:'acc', electricity:'elec', maintenance:'maint', insurance:'ins', subscription:'sub', internet:'net', licence:'lic', license:'lic' };
+  const _short = t => String(t || '').toLowerCase().split(/\s+/).filter(Boolean).map(w => _ABBR[w] || (w.length > 9 ? w.slice(0, 5) + '.' : w)).join(' ').replace(/^./, c => c.toUpperCase());
+  const _cmp = n => n >= 1e7 ? (+(n / 1e7).toFixed(2)) + 'Cr' : n >= 1e5 ? (+(n / 1e5).toFixed(2)) + 'L' : n >= 1e3 ? (+(n / 1e3).toFixed(1)) + 'k' : String(Math.round(n));
+  const upcSorted = upcItems.slice().sort((x, y) => (y.amt - x.amt) || x.date.localeCompare(y.date));
+  const UPC_MAX = 3;
   const upcLine = (!fc.pastPeriod && upcItems.length)
-    ? `<div class="upc-line"><span class="fr-dot"></span><span class="upc-line-t">${esc(_lbl(upcItems[0].label))}</span>${upcItems.length > 1 ? `<span class="upc-line-m">+${upcItems.length - 1} more</span>` : ''}</div>`
+    ? '<div class="upc-lines">' + upcSorted.slice(0, UPC_MAX).map(it => `<div class="upc-line"><span class="fr-dot"></span><span class="upc-line-t">${esc(_short(it.label))}</span><span class="upc-line-m">${it.rem ? '· ' + dChip(it.date) : '= ' + _cmp(it.amt)}</span></div>`).join('') +
+      (upcSorted.length > UPC_MAX ? `<div class="upc-more">+${upcSorted.length - UPC_MAX} more…</div>` : '') + '</div>'
     : '';
   // Shortfall / covered flag — a plain note pinned to the tile bottom.
   const upcWarn = (!fc.pastPeriod && upcItems.length && fc.scheduled > 0)
