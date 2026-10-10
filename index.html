@@ -218,12 +218,12 @@
   .bal-row b { font-family:var(--num-font); font-size:12.5px; font-weight:600; color:var(--text); white-space:nowrap; }
   .bal-row + .bal-row { border-top:1px solid var(--border); }
   .bal-row b.bal-pos { color:var(--green); }
-  .bal-asof { font-size:9px; white-space:nowrap; color:var(--text3); margin-top:0; padding-top:6px; border-top:1px solid var(--border); font-family:'Inter',sans-serif; }
+  .bal-asof { display:flex; align-items:center; gap:5px; font-size:10px; font-weight:500; letter-spacing:0.2px; line-height:1.3; white-space:nowrap; color:var(--text3); margin-top:0; padding-top:8px; border-top:1px solid var(--border); font-family:'Inter',sans-serif; }
   #setcard-bankcheck .bc-row.bc-fresh.fr-g span{color:var(--green)} #setcard-bankcheck .bc-row.bc-fresh.fr-y span{color:#F2C94C} #setcard-bankcheck .bc-row.bc-fresh.fr-r span{color:var(--red)} #setcard-bankcheck .bc-fresh{font-size:11.5px} #setcard-bankcheck .bc-fresh span{white-space:nowrap}
   .bal-asof.fr-g { color:var(--green); }
   .bal-asof.fr-y { color:#F2C94C; }
   .bal-asof.fr-r { color:var(--red); }
-  .fr-dot { display:inline-block; width:6px; height:6px; border-radius:50%; background:currentColor; margin-right:5px; vertical-align:1px; }
+  .fr-dot { display:inline-block; flex:0 0 6px; width:6px; height:6px; border-radius:50%; background:currentColor; margin:0 1px; }
   .tile-disc .card-value { color:var(--accent2); }
   .card-sub { font-size: 11px; color: var(--text3); margin-top: 5px; font-family: 'Inter', sans-serif; overflow: hidden; }
   /* Tile sub-lines: two-column grid so every figure starts at the same x. */
@@ -1650,7 +1650,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-10-10-2';
+const APP_VERSION = '2026-10-10-3';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -5745,7 +5745,7 @@ function renderPnlBank() {
     </div>
     ${monthlySalesChartHtml(range)}
     <div class="cards2">
-      <div class="card card-click tile-avail" onclick="focusLog('bank')"><div class="card-label">Bank Balance</div><div class="card-value">${inr(bankBal||0)}</div><div class="bal-rows"><div class="bal-row"><span>+ Cash in hand</span><b>${inr(cashBal)}</b></div><div class="bal-row"><span>+ Yet to be credited<small>to bank · card / UPI</small></span><b class="${bankPending > 0 ? 'bal-pos' : ''}">${inr(bankPending)}</b></div></div>${bankSplit && bankSplit.asOf ? `<div class="bal-asof ${bcFresh(bankSplit.asOf).cls}"><span class="fr-dot"></span>Bank as of ${bcFmtShort(bankSplit.asOf)} ${bankSplit.asOf.slice(0,4)} · ${bcFresh(bankSplit.asOf).ago.replace(' days ago','d ago').replace(' day ago','d ago')}</div>` : ''}${cashOpen ? `<div class="tile-warn warn-amber" role="button" tabindex="0" title="Cash not closed — enter the closing count for ${lastCashEntry ? dChip(lastCashEntry.date) : ''}" onclick="event.stopPropagation(); goCloseCash('${lastCashEntry ? lastCashEntry.date : ''}')">ⓘ Cash not closed · ${lastCashEntry ? dChip(lastCashEntry.date) : ''}</div>` : ''}</div>
+      <div class="card card-click tile-avail" onclick="focusLog('bank')"><div class="card-label">Bank Balance</div><div class="card-value">${inr(bankBal||0)}</div><div class="bal-rows"><div class="bal-row"><span>+ Cash in hand</span><b>${inr(cashBal)}</b></div><div class="bal-row"><span>+ Yet to be credited<small>to bank · card / UPI</small></span><b class="${bankPending > 0 ? 'bal-pos' : ''}">${inr(bankPending)}</b></div></div>${bankSplit && bankSplit.asOf ? `<div class="bal-asof ${bcFresh(bankSplit.asOf).cls}"><span class="fr-dot"></span>Bank as of ${bcFmtShort(bankSplit.asOf)} ${bankSplit.asOf.slice(0,4)} · ${bcFresh(bankSplit.asOf).ago.replace(' days ago','d ago').replace(' day ago','d ago')}</div>` : ''}${cashOpen ? `<div class="tile-warn warn-amber" role="button" tabindex="0" title="Cash not closed — enter the closing count for ${lastCashEntry ? dChip(lastCashEntry.date) : ''}" onclick="event.stopPropagation(); goCloseCash('${lastCashEntry ? lastCashEntry.date : ''}')"><span class="fr-dot"></span>Cash not closed · ${lastCashEntry ? dChip(lastCashEntry.date) : ''}</div>` : ''}</div>
       <div class="card card-click tile-upc" onclick="toggleUpcoming(event)"><div class="card-label">Upcoming Expenses</div><div class="card-value ${(!fc.pastPeriod && !upcCovered && fc.expected>0)?'upc-neg':''}">${fc.pastPeriod ? '—' : inr(fc.expected)}</div><div class="card-sub">${upcTileSub}</div>${upcWarn}</div>
     </div>
     <div class="card upc-detail" id="upc-detail" style="display:${_upcOpen ? 'block' : 'none'};">
