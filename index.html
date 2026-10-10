@@ -1650,7 +1650,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-10-10-4';
+const APP_VERSION = '2026-10-10-5';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -5745,7 +5745,7 @@ function renderPnlBank() {
     </div>
     ${monthlySalesChartHtml(range)}
     <div class="cards2">
-      <div class="card card-click tile-avail" onclick="focusLog('bank')"><div class="card-label">Bank Balance</div><div class="card-value">${inr(bankBal||0)}</div><div class="bal-rows"><div class="bal-row"><span>+ Cash in hand</span><b>${inr(cashBal)}</b></div><div class="bal-row"><span>+ Yet to be credited<small>to bank · card / UPI</small></span><b class="${bankPending > 0 ? 'bal-pos' : ''}">${inr(bankPending)}</b></div></div>${bankSplit && bankSplit.asOf ? `<div class="bal-asof ${bcFresh(bankSplit.asOf).cls}"><span class="fr-dot"></span>Bank as of ${bcFmtShort(bankSplit.asOf)} · ${bcFresh(bankSplit.asOf).ago.replace(' days ago','d ago').replace(' day ago','d ago')}</div>` : ''}${cashOpen ? `<div class="tile-warn warn-amber" role="button" tabindex="0" title="Cash not closed — enter the closing count for ${lastCashEntry ? dChip(lastCashEntry.date) : ''}" onclick="event.stopPropagation(); goCloseCash('${lastCashEntry ? lastCashEntry.date : ''}')"><span class="fr-dot"></span>Cash not closed · ${lastCashEntry ? dChip(lastCashEntry.date) : ''}</div>` : ''}</div>
+      <div class="card card-click tile-avail" onclick="focusLog('bank')"><div class="card-label">Bank Balance</div><div class="card-value">${inr(bankBal||0)}</div><div class="bal-rows"><div class="bal-row"><span>+ Cash in hand</span><b>${inr(cashBal)}</b></div><div class="bal-row"><span>+ Yet to be credited<small>to bank · card / UPI</small></span><b class="${bankPending > 0 ? 'bal-pos' : ''}">${inr(bankPending)}</b></div></div>${bankSplit && bankSplit.asOf ? `<div class="bal-asof ${bcFresh(bankSplit.asOf).cls}"><span class="fr-dot"></span>Bank as of ${bcFmtShort(bankSplit.asOf)} · ${bcFresh(bankSplit.asOf).ago.replace(' days ago','d ago').replace(' day ago','d ago')}</div>` : ''}${lastCashEntry && lastCashEntry.date ? `<div class="bal-asof ${bcFresh(lastCashEntry.date).cls}"${cashOpen ? ` role="button" tabindex="0" style="cursor:pointer;" title="Cash not closed — enter the closing count for ${dChip(lastCashEntry.date)}" onclick="event.stopPropagation(); goCloseCash('${lastCashEntry.date}')"` : ''}><span class="fr-dot"></span>Cash as of ${bcFmtShort(lastCashEntry.date)} · ${bcFresh(lastCashEntry.date).ago.replace(' days ago','d ago').replace(' day ago','d ago')}${cashOpen ? ' · open' : ''}</div>` : ''}</div>
       <div class="card card-click tile-upc" onclick="toggleUpcoming(event)"><div class="card-label">Upcoming Expenses</div><div class="card-value ${(!fc.pastPeriod && !upcCovered && fc.expected>0)?'upc-neg':''}">${fc.pastPeriod ? '—' : inr(fc.expected)}</div><div class="card-sub">${upcTileSub}</div>${upcWarn}</div>
     </div>
     <div class="card upc-detail" id="upc-detail" style="display:${_upcOpen ? 'block' : 'none'};">
