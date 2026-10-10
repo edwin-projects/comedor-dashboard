@@ -219,7 +219,7 @@
   .bal-row + .bal-row { border-top:1px solid var(--border); }
   .bal-row b.bal-pos { color:var(--green); }
   .bal-asof { display:flex; align-items:center; gap:5px; font-size:10px; font-weight:500; letter-spacing:0.2px; line-height:1.3; white-space:nowrap; color:var(--text3); margin-top:0; padding-top:8px; border-top:1px solid var(--border); font-family:'Inter',sans-serif; }
-  #setcard-bankcheck .bc-row.bc-fresh.fr-g span{color:var(--green)} #setcard-bankcheck .bc-row.bc-fresh.fr-y span{color:#F2C94C} #setcard-bankcheck .bc-row.bc-fresh.fr-r span{color:var(--red)} #setcard-bankcheck .bc-fresh{font-size:11.5px} #setcard-bankcheck .bc-fresh span{white-space:nowrap}
+  #setcard-bankcheck .bc-row.bc-fresh.fr-g span{color:var(--green)} #setcard-bankcheck .bc-row.bc-fresh.fr-y span{color:#F2C94C} #setcard-bankcheck .bc-row.bc-fresh.fr-r span{color:var(--red)} #setcard-bankcheck .bc-fresh{font-size:11.5px} #setcard-bankcheck .bc-fresh > span{white-space:nowrap;display:flex;align-items:center;gap:6px;font-size:11px;min-width:0}
   .bal-asof.fr-g { color:var(--green); }
   .bal-asof.fr-y { color:#F2C94C; }
   .bal-asof.fr-r { color:var(--red); }
@@ -1656,7 +1656,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-10-10-8';
+const APP_VERSION = '2026-10-10-9';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
