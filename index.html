@@ -219,7 +219,11 @@
   .bal-row + .bal-row { border-top:1px solid var(--border); }
   .bal-row b.bal-pos { color:var(--green); }
   .bal-asof { font-size:9px; white-space:nowrap; color:var(--text3); margin-top:0; padding-top:6px; border-top:1px solid var(--border); font-family:'Inter',sans-serif; }
-  .bal-asof.bal-old { color:var(--accent2); white-space:normal; }
+  #setcard-bankcheck .bc-row.bc-fresh.fr-g span{color:var(--green)} #setcard-bankcheck .bc-row.bc-fresh.fr-y span{color:#F2C94C} #setcard-bankcheck .bc-row.bc-fresh.fr-r span{color:var(--red)} #setcard-bankcheck .bc-fresh{font-size:12px}
+  .bal-asof.fr-g { color:var(--green); }
+  .bal-asof.fr-y { color:#F2C94C; }
+  .bal-asof.fr-r { color:var(--red); white-space:normal; }
+  .fr-dot { display:inline-block; width:6px; height:6px; border-radius:50%; background:currentColor; margin-right:5px; vertical-align:1px; }
   .tile-disc .card-value { color:var(--accent2); }
   .card-sub { font-size: 11px; color: var(--text3); margin-top: 5px; font-family: 'Inter', sans-serif; overflow: hidden; }
   /* Tile sub-lines: two-column grid so every figure starts at the same x. */
@@ -1646,7 +1650,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-10-09-5';
+const APP_VERSION = '2026-10-10-1';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -5741,7 +5745,7 @@ function renderPnlBank() {
     </div>
     ${monthlySalesChartHtml(range)}
     <div class="cards2">
-      <div class="card card-click tile-avail" onclick="focusLog('bank')"><div class="card-label">Bank Balance</div><div class="card-value">${inr(bankBal||0)}</div><div class="bal-rows"><div class="bal-row"><span>+ Cash in hand</span><b>${inr(cashBal)}</b></div><div class="bal-row"><span>+ Yet to be credited<small>to bank · card / UPI</small></span><b class="${bankPending > 0 ? 'bal-pos' : ''}">${inr(bankPending)}</b></div></div>${bankSplit && bankSplit.asOf ? `<div class="bal-asof${bcDaysBetween(bankSplit.asOf, todayLocalISO()) > 1 ? ' bal-old' : ''}">Statement of ${bcFmtDate(bankSplit.asOf)}${bcDaysBetween(bankSplit.asOf, todayLocalISO()) > 1 ? ' · upload latest' : ''}</div>` : ''}${cashOpen ? `<div class="tile-warn warn-amber" role="button" tabindex="0" title="Cash not closed — enter the closing count for ${lastCashEntry ? dChip(lastCashEntry.date) : ''}" onclick="event.stopPropagation(); goCloseCash('${lastCashEntry ? lastCashEntry.date : ''}')">ⓘ Cash not closed · ${lastCashEntry ? dChip(lastCashEntry.date) : ''}</div>` : ''}</div>
+      <div class="card card-click tile-avail" onclick="focusLog('bank')"><div class="card-label">Bank Balance</div><div class="card-value">${inr(bankBal||0)}</div><div class="bal-rows"><div class="bal-row"><span>+ Cash in hand</span><b>${inr(cashBal)}</b></div><div class="bal-row"><span>+ Yet to be credited<small>to bank · card / UPI</small></span><b class="${bankPending > 0 ? 'bal-pos' : ''}">${inr(bankPending)}</b></div></div>${bankSplit && bankSplit.asOf ? `<div class="bal-asof ${bcFresh(bankSplit.asOf).cls}"><span class="fr-dot"></span>Statement ${bcFmtShort(bankSplit.asOf)} ${bankSplit.asOf.slice(0,4)} · ${bcFresh(bankSplit.asOf).ago}${bcFresh(bankSplit.asOf).days > 5 ? ' — upload latest' : ''}</div>` : ''}${cashOpen ? `<div class="tile-warn warn-amber" role="button" tabindex="0" title="Cash not closed — enter the closing count for ${lastCashEntry ? dChip(lastCashEntry.date) : ''}" onclick="event.stopPropagation(); goCloseCash('${lastCashEntry ? lastCashEntry.date : ''}')">ⓘ Cash not closed · ${lastCashEntry ? dChip(lastCashEntry.date) : ''}</div>` : ''}</div>
       <div class="card card-click tile-upc" onclick="toggleUpcoming(event)"><div class="card-label">Upcoming Expenses</div><div class="card-value ${(!fc.pastPeriod && !upcCovered && fc.expected>0)?'upc-neg':''}">${fc.pastPeriod ? '—' : inr(fc.expected)}</div><div class="card-sub">${upcTileSub}</div>${upcWarn}</div>
     </div>
     <div class="card upc-detail" id="upc-detail" style="display:${_upcOpen ? 'block' : 'none'};">
@@ -7661,6 +7665,11 @@ function bcAddDays(iso, n) {
 function bcDaysBetween(a, b) { return Math.round((new Date(b + 'T12:00:00') - new Date(a + 'T12:00:00')) / 86400000); }
 function bcFmtDate(iso) { return new Date(iso + 'T12:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' }); }
 function bcFmtShort(iso) { return new Date(iso + 'T12:00:00').toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }); }
+// Heat colour for how stale the loaded bank statement is: green ≤2 days, yellow 3–5, red after 5.
+function bcFresh(asOf) {
+  var d = Math.max(0, bcDaysBetween(asOf, todayLocalISO()));
+  return { days: d, cls: d <= 2 ? 'fr-g' : d <= 5 ? 'fr-y' : 'fr-r', ago: d === 0 ? 'today' : d === 1 ? '1 day ago' : d + ' days ago' };
+}
 function bcInr(n) { n = Math.round(Number(n) || 0); return (n < 0 ? '−' : '') + '₹' + Math.abs(n).toLocaleString('en-IN'); }
 
 // ── Reading a statement ─────────────────────────────────────────────────────
@@ -8093,9 +8102,10 @@ function renderBankCheck() {
   h += '<div class="bc-pos"><div class="bc-row"><span>Bank balance · statement of ' + esc(bcFmtDate(r.last)) + '</span><b>' + bcInr(r.closing) + '</b></div>';
   h += '<div class="bc-row"><span>+ Cash in hand</span><b>' + bcInr(currentCashBalance()) + '</b></div>';
   h += '<div class="bc-row"><span>+ Yet to be credited to bank (card / UPI sales)</span><b' + (r.pending > 0 ? ' style="color:var(--green);"' : '') + '>' + bcInr(r.pending) + '</b></div></div>';
-  var gaps = bcMissingRanges(r), age = bcDaysBetween(r.last, todayLocalISO());
+  var gaps = bcMissingRanges(r), fr = bcFresh(r.last);
+  h = h.replace(/<\/div>$/, '<div class="bc-row bc-fresh ' + fr.cls + '"><span><span class="fr-dot"></span>Bank figures updated to ' + esc(bcFmtDate(r.last)) + ' · ' + fr.ago + (fr.days > 5 ? ' — upload the latest statement' : '') + '</span></div></div>');
   if (gaps.length) h += '<div class="bc-warn">No statement loaded for ' + gaps.map(function (g) { return g.f === g.t ? bcFmtDate(g.f) : bcFmtShort(g.f) + ' – ' + bcFmtDate(g.t); }).join(', ') + '. Upload a statement that covers ' + (gaps.length > 1 ? 'those days' : 'that day') + '.</div>';
-  else if (age > 1) h += '<div class="bc-warn">The latest statement day loaded is ' + esc(bcFmtDate(r.last)) + ' (' + age + ' days ago). Upload the latest one.</div>';
+
 
   // newest upload(s) = the "fresh" batch; everything older is "past"
   var covAll = bcCoverage(), newF = '', newT = '';
