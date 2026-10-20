@@ -1656,7 +1656,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-10-10-9';
+const APP_VERSION = '2026-10-20-1';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -8203,6 +8203,7 @@ function bcDeleteAll() {
   renderBankCheck(); renderActivePanel();
 }
 function bcReview(btn, keys, amt) {
+  if (!confirm('Mark this as "Not a problem"?\n\nIt will leave the to-check list without any change to the app. Only confirm if nothing needs fixing.')) return;
   if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; setTimeout(function () { btn.textContent = 'Done ✓'; }, 250); }
   keys.split(',').forEach(function (k) { bcAck(k, amt); });
   setTimeout(renderBankCheck, 700);
