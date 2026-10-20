@@ -1634,6 +1634,17 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 </div>
 
 <!-- Edit modal for a Bank entry (account expense · capital in · money out) -->
+<div id="bcpd-overlay" onclick="bcPartnerClose()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1000;"></div>
+<div id="bcpd-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1001;width:min(420px,calc(100vw - 32px));background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,0.45);padding:18px;box-sizing:border-box;max-height:90vh;overflow:auto;">
+  <div style="font-family:'Inter',sans-serif;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;font-size:13px;color:var(--text2);margin-bottom:6px;">Which partner paid?</div>
+  <div id="bcpd-what" style="font-size:13px;color:var(--text);font-family:'Inter',sans-serif;line-height:1.45;margin-bottom:4px;"></div>
+  <div style="font-size:12px;color:var(--text3);font-family:'Inter',sans-serif;line-height:1.45;margin-bottom:12px;">It stays an expense, adds to that partner's capital, and no longer counts against the bank balance.</div>
+  <select id="bcpd-who" class="field-select" style="margin-bottom:14px;"></select>
+  <div style="display:flex;gap:8px;">
+    <button class="btn" style="flex:1;min-height:46px;" onclick="bcPartnerConfirm()">Mark as paid directly</button>
+    <button class="btn btn-ghost" style="flex:1;min-height:46px;" onclick="bcPartnerClose()">Cancel</button>
+  </div>
+</div>
 <div id="bankedit-overlay" onclick="closeBankEditModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:1000;"></div>
 <div id="bankedit-modal" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:1001;width:min(420px,calc(100vw - 32px));background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:0 12px 40px rgba(0,0,0,0.45);padding:18px;box-sizing:border-box;max-height:90vh;overflow:auto;">
   <div id="bankedit-title" style="font-family:'Inter',sans-serif;font-weight:700;letter-spacing:0.5px;text-transform:uppercase;font-size:13px;color:var(--text2);margin-bottom:4px;">Edit entry</div>
@@ -1693,7 +1704,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-10-20-3';
+const APP_VERSION = '2026-10-20-4';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -8264,11 +8275,32 @@ function bcReview(btn, keys, amt) {
   keys.split(',').forEach(function (k) { bcAck(k, amt); });
   setTimeout(renderBankCheck, 700);
 }
-// An app expense the bank never paid because a partner paid the vendor from their own pocket: re-file it as partner-direct.
+var _bcPartnerId = null;
 function bcMakeDirect(id) {
   var b = loadBankEntries().filter(function (x) { return x && x.id === id; })[0]; if (!b) return;
-  var who = b.addedBy || '';
-  if (!confirm('Mark ' + bcInr(b.amount) + ' (' + (b.desc || b.category || 'expense') + ') as paid directly by ' + (who || 'the partner') + '?\n\nIt stays an expense, adds to that partner\'s capital, and no longer counts against the bank balance.')) return;
+  var partners = getUsers().filter(function (u) { return u.active !== false && roleCaps(u.role).people; }).map(function (u) { return u.name; });
+  var guess = b.addedBy || '';
+  if (guess && partners.indexOf(guess) < 0) partners.push(guess);
+  if (!partners.length) { alert('No partner found to credit. Add partners in the People section first.'); return; }
+  _bcPartnerId = id;
+  document.getElementById('bcpd-what').textContent = bcInr(b.amount) + ' · ' + (b.desc || b.category || 'expense') + (b.category && b.desc ? ' · ' + b.category : '');
+  var sel = document.getElementById('bcpd-who');
+  sel.innerHTML = partners.map(function (n) { return '<option value="' + esc(n) + '">' + esc(n) + '</option>'; }).join('');
+  sel.value = guess && partners.indexOf(guess) >= 0 ? guess : partners[0];
+  document.getElementById('bcpd-overlay').style.display = 'block';
+  document.getElementById('bcpd-modal').style.display = 'block';
+}
+function bcPartnerClose() {
+  _bcPartnerId = null;
+  document.getElementById('bcpd-overlay').style.display = 'none';
+  document.getElementById('bcpd-modal').style.display = 'none';
+}
+// An app expense the bank never paid because a partner paid the vendor from their own pocket: re-file it as partner-direct.
+function bcPartnerConfirm() {
+  var id = _bcPartnerId, who = (document.getElementById('bcpd-who') || {}).value || '';
+  var b = loadBankEntries().filter(function (x) { return x && x.id === id; })[0];
+  bcPartnerClose();
+  if (!b || !who) return;
   saveBankExpense(Object.assign({}, b, { direct: true, capital: false, payout: false, partner: who, editedBy: (currentUser && currentUser.name) || '', editedAt: new Date().toLocaleString('en-IN') }));
   renderBankList(); renderActivePanel();
 }
