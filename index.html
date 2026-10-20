@@ -1710,7 +1710,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-10-20-6';
+const APP_VERSION = '2026-10-20-7';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -7881,8 +7881,10 @@ function bsMerge(parsed) {
   }
   return { added: added, days: Object.keys(nbd).length };
 }
-function bcAck(key, amount) {
+var BC_WINDOW = 5;   // days after an entry's date the bank payment can still land
+function bcAck(key, amount, cov) {
   var a = bcAcks(); a[key] = { by: (currentUser && currentUser.name) || '', at: todayLocalISO(), amt: amount == null ? null : amount };
+  if (cov) a[key].cov = cov;
   try { localStorage.setItem(BCHK_KEY, JSON.stringify(a)); } catch (e) {}
   if (_db) syncOp('set', 'comedor/bankchk/' + key, a[key]);
 }
@@ -8002,8 +8004,10 @@ function bcCompute() {
   var unBD = bd.filter(function (b) { return !b.used; }), unBC = bc.filter(function (b) { return !b.used; }), unDEP = bdep.filter(function (b) { return !b.used; });
 
   var add = function (kind, key, date, amt, title, sub, extra) {
-    var ak = acks[key];
-    res.items.push(Object.assign({ kind: kind, key: key, d: date, amt: amt, title: title, sub: sub, ack: ak || null }, extra || {}));
+    var ak = acks[key], reopened = false;
+    // "Not in statement yet": comes back once a newer statement covers the date and it is still unmatched
+    if (ak && ak.cov && (kind === 'appOut' || kind === 'appIn') && ak.cov < bcAddDays(date, BC_WINDOW) && res.last >= bcAddDays(date, BC_WINDOW)) { ak = null; reopened = true; }
+    res.items.push(Object.assign({ kind: kind, key: key, d: date, amt: amt, title: title, sub: sub, ack: ak || null, reopened: reopened }, extra || {}));
   };
   unBD.forEach(function (b) { add('bankOut', b.t.k, b.d, b.amt, bcPayee(b.t.n), b.t.n, { payee: bcPayee(b.t.n) }); });
   adLeft2.forEach(function (a) { add('appOut', 'app_' + a.id, a.d, a.amt, (a.cat ? a.cat + ' · ' : '') + (a.desc || ''), 'Entered by ' + (a.who || '—'), {}); });
@@ -8143,7 +8147,7 @@ function bcItemHTML(it, hidden) {
     ? '<button class="bc-btn" onclick="bcUndo(\'' + keys.join(',') + '\')">Show again</button>'
     : (it.kind === 'bankOut' && !it.keys ? '<button class="bc-btn bc-btn-main" onclick="bcAddToApp(\'' + it.key + '\')">Add to app</button>' : '') +
       (it.kind === 'appOut' && !it.keys && it.key.indexOf('app_') === 0 ? '<button class="bc-btn bc-btn-main" onclick="bcMakeDirect(\''+it.key.slice(4)+'\')">Paid by partner directly</button>' : '') + '<button class="bc-btn" id="bc-rv-' + keys[0].replace(/[^A-Za-z0-9_]/g, '') + '" onclick="bcReview(this,\'' + keys.join(',') + '\',' + (it.kind === 'tallyAhead' ? Math.round(it.amt) : 'null') + ')">Not a problem</button>';
-  var who = hidden && it.ack ? '<div class="bc-sub">Marked "not a problem" by ' + esc(it.ack.by || '—') + (it.ack.at ? ' · ' + esc(bcFmtShort(it.ack.at)) : '') + '</div>' : '';
+  var who = hidden && it.ack ? '<div class="bc-sub">' + (it.ack.cov ? 'Marked "not in statement yet"' : 'Marked "not a problem"') + ' by ' + esc(it.ack.by || '—') + (it.ack.at ? ' · ' + esc(bcFmtShort(it.ack.at)) : '') + '</div>' : '';
   return '<div class="bc-item ' + (hidden ? '' : 'bc-flag') + '"><div class="bc-top"><span class="bc-date">' + esc(bcFmtShort(it.d)) + '</span><span class="bc-amt" style="color:' + color + ';">' + bcInr(it.amt) + '</span></div>' +
     '<div class="bc-title">' + esc(it.title) + '</div>' + (it.sub && it.sub !== it.title ? '<div class="bc-sub">' + esc(String(it.sub).slice(0, 230)) + '</div>' : '') + who + '<div class="bc-acts">' + acts + '</div></div>';
 }
@@ -8169,17 +8173,18 @@ function bcLedgerRow(it, r, withActs) {
   var appSide = !bad || it.kind === 'appOut' || it.kind === 'appIn';
   var hint = '', acts = '';
   if (bad && withActs) {
-    var keys = it.keys || [it.key], late = (it.kind === 'appOut' || it.kind === 'appIn') && r.last && it.d > r.last;
-    if (late) hint = 'Statement ends ' + esc(bcFmtShort(r.last)) + '. This may appear once you upload a newer one.';
-    else if (it.kind === 'appOut') hint = 'In the app, but the bank never paid it. Fix or delete it in the app.';
-    else if (it.kind === 'appIn') hint = 'The app counts this as money in, but it isn\'t on the bank statement.';
+    var keys = it.keys || [it.key], appSide2 = it.kind === 'appOut' || it.kind === 'appIn', covered = r.last && r.last >= bcAddDays(it.d, BC_WINDOW);
+    if (appSide2) hint = (it.reopened ? 'The statement now covers this date and it still isn\'t there. ' : '') + (covered
+      ? (it.kind === 'appOut' ? 'The statement covers this date but the bank never paid it. Fix or delete it in the app.' : 'The statement covers this date but the bank never received it. Fix or delete it in the app.')
+      : 'Statement ends ' + esc(bcFmtShort(r.last)) + '. It may appear once you upload a newer one.');
     else if (it.kind === 'bankIn') hint = 'Money arrived that the app doesn\'t know about.';
     else if (it.kind === 'tallyAhead') hint = 'The bank received more card/UPI money than the sales register shows.';
-    if (it.sub && it.sub !== it.title && it.kind === 'bankOut') hint = String(it.sub).slice(0, 230);
-    acts = (late ? '<button class="bcl-btn bcl-main" onclick="bcUploadClick()">Upload statement</button>' : '') +
-      (it.kind === 'bankOut' && !it.keys ? '<button class="bcl-btn bcl-main" onclick="bcAddToApp(\'' + it.key + '\')">Add to app</button>' : '') +
+    else if (it.sub && it.sub !== it.title) hint = String(it.sub).slice(0, 230);
+    acts = (appSide2 && !covered ? '<button class="bcl-btn bcl-main" onclick="bcUploadClick()">Upload statement</button>' : '') +
+      (it.kind === 'bankOut' ? '<button class="bcl-btn bcl-main" onclick="bcAddToApp(\'' + it.key + '\'' + (it.keys ? ',\'' + it.keys.join(',') + '\'' : '') + ')">Add to app</button>' : '') +
       (it.kind === 'appOut' && !it.keys && it.key.indexOf('app_') === 0 ? '<button class="bcl-btn bcl-main" onclick="bcMakeDirect(\'' + it.key.slice(4) + '\')">Paid by partner directly</button>' : '') +
-      '<button class="bcl-btn" id="bc-rv-' + keys[0].replace(/[^A-Za-z0-9_]/g, '') + '" onclick="bcReview(this,\'' + keys.join(',') + '\',' + (it.kind === 'tallyAhead' ? Math.round(it.amt) : 'null') + ')">It\'s fine</button>';
+      (appSide2 && !covered ? '<button class="bcl-btn" id="bc-rv-' + keys[0].replace(/[^A-Za-z0-9_]/g, '') + '" onclick="bcNotYet(this,\'' + keys.join(',') + '\')">Not in statement yet</button>' : '') +
+      (it.kind === 'bankIn' || it.kind === 'tallyAhead' ? '<button class="bcl-btn" id="bc-rv-' + keys[0].replace(/[^A-Za-z0-9_]/g, '') + '" onclick="bcReview(this,\'' + keys.join(',') + '\',' + (it.kind === 'tallyAhead' ? Math.round(it.amt) : 'null') + ')">It\'s fine</button>' : '');
   }
   return '<div class="bcl-row"><div class="bcl-grid"><span class="bcl-date">' + esc(bcFmtShort(it.d)) + '</span><span class="bcl-what">' + esc(it.title) + '</span>' +
     (bankSide ? amt : miss) + (appSide ? amt : miss) + '</div>' + (hint ? '<div class="bcl-hint">' + hint + '</div>' : '') + (acts ? '<div class="bcl-acts">' + acts + '</div>' : '') + '</div>';
@@ -8245,7 +8250,7 @@ function renderBankCheck() {
 
   // 4) housekeeping, kept out of the way
   var up = cov.slice().sort(function (a, b) { return a.f < b.f ? 1 : -1; });
-  h += (done.length ? bcCat('hidden', 'plain', 'Set aside as "it\'s fine"', String(done.length), done.slice().sort(newest).map(function (i) { return bcItemHTML(i, true); }).join('')) : '') +
+  h += (done.length ? bcCat('hidden', 'plain', 'Set aside', String(done.length), done.slice().sort(newest).map(function (i) { return bcItemHTML(i, true); }).join('')) : '') +
     bcCat('uploads', 'plain', 'Uploaded statements', String(up.length), '<div class="bc-sub" style="margin:0 0 8px;">Uploaded the wrong file? Delete it here (this removes its transactions from the app), then upload the right one.</div>' +
     up.map(function (c) {
       return '<div class="bc-up"><div><div class="bc-title" style="font-size:12.5px;">' + esc(bcFmtShort(c.f)) + ' – ' + esc(bcFmtDate(c.t)) + '</div><div class="bc-sub">' + (c.name ? esc(c.name) + ' · ' : '') + (c.n ? c.n + ' transactions · ' : '') + 'uploaded' + (c.by ? ' by ' + esc(c.by) : '') + (c.at ? ' on ' + esc(bcFmtShort(c.at)) : '') + '</div></div><button class="bc-btn bc-btn-del" onclick="bcDeleteUpload(\'' + c.f + '\',\'' + c.t + '\')">Delete</button></div>';
@@ -8300,6 +8305,13 @@ function bcPartnerClose() {
   document.getElementById('bcpd-overlay').style.display = 'none';
   document.getElementById('bcpd-modal').style.display = 'none';
 }
+function bcNotYet(btn, keys) {
+  if (!confirm('Mark as "not in the statement yet"?\n\nIt leaves the to-fix list for now. When a newer statement covers this date and it is still missing, it comes back here to be fixed.')) return;
+  var r = bcCompute(); if (r.empty) return;
+  if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; setTimeout(function () { btn.textContent = 'Done ✓'; }, 250); }
+  keys.split(',').forEach(function (k) { bcAck(k, null, r.last); });
+  setTimeout(renderBankCheck, 700);
+}
 // An app expense the bank never paid because a partner paid the vendor from their own pocket: re-file it as partner-direct.
 function bcPartnerConfirm() {
   var id = _bcPartnerId, who = (document.getElementById('bcpd-who') || {}).value || '';
@@ -8310,13 +8322,15 @@ function bcPartnerConfirm() {
   renderBankList(); renderActivePanel();
 }
 function bcUndo(keys) { keys.split(',').forEach(bcUnack); renderBankCheck(); }
-function bcAddToApp(key) {
-  var it = bcCompute().items.filter(function (i) { return i.key === key; })[0]; if (!it) return;
+function bcAddToApp(key, keys) {
+  var all = bcCompute().items, ks = keys ? keys.split(',') : [key];
+  var its = all.filter(function (i) { return ks.indexOf(i.key) >= 0; }); if (!its.length) return;
+  var it = its[0], amt = its.reduce(function (a, i) { return a + i.amt; }, 0), tag = its.length > 1 ? bcTag(it.sub) : '';
   var card = document.getElementById('setcard-bankexp');
   if (card && card.classList.contains('collapsed')) toggleSet('bankexp');
   var d = document.getElementById('be-date'); if (d) d.value = it.d;
-  setMoney('be-amount', it.amt);
-  var ds = document.getElementById('be-desc'); if (ds) ds.value = (it.payee || it.title || '').toUpperCase();
+  setMoney('be-amount', amt);
+  var ds = document.getElementById('be-desc'); if (ds) ds.value = tag ? (tag + ' · ' + its.length + ' payments').toUpperCase() : (it.payee || it.title || '').toUpperCase();
   if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
