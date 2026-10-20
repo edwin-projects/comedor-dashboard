@@ -1693,7 +1693,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-10-20-2';
+const APP_VERSION = '2026-10-20-3';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -8225,7 +8225,7 @@ function renderBankCheck() {
     (shown.length ? shown.map(function (i) { return bcLedgerRow(i, r, !i.matched); }).join('') : '<div class="bcl-empty">' + (f === 'fix' ? '✓ Nothing to fix.' : 'Nothing here.') + '</div>') +
     (rows.length > 150 ? '<div class="bcl-hint" style="padding:10px 14px;">…and ' + (rows.length - 150) + ' older ones</div>' : '') + '</div>';
   if (f !== 'fix' && r.tally) h += '<div class="bc-sub" style="margin-top:8px;">Card/UPI: sales rung up since ' + esc(bcFmtDate(r.S)) + ' ' + bcInr(r.tally.exp) + ' · received in the bank ' + bcInr(r.tally.act) + ' (sales reach the bank the next day).</div>';
-  if (matchRows.length) h += '<div class="bcl-foot"><span>✓ ' + matchRows.length + ' entries matched the bank</span><b>' + bcInr(matchRows.reduce(function (a, i) { return a + i.amt; }, 0)) + '</b></div>';
+  if (matchRows.length) h += '<div class="bcl-foot"><span>✓ ' + matchRows.length + (matchRows.length === 1 ? ' entry' : ' entries') + ' matched the bank</span><b>' + bcInr(matchRows.reduce(function (a, i) { return a + i.amt; }, 0)) + '</b></div>';
 
   // 4) housekeeping, kept out of the way
   var up = cov.slice().sort(function (a, b) { return a.f < b.f ? 1 : -1; });
