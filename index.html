@@ -1300,6 +1300,14 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
         #setcard-bankcheck .bcl-three div{display:flex;flex-direction:column;gap:2px;min-width:0;}
         #setcard-bankcheck .bcl-three span{font-size:11px;color:var(--text3);font-family:'Inter',sans-serif;white-space:nowrap;}
         #setcard-bankcheck .bcl-three b{font-family:var(--num-font);font-size:13.5px;color:var(--text);white-space:nowrap;}
+        #setcard-bankcheck .bcl-how{margin-top:10px;}
+        #setcard-bankcheck .bcl-how > summary{cursor:pointer;list-style:none;font-size:12px;color:var(--text3);font-family:'Inter',sans-serif;padding:6px 0;min-height:32px;display:flex;align-items:center;gap:6px;}
+        #setcard-bankcheck .bcl-how > summary::-webkit-details-marker{display:none;}
+        #setcard-bankcheck .bcl-how > summary::after{content:'▾';font-size:11px;transition:transform .15s;}
+        #setcard-bankcheck .bcl-how[open] > summary::after{transform:rotate(180deg);}
+        #setcard-bankcheck .bcl-line2{display:flex;justify-content:space-between;gap:10px;padding:7px 0;font-size:12.5px;color:var(--text2);font-family:'Inter',sans-serif;border-top:1px solid var(--border);}
+        #setcard-bankcheck .bcl-line2 b{font-family:var(--num-font);font-size:13px;color:var(--text);white-space:nowrap;}
+        #setcard-bankcheck .bcl-line2t{color:var(--text);font-weight:600;}
         #setcard-bankcheck .bcl-pos .bc-row{padding:8px 0 0;margin:0;}
         #setcard-bankcheck .bcl-line{display:flex;justify-content:space-between;align-items:center;gap:10px;min-height:44px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text2);font-family:'Inter',sans-serif;}
         #setcard-bankcheck .bcl-line b{font-family:var(--num-font);font-size:14.5px;color:var(--text);white-space:nowrap;}
@@ -1710,7 +1718,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-10-20-7';
+const APP_VERSION = '2026-10-25-1';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -8213,12 +8221,17 @@ function renderBankCheck() {
   }
   if (recentGap) h += '<div class="bcl-card"><div class="bcl-cap">Statement missing for the dashed days · ' + esc(bcFmtShort(from)) + ' – ' + esc(bcFmtShort(yest)) + '</div><div class="bcl-days" style="grid-template-columns:repeat(' + nDays + ',minmax(0,1fr));">' + cells + '</div></div>';
 
-  // 2) the money position
-  var total = r.closing + currentCashBalance() + r.pending, fr = bcFresh(r.last);
+  // 2) the money position: same bank figure as the dashboard (statement + entries made since)
+  var split = computeBankSplit(), bankNow = split && split.bank != null ? split.bank : r.closing, since = bankNow - r.closing;
+  var total = bankNow + currentCashBalance() + r.pending, fr = bcFresh(r.last);
   h += '<div class="bcl-card bcl-pos"><div class="bcl-tot"><span>Total money</span><b>' + bcInr(total) + '</b></div>' +
-    '<div class="bcl-three"><div><span>Bank · ' + esc(bcFmtShort(r.last)) + '</span><b>' + bcInr(r.closing) + '</b></div>' +
+    '<div class="bcl-three"><div><span>Bank today</span><b>' + bcInr(bankNow) + '</b></div>' +
     '<div><span>Cash</span><b>' + bcInr(currentCashBalance()) + '</b></div>' +
     '<div><span>Card/UPI due</span><b' + (r.pending > 0 ? ' style="color:var(--green);"' : '') + '>' + bcInr(r.pending) + '</b></div></div>' +
+    '<details class="bcl-how"><summary>How is bank worked out?</summary>' +
+    '<div class="bcl-line2"><span>Statement balance · ' + esc(bcFmtShort(r.last)) + '</span><b>' + bcInr(r.closing) + '</b></div>' +
+    '<div class="bcl-line2"><span>Entered in the app since</span><b style="color:' + (since < 0 ? 'var(--red)' : since > 0 ? 'var(--green)' : 'var(--text2)') + ';">' + (since < 0 ? '−' : since > 0 ? '+' : '') + bcInr(Math.abs(since)) + '</b></div>' +
+    '<div class="bcl-line2 bcl-line2t"><span>Bank today</span><b>' + bcInr(bankNow) + '</b></div></details>' +
     '<div class="bc-row bc-fresh ' + fr.cls + '"><span><span class="fr-dot"></span>' + (fr.days > 5 ? 'Statement ' + fr.ago + ' — upload the latest' : 'Bank figures to ' + esc(bcFmtDate(r.last)) + ' · ' + fr.ago) + '</span></div></div>';
 
   // 3) filter chips + the ledger
