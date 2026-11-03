@@ -1329,8 +1329,10 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
         #setcard-bankcheck .bcl-miss{font-size:12px;text-align:right;color:var(--text3);font-family:'Inter',sans-serif;}
         #setcard-bankcheck .bcl-hint{font-size:12px;color:var(--text3);line-height:1.45;margin-top:8px;word-break:break-word;font-family:'Inter',sans-serif;}
         #setcard-bankcheck .bcl-acts{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
-        #setcard-bankcheck .bcl-btn{flex:1;min-width:120px;min-height:44px;padding:8px 12px;border-radius:10px;border:1px solid var(--border);background:transparent;color:var(--text);font-size:14px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;}
-        #setcard-bankcheck .bcl-btn.bcl-main{background:var(--accent2);border-color:var(--accent2);color:#1A1405;font-weight:700;}
+        #setcard-bankcheck .bcl-btn{flex:1;min-width:120px;min-height:44px;padding:8px 12px;border-radius:10px;border:1px solid #B7C2BB;background:linear-gradient(135deg,#F4F6F4 0%,#DCE2DD 55%,#C9D1CB 100%);color:#1E2A23;font-size:14px;font-weight:600;font-family:'Inter',sans-serif;cursor:pointer;box-shadow:0 1px 5px rgba(0,0,0,0.10);}
+        #setcard-bankcheck .bcl-btn.bcl-main{background:linear-gradient(135deg,#F0D488 0%,#C9A040 52%,#A9812C 100%);border-color:#C9A040;color:#201700;font-weight:700;box-shadow:0 2px 9px rgba(201,160,64,0.30);}
+        :root[data-theme="dark"] #setcard-bankcheck .bcl-btn:not(.bcl-main){border-color:#4A5750;background:linear-gradient(135deg,#46514B 0%,#343E39 55%,#2A332F 100%);color:#E9F2EC;box-shadow:0 1px 5px rgba(0,0,0,0.35);}
+        @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) #setcard-bankcheck .bcl-btn:not(.bcl-main){border-color:#4A5750;background:linear-gradient(135deg,#46514B 0%,#343E39 55%,#2A332F 100%);color:#E9F2EC;box-shadow:0 1px 5px rgba(0,0,0,0.35);} }
         #setcard-bankcheck .bcl-empty{padding:18px 14px;font-size:13px;color:var(--green);font-family:'Inter',sans-serif;}
         #setcard-bankcheck .bcl-foot{display:flex;justify-content:space-between;gap:10px;margin:12px 4px 0;font-size:12.5px;color:var(--text3);font-family:'Inter',sans-serif;}
         #setcard-bankcheck .bcl-foot b{font-family:var(--num-font);color:var(--text2);}
@@ -1718,7 +1720,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-10-25-1';
+const APP_VERSION = '2026-11-03-1';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.

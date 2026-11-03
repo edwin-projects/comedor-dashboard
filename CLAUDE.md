@@ -61,6 +61,11 @@ the second layer. Do not remove either.
    report's gross spread evenly across its days, summed over the period. (Pet Pooja's item-wise
    "Gross Sales" already includes 5% GST and matches its "Total Sales" headline.)
 
+9. **Buttons follow the brand.** Primary actions use the gold gradient
+   (`linear-gradient(135deg,#F0D488 0%,#C9A040 52%,#A9812C 100%)`, border `#C9A040`, text `#201700`,
+   soft gold shadow). Secondary actions use a grey gradient (dark: `#46514B → #343E39 → #2A332F`,
+   light: `#F4F6F4 → #DCE2DD → #C9D1CB`). No flat or outlined one-off button styles in new work.
+
 ## Daily bank check (Bank tab)
 
 Partners upload the IDFC statement (PDF/Excel/CSV, any date range) in the Bank tab. Transactions are
