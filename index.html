@@ -120,6 +120,17 @@
   .pnl-hero.hero-pos { background:linear-gradient(140deg, rgba(27,122,74,0.30) 0%, rgba(111,214,154,0.05) 100%); border-color:rgba(111,214,154,0.36); }
   .pnl-hero.hero-neg { background:linear-gradient(140deg, rgba(192,58,43,0.28) 0%, rgba(232,114,106,0.05) 100%); border-color:rgba(232,114,106,0.36); }
   .pnl-hero .card-value { font-size:40px; margin-top:4px; }
+  /* Same-period comparison chips (dashboard P&L) */
+  .cmp-wrap { display:flex; flex-direction:column; align-items:flex-start; gap:3px; margin-top:6px; }
+  .cmp-chip { display:inline-block; padding:3px 9px; border-radius:11px; font-family:'Inter',sans-serif; font-size:11.5px; font-weight:700; line-height:1.35; white-space:nowrap; }
+  .cmp-vs { font-family:'Inter',sans-serif; font-size:10.5px; color:var(--text3); }
+  .cmp-good { background:rgba(27,122,74,0.13); color:#1B7A4A; }
+  .cmp-bad  { background:rgba(201,160,64,0.20); color:#8A6100; }
+  .cmp-flat { background:rgba(120,130,125,0.16); color:var(--text2); }
+  :root[data-theme="dark"] .cmp-good { background:#1F3A2B; color:#6FCF97; }
+  :root[data-theme="dark"] .cmp-bad  { background:#33290F; color:#E3B341; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cmp-good { background:#1F3A2B; color:#6FCF97; } :root:not([data-theme="light"]) .cmp-bad { background:#33290F; color:#E3B341; } }
+  .pnl-hero .cmp-wrap { align-items:center; margin-top:8px; }
   /* Centre only the digits of the P/L; the ₹ and minus hang just to the left. */
   .pnl-hero .card-value .cv-fig { position:relative; display:inline-block; }
   .pnl-hero .card-value .cv-pre { position:absolute; right:calc(100% + 4px); top:0; white-space:nowrap; }
@@ -1720,7 +1731,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-11-03-1';
+const APP_VERSION = '2026-11-04-1';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -5636,6 +5647,49 @@ window.addEventListener('resize', () => {
   _fitTimer = setTimeout(() => { _fitTimer = null; fitSplitLines(document); }, 150);
 });
 
+// ── Same-period comparison (P&L chips) ──────────────────────────────────────
+// Compares the selected period with the SAME number of days last month / last week, so a
+// 3-day-old month is set against its first 3 days of last month, never the whole month.
+function dashCompareRange(range) {
+  if (!range || !range.from) return null;
+  var pad = function (n) { return String(n).padStart(2, '0'); };
+  var fmt = function (d) { return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
+  var parse = function (iso) { var a = iso.split('-').map(Number); return new Date(a[0], a[1] - 1, a[2]); };
+  var today = nowIST();
+  if (currentDashFilter === 'month') {
+    var pm = new Date(today.getFullYear(), today.getMonth() - 1, 1), last = new Date(today.getFullYear(), today.getMonth(), 0).getDate(), td = Math.min(today.getDate(), last);
+    return { from: fmt(pm), to: fmt(new Date(pm.getFullYear(), pm.getMonth(), td)), label: (td === 1 ? '1' : '1–' + td) + ' ' + MON3[pm.getMonth() + 1] };
+  }
+  if (currentDashFilter === 'week') {
+    var mon = parse(range.from), pmon = new Date(mon); pmon.setDate(mon.getDate() - 7);
+    var n = Math.max(0, Math.round((parse(fmt(today)) - mon) / 86400000)), pto = new Date(pmon); pto.setDate(pmon.getDate() + Math.min(n, 6));
+    return { from: fmt(pmon), to: fmt(pto), label: 'last week' };
+  }
+  if (currentDashFilter === 'lastmonth') {
+    var m0 = parse(range.from), pm2 = new Date(m0.getFullYear(), m0.getMonth() - 1, 1);
+    return { from: fmt(pm2), to: fmt(new Date(pm2.getFullYear(), pm2.getMonth() + 1, 0)), label: MON3[pm2.getMonth() + 1] };
+  }
+  return null;
+}
+// Income, operating expenses and net for any date range — mirrors renderPnlBank's maths.
+function pnlTotalsFor(from, to) {
+  var income = Math.round(incomeInRange(from, to));
+  var cashExp = loadEntries().filter(function (e) { return e.date >= from && e.date <= to; }).reduce(function (s, e) { return s + (e.expenses || []).reduce(function (t, x) { return t + (isCashDeposit(x) ? 0 : (parseFloat(x.amount) || 0)); }, 0); }, 0);
+  var bank = loadBankEntries().filter(function (b) { return b.date >= from && b.date <= to; });
+  var idfcExp = bank.filter(function (b) { return !b.capital && !b.direct && !b.payout && !isPassThruTax(b); }).reduce(function (s, b) { return s + (Number(b.amount) || 0); }, 0);
+  var directExp = bank.filter(function (b) { return b.direct; }).reduce(function (s, b) { return s + (Number(b.amount) || 0); }, 0) + ledgerOpexInRange(from, to);
+  var totalExp = cashExp + idfcExp + directExp;
+  return { income: income, totalExp: totalExp, net: income - totalExp };
+}
+// One chip: "▲ 13% · +₹20,944". good = which direction is favourable (income/net up, expenses down).
+function cmpChip(now, prev, upIsGood, label) {
+  var d = Math.round(now) - Math.round(prev), inr = function (n) { return '₹' + Math.abs(Math.round(n)).toLocaleString('en-IN'); };
+  var cls = d === 0 ? 'cmp-flat' : ((d > 0) === upIsGood ? 'cmp-good' : 'cmp-bad');
+  var pct = prev ? Math.abs(d) / Math.abs(prev) * 100 : null;
+  var pctTxt = pct == null ? '' : (pct > 0 && pct < 1 ? '<1%' : Math.round(pct) + '%');
+  var txt = d === 0 ? 'No change' : (d > 0 ? '▲ ' : '▼ ') + (pctTxt ? pctTxt + ' · ' : '') + (d > 0 ? '+' : '−') + inr(d);
+  return '<div class="cmp-wrap"><span class="cmp-chip ' + cls + '">' + txt + '</span><span class="cmp-vs">vs ' + esc(label) + '</span></div>';
+}
 function renderPnlBank() {
   const cashEntries = getDashEntries();
   const range = getRange();
@@ -5667,6 +5721,10 @@ function renderPnlBank() {
   const directExp = directBankExp + ledgerOpex;                 // ALL partner-direct operating spend
   const totalExp = cashExp + idfcExp + directExp;
   const net = income - totalExp;
+  const _cr = dashCompareRange(range), _cp = _cr ? pnlTotalsFor(_cr.from, _cr.to) : null;
+  const chipIn  = _cp ? cmpChip(income,   _cp.income,   true,  _cr.label) : '';
+  const chipExp = _cp ? cmpChip(totalExp, _cp.totalExp, false, _cr.label) : '';
+  const chipNet = _cp ? cmpChip(net,      _cp.net,      true,  _cr.label) : '';
 
   // PARTNER CAPITAL (cumulative balance-sheet item — never touches the P&L):
   //   Infused (infusions + partner-direct spend + day-1 ledger capital) − Withdrawals
@@ -5810,17 +5868,18 @@ function renderPnlBank() {
   const sEl = document.getElementById('pnl-summary');
   if (sEl) sEl.innerHTML = `
     <div class="cards2">
-      <div class="card card-click tile-income" style="position:relative;" onclick="focusLog('sales')">${liveCaption}<div class="card-label">Income (Sales)</div><div class="card-value green">${inr(income)}</div><div class="card-sub">${splitGrid([
+      <div class="card card-click tile-income" style="position:relative;" onclick="focusLog('sales')">${liveCaption}<div class="card-label">Income (Sales)</div><div class="card-value green">${inr(income)}</div>${chipIn}<div class="card-sub">${splitGrid([
         ...payRows,
         {k:'Comp & Disc',v:discount + compVal,pct:(discount+compVal)>0?pctTxt(discount+compVal,income,' of sales'):'',dim:true,always:true,order:6}
       ])}</div></div>
-      <div class="card card-click tile-exp" onclick="focusLog('expcat')"><div class="card-label">Expenses</div><div class="card-value red">${inr(totalExp)}</div><div class="card-sub">${splitGrid([
+      <div class="card card-click tile-exp" onclick="focusLog('expcat')"><div class="card-label">Expenses</div><div class="card-value red">${inr(totalExp)}</div>${chipExp}<div class="card-sub">${splitGrid([
         {k:'IDFC',v:idfcExp,pct:pctTxt(idfcExp,totalExp)},{k:'Partner Direct',v:directExp,pct:pctTxt(directExp,totalExp)},{k:'Cash',v:cashExp,pct:pctTxt(cashExp,totalExp)}
       ])}</div></div>
     </div>
     <div class="pnl-hero ${net >= 0 ? 'hero-pos' : 'hero-neg'}">
       <div class="card-label">Net Profit / Loss</div>
       <div class="card-value ${net >= 0 ? 'green' : 'red'}">${heroNet}</div>
+      ${chipNet}
     </div>
     ${monthlySalesChartHtml(range)}
     <div class="cards2">
