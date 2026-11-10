@@ -1733,7 +1733,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-11-10-2';
+const APP_VERSION = '2026-11-10-3';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -2104,6 +2104,7 @@ function initFirebase() {
       obLoad().forEach(o => { if (o.path.indexOf('comedor/bankstmt/') !== 0) return; if (o.kind === 'set' && o.val) months[o.path.slice(17)] = Array.isArray(o.val) ? o.val : Object.values(o.val); else if (o.kind === 'remove') delete months[o.path.slice(17)]; });
       let list = []; Object.keys(months).sort().forEach(k => { list = list.concat(months[k].filter(Boolean)); });
       if (list.length) localStorage.setItem('comedor_bankstmt', JSON.stringify(list)); else localStorage.removeItem('comedor_bankstmt');
+      setTimeout(bcRepairStored, 0);
       renderActivePanel();
     }, onErr('bankstmt'));
     _db.ref('comedor/bankcov').on('value', snap => {
@@ -7833,6 +7834,45 @@ var BC_SKIP = /(Page \d+ of \d+|REGISTERED OFFICE|STATEMENT OF ACCOUNT|CUSTOMER 
 var BC_START = /^(UPI|NEFT|IMPS|OPM|CHQ|POS|ECOM|ACH|NACH|RTGS|ATM|INT|CASH|MMT|BIL|CBDT|SI|FT|TPT|IB|DD|NET|REV|PCI|CMS)\b[\/ -]?/;
 
 // lines: array of strings (one per visual line, left→right). Returns {tx, opening, closing, from, to, breaks}.
+// ── Statement narration repair ───────────────────────────────────────────────
+// Some IDFC PDFs put each transaction's first narration line on the dated line and its continuation lines AFTER it, so
+// the reader glues every row's text as "[tail of the row above] [first line of this row]". When most rows look like that,
+// each row's true narration is its own first line + the leading tail found on the NEXT row.
+var BC_FIRST = /(?:^|\s)((?:UPI|NEFT RETURN|NEFT|IMPS|OPM|CHQ|POS|ECOM|ACH|NACH|RTGS|ATM|MMT|BIL|CBDT|CASH DEPOSIT|REV)(?:\/|-| ))/;
+function bcSplitNarr(n) {
+  var s = String(n || '').replace(/IMPORTANT MESSAGE.*$/i, '').replace(/\bDate No\b/g, ' ').replace(/\s+/g, ' ').trim(), m = BC_FIRST.exec(s);
+  if (!m) return { lead: s, first: '' };
+  var p = m.index + m[0].length - m[1].length;
+  return { lead: s.slice(0, p).trim(), first: s.slice(p).trim() };
+}
+function bcShifted(tx) {
+  if (!tx || tx.length < 3) return false;
+  var lead = tx.filter(function (t) { return bcSplitNarr(t.n).lead; }).length;
+  return lead >= tx.length * 0.6;
+}
+function bcRealign(tx) {
+  if (!bcShifted(tx)) return tx;
+  var sp = tx.map(function (t) { return bcSplitNarr(t.n); });
+  return tx.map(function (t, i) {
+    var n = (sp[i].first + (i + 1 < tx.length && sp[i + 1].lead ? ' ' + sp[i + 1].lead : '')).replace(/\s+/g, ' ').trim().slice(0, 170);
+    return Object.assign({}, t, { n: n || t.n });
+  });
+}
+// Rows already stored from the 31 Oct – 9 Nov uploads carry the jumbled text: put them right once (a no-op when already right).
+function bcRepairStored() {
+  try {
+    var list = bsLoad(), idx = [];
+    list.forEach(function (t, i) { if (t.d >= '2026-10-31' && t.d <= '2026-11-09') idx.push(i); });
+    var seg = idx.map(function (i) { return list[i]; });
+    if (!bcShifted(seg)) return;
+    var fixed = bcRealign(seg), out = list.map(function (t) { return { d: t.d, dr: t.dr, cr: t.cr, bal: t.bal, n: t.n }; }), months = {};
+    idx.forEach(function (i, k) { out[i].n = fixed[k].n; months[out[i].d.slice(0, 7).replace('-', '_')] = 1; });
+    try { localStorage.setItem(BS_KEY, JSON.stringify(out)); } catch (e) {}
+    if (typeof _db !== 'undefined' && _db) Object.keys(months).forEach(function (mk) {
+      syncOp('set', 'comedor/bankstmt/' + mk, out.filter(function (t) { return t.d.slice(0, 7).replace('-', '_') === mk; }));
+    });
+  } catch (e) { console.warn('Statement repair skipped:', e); }
+}
 function bcParseIDFCLines(lines, hintPrev) {
   var dre = /^\s*(\d{2}-[A-Za-z]{3}-\d{4})\s+(\d{2}-[A-Za-z]{3}-\d{4})\s*(.*)$/;
   var rows = [], pend = [], opening = null, hdrClosing = null, from = '', to = '';
@@ -7882,6 +7922,7 @@ function bcParseIDFCLines(lines, hintPrev) {
     prev = bal;
     tx.push({ d: r.d, dr: dr, cr: cr, bal: bal, n: n });
   });
+  tx = bcRealign(tx);
   var lastTx = tx.length ? tx[tx.length - 1] : null;
   // A statement downloaded on the 8th that has no transactions on the 7th–8th still covers up to the 8th — but only trust the
   // quoted period when this file really ends at the statement's own closing balance (a split PDF keeps the whole-year header).
@@ -8004,8 +8045,8 @@ function bcSubset(cands, target, tol) {
 function bcCompute() {
   var stmt = bsLoad(), base = bcBase();
   var rawB = '', rawE = '', rawA = '';
-  try { rawB = localStorage.getItem('comedor_bank') || ''; rawE = localStorage.getItem('comedor_entries') || ''; rawA = localStorage.getItem(BCHK_KEY) || ''; } catch (e) {}
-  var sig = [stmt.length, stmt.length ? stmt[stmt.length - 1].k : '', bcAsOf(), rawB.length, rawE.length, rawA.length, base, todayLocalISO()].join('|');
+  var rawS = ''; try { rawB = localStorage.getItem('comedor_bank') || ''; rawE = localStorage.getItem('comedor_entries') || ''; rawA = localStorage.getItem(BCHK_KEY) || ''; rawS = localStorage.getItem(BS_KEY) || ''; } catch (e) {}
+  var sig = [stmt.length, stmt.length ? stmt[stmt.length - 1].k : '', bcAsOf(), rawB.length, rawE.length, rawA.length, rawS.length, base, todayLocalISO()].join('|');
   if (_bcMemo.sig === sig) return _bcMemo.res;
   var res = { empty: !stmt.length, base: base, S: '', last: '', closing: null, items: [], matchedItems: [], matched: 0, ignored: 0, days: [], tally: null, pending: 0, behind: 0, ahead: 0, pendingFuture: 0 };
   if (!stmt.length) { _bcMemo = { sig: sig, res: res }; return res; }
