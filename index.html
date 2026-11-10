@@ -1344,6 +1344,8 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
         #setcard-bankcheck .bcl-btn.bcl-main{background:linear-gradient(135deg,#F0D488 0%,#C9A040 52%,#A9812C 100%);border-color:#C9A040;color:#201700;font-weight:700;box-shadow:0 2px 9px rgba(201,160,64,0.30);}
         :root[data-theme="dark"] #setcard-bankcheck .bcl-btn:not(.bcl-main){border-color:#4A5750;background:linear-gradient(135deg,#46514B 0%,#343E39 55%,#2A332F 100%);color:#E9F2EC;box-shadow:0 1px 5px rgba(0,0,0,0.35);}
         @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) #setcard-bankcheck .bcl-btn:not(.bcl-main){border-color:#4A5750;background:linear-gradient(135deg,#46514B 0%,#343E39 55%,#2A332F 100%);color:#E9F2EC;box-shadow:0 1px 5px rgba(0,0,0,0.35);} }
+        #setcard-bankcheck .bcl-upbtns{display:flex;flex-direction:column;gap:6px;flex:none;}
+        #setcard-bankcheck .bcl-upbtns .bcl-btn{flex:none;min-width:0;min-height:38px;padding:7px 14px;font-size:12.5px;}
         #setcard-bankcheck .bcl-empty{padding:18px 14px;font-size:13px;color:var(--green);font-family:'Inter',sans-serif;}
         #setcard-bankcheck .bcl-foot{display:flex;justify-content:space-between;gap:10px;margin:12px 4px 0;font-size:12.5px;color:var(--text3);font-family:'Inter',sans-serif;}
         #setcard-bankcheck .bcl-foot b{font-family:var(--num-font);color:var(--text2);}
@@ -1731,7 +1733,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-11-10-1';
+const APP_VERSION = '2026-11-10-2';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -7941,10 +7943,10 @@ function bsMerge(parsed) {
       syncOp('set', 'comedor/bankstmt/' + mk, list.filter(function (t) { return t.d.slice(0, 7).replace('-', '_') === mk; }).map(function (t) { return { d: t.d, dr: t.dr, cr: t.cr, bal: t.bal, n: t.n }; }));
     });
   }
-  var f = parsed.tx[0] && parsed.tx[0].d, t2 = parsed.tx.length && parsed.tx[parsed.tx.length - 1].d;
+  var f = parsed.tx[0] && parsed.tx[0].d, t2 = parsed.tx.length && parsed.tx[parsed.tx.length - 1].d, covKey = '';
   if (t2 && parsed.asOf && parsed.asOf > t2 && parsed.asOf <= todayLocalISO()) t2 = parsed.asOf;   // the file's real first/last day (a split PDF's header still quotes the whole period)
   if (f && t2) {
-    var cov = bcCoverage(), key = f + '_' + t2;
+    var cov = bcCoverage(), key = f + '_' + t2; covKey = key;
     cov = cov.filter(function (c) { return !(c.f === f && c.t === t2); });
     {
       cov.push({ f: f, t: t2, by: (typeof currentUser !== 'undefined' && currentUser && currentUser.name) || '', at: todayLocalISO(), name: parsed.name || '', n: parsed.tx.length });
@@ -7952,7 +7954,7 @@ function bsMerge(parsed) {
       if (typeof _db !== 'undefined' && _db) syncOp('set', 'comedor/bankcov/' + key, cov[cov.length - 1]);
     }
   }
-  return { added: added, days: Object.keys(nbd).length };
+  return { added: added, days: Object.keys(nbd).length, key: covKey };
 }
 var BC_WINDOW = 5;   // days after an entry's date the bank payment can still land
 function bcAck(key, amount, cov) {
@@ -8180,6 +8182,7 @@ async function bcHandleFile(input) {
     if (!parsed.tx.length) throw new Error('Couldn\'t find any transactions in this file. Use the statement PDF, Excel or CSV downloaded from IDFC net-banking (not a scanned picture).');
     parsed.name = file.name || '';
     var r = bsMerge(parsed);
+    bcStoreFile(file, r.key);
     renderBankCheck(); renderActivePanel();
     btnFlash('bc-upload-btn', 'Saving…', 'Loaded ✓ ' + r.added + ' new', 'Upload bank statement');
     if (parsed.breaks && msg) msg.innerHTML = '<div class="bc-err">' + parsed.breaks + ' row(s) in this file didn\'t add up against the running balance, so they may be misread. Check the list below.</div>';
@@ -8334,9 +8337,43 @@ function renderBankCheck() {
   h += (done.length ? bcCat('hidden', 'plain', 'Set aside', String(done.length), done.slice().sort(newest).map(function (i) { return bcItemHTML(i, true); }).join('')) : '') +
     bcCat('uploads', 'plain', 'Uploaded statements', String(up.length), '<div class="bc-sub" style="margin:0 0 8px;">Uploaded the wrong file? Delete it here (this removes its transactions from the app), then upload the right one.</div>' +
     up.map(function (c) {
-      return '<div class="bc-up"><div><div class="bc-title" style="font-size:12.5px;">' + esc(bcFmtShort(c.f)) + ' – ' + esc(bcFmtDate(c.t)) + '</div><div class="bc-sub">' + (c.name ? esc(c.name) + ' · ' : '') + (c.n ? c.n + ' transactions · ' : '') + 'uploaded' + (c.by ? ' by ' + esc(c.by) : '') + (c.at ? ' on ' + esc(bcFmtShort(c.at)) : '') + '</div></div><button class="bc-btn bc-btn-del" onclick="bcDeleteUpload(\'' + c.f + '\',\'' + c.t + '\')">Delete</button></div>';
+      return '<div class="bc-up"><div><div class="bc-title" style="font-size:12.5px;">' + esc(bcFmtShort(c.f)) + ' – ' + esc(bcFmtDate(c.t)) + '</div><div class="bc-sub">' + (c.name ? esc(c.name) + ' · ' : '') + (c.n ? c.n + ' transactions · ' : '') + 'uploaded' + (c.by ? ' by ' + esc(c.by) : '') + (c.at ? ' on ' + esc(bcFmtShort(c.at)) : '') + '</div></div><div class="bcl-upbtns"><button class="bcl-btn" onclick="bcDownloadUpload(\'' + c.f + '\',\'' + c.t + '\')">Download</button><button class="bc-btn bc-btn-del" onclick="bcDeleteUpload(\'' + c.f + '\',\'' + c.t + '\')">Delete</button></div></div>';
     }).join('') + '<div style="margin-top:10px;"><button class="bc-btn bc-btn-del" onclick="bcDeleteAll()">Delete ALL statement data</button></div>');
   host.innerHTML = h;
+}
+// Keep the original statement file so either partner can download it later (read on demand, never synced to every device).
+function bcStoreFile(file, key) {
+  if (!file || !key || typeof _db === 'undefined' || !_db || file.size > 4 * 1024 * 1024) return;
+  var rd = new FileReader();
+  rd.onload = function () {
+    try {
+      var data = String(rd.result || '').split(',')[1]; if (!data) return;
+      _db.ref('comedor/bankfiles/' + key).set({ name: file.name || 'statement', type: file.type || 'application/octet-stream', size: file.size, by: (currentUser && currentUser.name) || '', at: todayLocalISO(), data: data }).catch(function () {});
+    } catch (e) {}
+  };
+  rd.readAsDataURL(file);
+}
+function bcSaveBlob(blob, name) {
+  var url = URL.createObjectURL(blob), a = document.createElement('a');
+  a.href = url; a.download = name; document.body.appendChild(a); a.click();
+  setTimeout(function () { URL.revokeObjectURL(url); a.remove(); }, 1500);
+}
+// A statement built from what the app holds for that date range (for uploads made before originals were kept).
+function bcDownloadCsv(f, t) {
+  var q = function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; };
+  var rows = bsLoad().filter(function (x) { return x.d >= f && x.d <= t; });
+  var csv = 'Date,Narration,Debit,Credit,Balance\n' + rows.map(function (x) { return [q(bcFmtDate(x.d)), q(x.n), x.dr || '', x.cr || '', x.bal == null ? '' : x.bal].join(','); }).join('\n');
+  bcSaveBlob(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }), 'IDFC statement ' + bcFmtDate(f) + ' - ' + bcFmtDate(t) + '.csv');
+}
+function bcDownloadUpload(f, t) {
+  var fallback = function () { bcDownloadCsv(f, t); };
+  if (typeof _db === 'undefined' || !_db) return fallback();
+  _db.ref('comedor/bankfiles/' + f + '_' + t).once('value').then(function (snap) {
+    var v = snap.val(); if (!v || !v.data) return fallback();
+    var bin = atob(v.data), bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    bcSaveBlob(new Blob([bytes], { type: v.type || 'application/pdf' }), v.name || ('IDFC statement ' + f + ' - ' + t + '.pdf'));
+  }).catch(fallback);
 }
 // Remove one upload's date range (its transactions + the upload record) so the right file can be uploaded again.
 function bcDeleteUpload(f, t) {
@@ -8351,13 +8388,13 @@ function bcDeleteUpload(f, t) {
   });
   var cov = bcCoverage().filter(function (c) { return !(c.f === f && c.t === t); });
   try { localStorage.setItem(BCOV_KEY, JSON.stringify(cov)); } catch (e) {}
-  if (_db) syncOp('remove', 'comedor/bankcov/' + f + '_' + t, null);
+  if (_db) { syncOp('remove', 'comedor/bankcov/' + f + '_' + t, null); try { _db.ref('comedor/bankfiles/' + f + '_' + t).remove(); } catch (e) {} }
   renderBankCheck(); renderActivePanel();
 }
 function bcDeleteAll() {
   if (!confirm('Delete ALL uploaded bank statement data?\n\nThe daily check and the "bank per statement" balance go back to empty until you upload again.')) return;
   ['BS_KEY', 'BCOV_KEY', 'BCHK_KEY'].forEach(function (k) { try { localStorage.removeItem({ BS_KEY: BS_KEY, BCOV_KEY: BCOV_KEY, BCHK_KEY: BCHK_KEY }[k]); } catch (e) {} });
-  if (_db) ['comedor/bankstmt', 'comedor/bankcov', 'comedor/bankchk'].forEach(function (p) { syncOp('remove', p, null); });
+  if (_db) ['comedor/bankstmt', 'comedor/bankcov', 'comedor/bankchk', 'comedor/bankfiles'].forEach(function (p) { syncOp('remove', p, null); });
   renderBankCheck(); renderActivePanel();
 }
 function bcReview(btn, keys, amt) {
