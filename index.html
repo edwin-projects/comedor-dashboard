@@ -1733,7 +1733,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-11-10-4';
+const APP_VERSION = '2026-11-10-5';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -8359,7 +8359,7 @@ function renderBankCheck() {
   };
   var openRows = bankOutRows(open.filter(function (i) { return i.kind === 'bankOut'; })).concat(open.filter(function (i) { return i.kind !== 'bankOut'; }));
   var matchRows = r.matchedItems.map(function (i) { return Object.assign({}, i, { matched: true }); });
-  var f = _bcFilter || (openRows.length ? 'fix' : 'all');
+  var f = _bcFilter || 'fix';
   var newest = function (a, b) { return a.d < b.d ? 1 : -1; };
   h += '<div class="bcl-chips">' + [['fix', 'To fix', openRows.length], ['match', 'Matched', matchRows.length], ['all', 'All', openRows.length + matchRows.length]].map(function (c) {
     return '<button class="bcl-chip' + (f === c[0] ? ' on' : '') + (c[0] === 'fix' && c[2] ? ' bad' : '') + '" onclick="bcSetFilter(\'' + c[0] + '\')">' + c[1] + ' · ' + c[2] + '</button>';
