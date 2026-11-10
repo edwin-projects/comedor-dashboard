@@ -1733,7 +1733,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-11-10-3';
+const APP_VERSION = '2026-11-10-4';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -8297,14 +8297,14 @@ function bcLedgerRow(it, r, withActs) {
     if (appSide2) hint = (it.reopened ? 'The statement now covers this date and it still isn\'t there. ' : '') + (covered
       ? (it.kind === 'appOut' ? 'The statement covers this date but the bank never paid it. Fix or delete it in the app.' : 'The statement covers this date but the bank never received it. Fix or delete it in the app.')
       : 'Statement ends ' + esc(bcFmtShort(r.last)) + '. It may appear once you upload a newer one.');
-    else if (it.kind === 'bankIn') hint = 'Money arrived that the app doesn\'t know about.';
-    else if (it.kind === 'tallyAhead') hint = 'The bank received more card/UPI money than the sales register shows.';
+    else if (it.kind === 'bankIn') hint = it.title === 'Cash deposit' ? 'Cash was deposited into the bank but the Cash tab has no deposit. Record it there under Cash deposit and this clears itself.' : 'Money arrived that the app doesn\'t know about. Add it as partner money in and this clears itself.';
+    else if (it.kind === 'tallyAhead') hint = 'The bank received more card/UPI money than the sales register shows. Check the Pet Pooja report or register for those days; this clears itself once sales match.';
     else if (it.sub && it.sub !== it.title) hint = String(it.sub).slice(0, 230);
     acts = (appSide2 && !covered ? '<button class="bcl-btn bcl-main" onclick="bcUploadClick()">Upload statement</button>' : '') +
       (it.kind === 'bankOut' ? '<button class="bcl-btn bcl-main" onclick="bcAddToApp(\'' + it.key + '\'' + (it.keys ? ',\'' + it.keys.join(',') + '\'' : '') + ')">Add to app</button>' : '') +
       (it.kind === 'appOut' && !it.keys && it.key.indexOf('app_') === 0 ? '<button class="bcl-btn bcl-main" onclick="bcMakeDirect(\'' + it.key.slice(4) + '\')">Paid by partner directly</button>' : '') +
       (appSide2 && !covered ? '<button class="bcl-btn" id="bc-rv-' + keys[0].replace(/[^A-Za-z0-9_]/g, '') + '" onclick="bcNotYet(this,\'' + keys.join(',') + '\')">Not in statement yet</button>' : '') +
-      (it.kind === 'bankIn' || it.kind === 'tallyAhead' ? '<button class="bcl-btn" id="bc-rv-' + keys[0].replace(/[^A-Za-z0-9_]/g, '') + '" onclick="bcReview(this,\'' + keys.join(',') + '\',' + (it.kind === 'tallyAhead' ? Math.round(it.amt) : 'null') + ')">It\'s fine</button>' : '');
+      (it.kind === 'bankIn' && it.title !== 'Cash deposit' ? '<button class="bcl-btn bcl-main" onclick="bcAddMoneyIn(\'' + it.key + '\')">Add to app</button>' : '');
   }
   return '<div class="bcl-row"><div class="bcl-grid"><span class="bcl-date">' + esc(bcFmtShort(it.d)) + '</span><span class="bcl-what">' + esc(it.title) + '</span>' +
     (bankSide ? amt : miss) + (appSide ? amt : miss) + '</div>' + (hint ? '<div class="bcl-hint">' + hint + '</div>' : '') + (acts ? '<div class="bcl-acts">' + acts + '</div>' : '') + '</div>';
@@ -8481,6 +8481,17 @@ function bcPartnerConfirm() {
   renderBankList(); renderActivePanel();
 }
 function bcUndo(keys) { keys.split(',').forEach(bcUnack); renderBankCheck(); }
+// Money that reached the bank with no app entry: open the Partner Money In form with the details filled in.
+function bcAddMoneyIn(key) {
+  var it = bcCompute().items.filter(function (i) { return i.key === key; })[0]; if (!it) return;
+  var card = document.getElementById('setcard-capital');
+  if (card && card.classList.contains('collapsed')) toggleSet('capital');
+  var dest = document.getElementById('cap-dest'); if (dest) { dest.value = 'bank'; onCapDestChange(); }
+  var d = document.getElementById('cap-date'); if (d) d.value = it.d;
+  setMoney('cap-amount', it.amt);
+  var ds = document.getElementById('cap-desc'); if (ds) ds.value = String(it.title || '').toUpperCase();
+  if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
 function bcAddToApp(key, keys) {
   var all = bcCompute().items, ks = keys ? keys.split(',') : [key];
   var its = all.filter(function (i) { return ks.indexOf(i.key) >= 0; }); if (!its.length) return;
