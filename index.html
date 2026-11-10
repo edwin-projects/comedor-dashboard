@@ -1731,7 +1731,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-11-04-3';
+const APP_VERSION = '2026-11-10-1';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -7968,7 +7968,10 @@ function bcUnack(key) {
 }
 
 // ── The check itself ────────────────────────────────────────────────────────
-function bcDigitalCredit(t) { return t.cr > 0 && /PINE LABS|ZOMATO|SWIGGY|RAZORPAY|PAYTM|PHONEPE|CASHFREE|UPI\/CR/i.test(t.n); }
+// Card/UPI settlements. Pine Labs' NEFT narration can arrive with its lines scrambled by the statement reader
+// ("LABS PVT LTD/HDFC0000240/… NEFT/HDFCH…/PINE", or its first line glued onto a neighbouring row), so PINE and LABS
+// may be far apart: match the word PINE or Pine Labs' escrow IFSC on its own as well.
+function bcDigitalCredit(t) { return t.cr > 0 && (/PINE LABS|ZOMATO|SWIGGY|RAZORPAY|PAYTM|PHONEPE|CASHFREE|UPI\/CR/i.test(t.n) || (/\bPINE\b|HDFC0000240/i.test(t.n) && !/CASH DEPOSIT/i.test(t.n))); }
 function bcPayee(n) {
   var s = String(n || '').replace(/\s+/g, ' ');
   var m = s.match(/(?:OPM\/\d+\/|IMPS-? ?OPM\/\d+\/|NEFT\/ ?\S+\/|IMPS\/\d+\/|UPI\/DR\/\d+\/)\s*([A-Za-z0-9 .&'-]+?)\//);
