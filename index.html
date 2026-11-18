@@ -1295,10 +1295,11 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
         #setcard-bankcheck .bc-day{display:flex;justify-content:space-between;gap:8px;padding:6px 0;font-size:12.5px;border-bottom:1px solid var(--border);color:var(--text2);font-family:'Inter',sans-serif;}
         #setcard-bankcheck .bc-day .bc-amt{font-size:12.5px;color:var(--text);}
         #setcard-bankcheck .bcl-card{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-top:10px;}
-        #setcard-bankcheck .bcl-cap{font-size:12px;color:var(--text3);font-family:'Inter',sans-serif;line-height:1.4;}
-        #setcard-bankcheck .bcl-days{display:grid;gap:3px;margin-top:8px;}
-        #setcard-bankcheck .bcl-day{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:9.5px;color:var(--text3);font-family:'Inter',sans-serif;}
-        #setcard-bankcheck .bcl-day b{width:100%;height:26px;box-sizing:border-box;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--num-font);font-size:11px;font-weight:400;}
+        #setcard-bankcheck .bcl-cap{font-size:11px;color:var(--text3);font-family:'Inter',sans-serif;line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+        #setcard-bankcheck .bcl-days{display:grid;gap:2px;margin-top:5px;}
+        #setcard-bankcheck .bcl-covc{padding:8px 12px;}
+        #setcard-bankcheck .bcl-day{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:9px;color:var(--text3);font-family:'Inter',sans-serif;}
+        #setcard-bankcheck .bcl-day b{width:100%;height:22px;box-sizing:border-box;border-radius:6px;display:flex;align-items:center;justify-content:center;font-family:var(--num-font);font-size:11px;font-weight:400;}
         #setcard-bankcheck .bcl-day b.bcl-ok{background:rgba(111,207,151,.14);color:var(--green);}
         #setcard-bankcheck .bcl-day b.bcl-no{border:1.5px dashed #E3B341;color:#E3B341;}
         #setcard-bankcheck .bcl-legend{display:flex;gap:16px;margin-top:10px;font-size:12px;color:var(--text3);font-family:'Inter',sans-serif;}
@@ -1306,16 +1307,19 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
         #setcard-bankcheck .bcl-legend i.bcl-ok{background:rgba(111,207,151,.14);border:1px solid var(--green);}
         #setcard-bankcheck .bcl-legend i.bcl-no{border:1.5px dashed #E3B341;}
         #setcard-bankcheck .bcl-tot{display:flex;justify-content:space-between;align-items:baseline;gap:10px;font-size:13px;color:var(--text2);font-family:'Inter',sans-serif;}
-        #setcard-bankcheck .bcl-tot b{font-family:var(--num-font);font-size:22px;color:var(--text);}
-        #setcard-bankcheck .bcl-three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--border);}
+        #setcard-bankcheck .bcl-tot b{font-family:var(--num-font);font-size:20px;color:var(--text);}
+        #setcard-bankcheck .bcl-three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border);}
         #setcard-bankcheck .bcl-three div{display:flex;flex-direction:column;gap:2px;min-width:0;}
-        #setcard-bankcheck .bcl-three span{font-size:11px;color:var(--text3);font-family:'Inter',sans-serif;white-space:nowrap;}
+        #setcard-bankcheck .bcl-three span{font-size:10.5px;color:var(--text3);font-family:'Inter',sans-serif;white-space:nowrap;}
         #setcard-bankcheck .bcl-three b{font-family:var(--num-font);font-size:13.5px;color:var(--text);white-space:nowrap;}
-        #setcard-bankcheck .bcl-how{margin-top:10px;}
-        #setcard-bankcheck .bcl-how > summary{cursor:pointer;list-style:none;font-size:12px;color:var(--text3);font-family:'Inter',sans-serif;padding:6px 0;min-height:32px;display:flex;align-items:center;gap:6px;}
+        #setcard-bankcheck .bcl-how{margin-top:4px;}
+        #setcard-bankcheck .bcl-how > summary{cursor:pointer;list-style:none;font-size:11px;color:var(--text3);font-family:'Inter',sans-serif;padding:4px 0 2px;min-height:28px;display:flex;align-items:center;justify-content:space-between;gap:6px;}
         #setcard-bankcheck .bcl-how > summary::-webkit-details-marker{display:none;}
-        #setcard-bankcheck .bcl-how > summary::after{content:'▾';font-size:11px;transition:transform .15s;}
-        #setcard-bankcheck .bcl-how[open] > summary::after{transform:rotate(180deg);}
+        #setcard-bankcheck .bcl-chev{display:inline-block;font-size:10px;transition:transform .15s;}
+        #setcard-bankcheck .bcl-fresh{display:inline-flex;align-items:center;gap:5px;white-space:nowrap;font-size:11px;}
+        #setcard-bankcheck .bcl-fresh i{width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block;}
+        #setcard-bankcheck .bcl-fresh.fr-g{color:var(--green);} #setcard-bankcheck .bcl-fresh.fr-y{color:#E3B341;} #setcard-bankcheck .bcl-fresh.fr-r{color:var(--red);}
+        #setcard-bankcheck .bcl-how[open] .bcl-chev{transform:rotate(180deg);}
         #setcard-bankcheck .bcl-line2{display:flex;justify-content:space-between;gap:10px;padding:7px 0;font-size:12.5px;color:var(--text2);font-family:'Inter',sans-serif;border-top:1px solid var(--border);}
         #setcard-bankcheck .bcl-line2 b{font-family:var(--num-font);font-size:13px;color:var(--text);white-space:nowrap;}
         #setcard-bankcheck .bcl-line2t{color:var(--text);font-weight:600;}
@@ -1733,7 +1737,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-11-18-1';
+const APP_VERSION = '2026-11-18-2';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -8324,14 +8328,20 @@ function renderBankCheck() {
   // 1) which days have a statement: only shown when something in the past week is missing
   var have = {}, cov = bcCoverage();
   bsLoad().forEach(function (t) { have[t.d] = 1; });
-  var yest = bcAddDays(todayLocalISO(), -1), from = r.S > bcAddDays(yest, -13) ? r.S : bcAddDays(yest, -13), cells = '', recentGap = false, nDays = 0, weekAgo = bcAddDays(yest, -6);
+  var yest = bcAddDays(todayLocalISO(), -1), from = r.S > bcAddDays(yest, -13) ? r.S : bcAddDays(yest, -13), cells = '', recentGap = false, nDays = 0, weekAgo = bcAddDays(yest, -6), gaps = [], cur = null;
   for (var d = from; d <= yest; d = bcAddDays(d, 1)) {
     var ok = have[d] || cov.some(function (c) { return d >= c.f && d <= c.t; });
     if (!ok && d >= weekAgo) recentGap = true;
+    if (!ok) { if (cur) cur.t = d; else { cur = { f: d, t: d }; gaps.push(cur); } } else cur = null;
     nDays++;
     cells += '<div class="bcl-day"><span>' + 'SMTWTFS'.charAt(new Date(d + 'T00:00:00').getDay()) + '</span><b class="' + (ok ? 'bcl-ok' : 'bcl-no') + '">' + parseInt(d.slice(8), 10) + '</b></div>';
   }
-  if (recentGap) h += '<div class="bcl-card"><div class="bcl-cap">Statement missing for the dashed days · ' + esc(bcFmtShort(from)) + ' – ' + esc(bcFmtShort(yest)) + '</div><div class="bcl-days" style="grid-template-columns:repeat(' + nDays + ',minmax(0,1fr));">' + cells + '</div></div>';
+  var gapTxt = gaps.map(function (g) {
+    var f = bcFmtShort(g.f), t = bcFmtShort(g.t);
+    if (g.f === g.t) return f;
+    return f.split(' ')[1] === t.split(' ')[1] ? f.split(' ')[0] + '–' + t : f + ' – ' + t;
+  }).join(', ');
+  if (recentGap) h += '<div class="bcl-card bcl-covc"><div class="bcl-cap">No statement · ' + esc(gapTxt) + '</div><div class="bcl-days" style="grid-template-columns:repeat(' + nDays + ',minmax(0,1fr));">' + cells + '</div></div>';
 
   // 2) the money position: same bank figure as the dashboard (statement + entries made since)
   var split = computeBankSplit(), bankNow = split && split.bank != null ? split.bank : r.closing, since = bankNow - r.closing;
@@ -8340,11 +8350,11 @@ function renderBankCheck() {
     '<div class="bcl-three"><div><span>Bank today</span><b>' + bcInr(bankNow) + '</b></div>' +
     '<div><span>Cash</span><b>' + bcInr(currentCashBalance()) + '</b></div>' +
     '<div><span>Card/UPI due</span><b' + (r.pending > 0 ? ' style="color:var(--green);"' : '') + '>' + bcInr(r.pending) + '</b></div></div>' +
-    '<details class="bcl-how"><summary>How is bank worked out?</summary>' +
+    '<details class="bcl-how"><summary><span>How is bank worked out? <span class="bcl-chev">▾</span></span><span class="bcl-fresh ' + fr.cls + '"><i></i>' + (fr.days > 5 ? 'Upload latest · ' : '') + 'Bank to ' + esc(bcFmtShort(r.last)) + ' · ' + fr.ago + '</span></summary>' +
     '<div class="bcl-line2"><span>Statement balance · ' + esc(bcFmtShort(r.last)) + '</span><b>' + bcInr(r.closing) + '</b></div>' +
     '<div class="bcl-line2"><span>Entered in the app since</span><b style="color:' + (since < 0 ? 'var(--red)' : since > 0 ? 'var(--green)' : 'var(--text2)') + ';">' + (since < 0 ? '−' : since > 0 ? '+' : '') + bcInr(Math.abs(since)) + '</b></div>' +
     '<div class="bcl-line2 bcl-line2t"><span>Bank today</span><b>' + bcInr(bankNow) + '</b></div></details>' +
-    '<div class="bc-row bc-fresh ' + fr.cls + '"><span><span class="fr-dot"></span>' + (fr.days > 5 ? 'Statement ' + fr.ago + ' — upload the latest' : 'Bank figures to ' + esc(bcFmtDate(r.last)) + ' · ' + fr.ago) + '</span></div></div>';
+    '</div>';
 
   // 3) filter chips + the ledger
   var bankOutRows = function (list) {
