@@ -1737,7 +1737,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-11-18-7';
+const APP_VERSION = '2026-11-18-8';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -4206,6 +4206,22 @@ function populateMonthFilter(selId) {
   sel.innerHTML = html;
   if (currentDashFilter === 'specificmonth' && dashMonthISO) sel.value = dashMonthISO;
 }
+
+// An automatic reload (new version / new service worker) must not throw away the period the
+// partner just tapped — otherwise "This Month" flashes, the page reloads, and it snaps back to Today.
+function keepDashFilter() { try { sessionStorage.setItem('comedor_keep_filter', JSON.stringify({ f: currentDashFilter, m: dashMonthISO || null, t: Date.now() })); } catch (e) {} }
+(function restoreDashFilter() {
+  try {
+    var raw = sessionStorage.getItem('comedor_keep_filter'); if (!raw) return;
+    sessionStorage.removeItem('comedor_keep_filter');
+    var k = JSON.parse(raw); if (!k || !k.f || Date.now() - k.t > 60000 || k.f === 'custom') return;
+    currentDashFilter = k.f; if (k.m) dashMonthISO = k.m;
+    document.querySelectorAll('.dash-filters .dfbtn').forEach(function (b) {
+      var m = (b.getAttribute('onclick') || '').match(/setDashFilter\('(\w+)'/);
+      b.classList.toggle('active', !!m && m[1] === k.f);
+    });
+  } catch (e) {}
+})();
 
 function setDashFilter(filter, btn) {
   currentDashFilter = filter;
@@ -9000,6 +9016,7 @@ function checkForUpdate() {
         if (!v || !v.version || v.version === APP_VERSION) return;
         if (sessionStorage.getItem('comedor_updated_to') === v.version) return;
         sessionStorage.setItem('comedor_updated_to', v.version);
+        keepDashFilter();
         location.reload();
       })
       .catch(() => {});
@@ -9020,6 +9037,7 @@ function registerServiceWorker() {
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (swapped) return;
       swapped = true;
+      keepDashFilter();
       location.reload();
     });
   } catch (e) {}
