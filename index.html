@@ -1737,7 +1737,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-11-18-5';
+const APP_VERSION = '2026-11-18-6';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -5899,8 +5899,8 @@ function renderPnlBank() {
     <div class="card upc-detail" id="upc-detail" style="display:${_upcOpen ? 'block' : 'none'};">
       <div class="upc-detail-title">Upcoming expenses · ${upcWord}</div>
       ${upcSchedHtml}
-    ${monthlySalesChartHtml(range)}
     </div>
+    ${monthlySalesChartHtml(range)}
     <div class="pnl-divider"><span>Partner capital</span></div>
     <div class="card cap-invest ${_capCollapsed ? 'cap-collapsed' : ''}" id="cap-card">
       <div class="cap-total" onclick="toggleCapCard()">
