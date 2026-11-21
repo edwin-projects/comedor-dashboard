@@ -129,6 +129,14 @@
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .gst-rows .gst-r, :root:not([data-theme="light"]) .gst-rows .gst-r b { color:#7EC8E3; } }
   .gst-note { margin-top:6px; font-family:'Inter',sans-serif; font-size:9px; line-height:1.35; color:var(--text3); white-space:normal; }
   .gst-chartnote { font-family:'Inter',sans-serif; font-size:9.5px; color:var(--text3); margin:-2px 0 6px; }
+  .hero-sum { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; margin-top:12px; padding-top:10px; border-top:1px solid var(--border); text-align:center; }
+  .hero-sum > div { display:flex; flex-direction:column; gap:3px; min-width:0; }
+  .hero-sum span { font-family:'Inter',sans-serif; font-size:9.5px; letter-spacing:0.4px; text-transform:uppercase; color:var(--text3); white-space:nowrap; }
+  .hero-sum b { font-family:var(--num-font); font-size:12.5px; font-weight:600; color:var(--text); white-space:nowrap; }
+  .hero-sum .hs-gst span, .hero-sum .hs-gst b { color:#1B6E8A; }
+  :root[data-theme="dark"] .hero-sum .hs-gst span, :root[data-theme="dark"] .hero-sum .hs-gst b { color:#7EC8E3; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .hero-sum .hs-gst span, :root:not([data-theme="light"]) .hero-sum .hs-gst b { color:#7EC8E3; } }
+  .pnl-hero .cmp-wrap { margin-bottom:2px; }
   .gst-hero { margin-top:3px; font-family:'Inter',sans-serif; font-size:10px; color:#1B6E8A; }
   :root[data-theme="dark"] .gst-hero { color:#7EC8E3; }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .gst-hero { color:#7EC8E3; } }
@@ -1757,7 +1765,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-11-21-2';
+const APP_VERSION = '2026-11-21-3';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -5928,7 +5936,7 @@ function renderPnlBank() {
       <div class="card-label">Net Profit / Loss</div>
       <div class="card-value ${net >= 0 ? 'green' : 'red'}">${heroNet}</div>
       ${chipNet}
-      ${ppIncome > 0 ? `<div class="gst-hero">Sales ${inr(income)} − GST ${inr(gstInc)} − expenses ${inr(totalExp)}</div>` : ''}
+      ${ppIncome > 0 ? `<div class="hero-sum"><div><span>Sales</span><b>${inr(income)}</b></div><div class="hs-gst"><span>− GST 5%</span><b>${inr(gstInc)}</b></div><div><span>− Expenses</span><b>${inr(totalExp)}</b></div></div>` : ''}
     </div>
     <div class="cards2">
       <div class="card card-click tile-avail" onclick="focusLog('bank')"><div class="card-label">Bank Balance</div><div class="card-value">${inr(bankBal||0)}</div><div class="bal-rows"><div class="bal-row"><span>+ Cash in hand</span><b class="bal-cash">${inr(cashBal)}</b></div><div class="bal-row"><span>+ Yet to be credited<small>to bank · card / UPI</small></span><b class="${bankPending > 0 ? 'bal-pos' : ''}">${inr(bankPending)}</b></div></div>${bankSplit && bankSplit.asOf ? `<div class="bal-asof ${bcFresh(bankSplit.asOf).cls}"><span class="fr-dot"></span>Bank as of ${bcFmtShort(bankSplit.asOf)} · ${bcFresh(bankSplit.asOf).ago.replace(' days ago','d ago').replace(' day ago','d ago')}</div>` : ''}${lastCashEntry && lastCashEntry.date ? `<div class="bal-asof ${bcFresh(lastCashEntry.date).cls}"${cashOpen ? ` role="button" tabindex="0" style="cursor:pointer;" title="Cash not closed — enter the closing count for ${dChip(lastCashEntry.date)}" onclick="event.stopPropagation(); goCloseCash('${lastCashEntry.date}')"` : ''}><span class="fr-dot"></span>Cash as of ${bcFmtShort(lastCashEntry.date)} · ${bcFresh(lastCashEntry.date).ago.replace(' days ago','d ago').replace(' day ago','d ago')}</div>` : ''}</div>
