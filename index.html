@@ -128,6 +128,7 @@
   :root[data-theme="dark"] .gst-rows .gst-r, :root[data-theme="dark"] .gst-rows .gst-r b { color:#7EC8E3; }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .gst-rows .gst-r, :root:not([data-theme="light"]) .gst-rows .gst-r b { color:#7EC8E3; } }
   .gst-note { margin-top:6px; font-family:'Inter',sans-serif; font-size:9px; line-height:1.35; color:var(--text3); white-space:normal; }
+  .gst-chartnote { font-family:'Inter',sans-serif; font-size:9.5px; color:var(--text3); margin:-2px 0 6px; }
   .gst-hero { margin-top:3px; font-family:'Inter',sans-serif; font-size:10px; color:#1B6E8A; }
   :root[data-theme="dark"] .gst-hero { color:#7EC8E3; }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .gst-hero { color:#7EC8E3; } }
@@ -1756,7 +1757,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-11-21-1';
+const APP_VERSION = '2026-11-21-2';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -5160,7 +5161,7 @@ function _occAmount(rec, date) {
     const pm = m === 1 ? 12 : m - 1, py = m === 1 ? y - 1 : y;
     const mm = String(pm).padStart(2, '0');
     const last = new Date(py, pm, 0).getDate();
-    return Math.round(incomeInRange(py + '-' + mm + '-01', py + '-' + mm + '-' + String(last).padStart(2, '0')) * 0.05);
+    return Math.round(incomeInRange(py + '-' + mm + '-01', py + '-' + mm + '-' + String(last).padStart(2, '0')) * 5 / 105);   // GST is 5/105 of GST-inclusive sales
   }
   return Number(rec && rec.amount) || 0;
 }
@@ -5719,13 +5720,13 @@ function dashCompareRange(range) {
 }
 // Income, operating expenses and net for any date range — mirrors renderPnlBank's maths.
 function pnlTotalsFor(from, to) {
-  var income = Math.round(netOfGst(incomeInRange(from, to)));
+  var income = Math.round(incomeInRange(from, to)), gst = Math.round(gstOf(income));
   var cashExp = loadEntries().filter(function (e) { return e.date >= from && e.date <= to; }).reduce(function (s, e) { return s + (e.expenses || []).reduce(function (t, x) { return t + (isCashDeposit(x) ? 0 : (parseFloat(x.amount) || 0)); }, 0); }, 0);
   var bank = loadBankEntries().filter(function (b) { return b.date >= from && b.date <= to; });
   var idfcExp = bank.filter(function (b) { return !b.capital && !b.direct && !b.payout && !isPassThruTax(b); }).reduce(function (s, b) { return s + (Number(b.amount) || 0); }, 0);
   var directExp = bank.filter(function (b) { return b.direct; }).reduce(function (s, b) { return s + (Number(b.amount) || 0); }, 0) + ledgerOpexInRange(from, to);
   var totalExp = cashExp + idfcExp + directExp;
-  return { income: income, totalExp: totalExp, net: income - totalExp };
+  return { income: income, gst: gst, totalExp: totalExp, net: income - gst - totalExp };
 }
 // One chip: "▲ 13% · +₹20,944". good = which direction is favourable (income/net up, expenses down).
 function cmpChip(now, prev, upIsGood, label) {
@@ -5748,7 +5749,7 @@ function renderPnlBank() {
   // Sales stay in the cash book, out of income.
   const ppIncome = Math.round(incomeInRange(range.from, range.to));   // gross billed (incl. 5% GST)
   const gstInc = Math.round(gstOf(ppIncome));                          // GST held for the government
-  const income = ppIncome - gstInc;                                    // net sales = real income
+  const income = ppIncome;                                             // total sales as Pet Pooja shows them (incl. GST)
   const discount = Math.round(incomeFieldInRange(range.from, range.to, 'discount'));
   const compVal = Math.round(incomeFieldInRange(range.from, range.to, 'compValue'));
   // Cash deposits into the bank sit in the register as a cash-out but are transfers,
@@ -5767,7 +5768,7 @@ function renderPnlBank() {
   const ledgerOpex = ledgerOpexInRange(range.from, range.to);   // historical partner-paid opex (pre-app ledger import)
   const directExp = directBankExp + ledgerOpex;                 // ALL partner-direct operating spend
   const totalExp = cashExp + idfcExp + directExp;
-  const net = income - totalExp;
+  const net = income - gstInc - totalExp;   // profit takes the GST hit; GST payments themselves are not expenses
   const _cr = dashCompareRange(range), _cp = _cr ? pnlTotalsFor(_cr.from, _cr.to) : null;
   const chipIn  = _cp ? cmpChip(income,   _cp.income,   true,  _cr.label) : '';
   const chipExp = _cp ? cmpChip(totalExp, _cp.totalExp, false, _cr.label) : '';
@@ -5915,7 +5916,7 @@ function renderPnlBank() {
   const sEl = document.getElementById('pnl-summary');
   if (sEl) sEl.innerHTML = `
     <div class="cards2">
-      <div class="card card-click tile-income" style="position:relative;" onclick="focusLog('sales')">${liveCaption}<div class="card-label">Income · net of GST</div><div class="card-value green">${inr(income)}</div>${chipIn}<div class="card-sub"><div class="gst-rows"><div><span>Gross billed</span><b>${inr(ppIncome)}</b></div><div class="gst-r"><span>GST 5%</span><b>−${inr(gstInc)}</b></div></div>${splitGrid([
+      <div class="card card-click tile-income" style="position:relative;" onclick="focusLog('sales')">${liveCaption}<div class="card-label">Income (Sales)</div><div class="card-value green">${inr(income)}</div>${chipIn}<div class="card-sub"><div class="gst-rows"><div class="gst-r"><span>incl. 5% GST</span><b>${inr(gstInc)}</b></div></div>${splitGrid([
         ...payRows,
         {k:'Comp & Disc',v:discount + compVal,pct:(discount+compVal)>0?pctTxt(discount+compVal,ppIncome,' of sales'):'',dim:true,always:true,order:6}
       ])}</div></div>
@@ -5927,7 +5928,7 @@ function renderPnlBank() {
       <div class="card-label">Net Profit / Loss</div>
       <div class="card-value ${net >= 0 ? 'green' : 'red'}">${heroNet}</div>
       ${chipNet}
-      ${ppIncome > 0 ? `<div class="gst-hero">Sales counted after taking out ${inr(gstInc)} GST</div>` : ''}
+      ${ppIncome > 0 ? `<div class="gst-hero">Sales ${inr(income)} − GST ${inr(gstInc)} − expenses ${inr(totalExp)}</div>` : ''}
     </div>
     <div class="cards2">
       <div class="card card-click tile-avail" onclick="focusLog('bank')"><div class="card-label">Bank Balance</div><div class="card-value">${inr(bankBal||0)}</div><div class="bal-rows"><div class="bal-row"><span>+ Cash in hand</span><b class="bal-cash">${inr(cashBal)}</b></div><div class="bal-row"><span>+ Yet to be credited<small>to bank · card / UPI</small></span><b class="${bankPending > 0 ? 'bal-pos' : ''}">${inr(bankPending)}</b></div></div>${bankSplit && bankSplit.asOf ? `<div class="bal-asof ${bcFresh(bankSplit.asOf).cls}"><span class="fr-dot"></span>Bank as of ${bcFmtShort(bankSplit.asOf)} · ${bcFresh(bankSplit.asOf).ago.replace(' days ago','d ago').replace(' day ago','d ago')}</div>` : ''}${lastCashEntry && lastCashEntry.date ? `<div class="bal-asof ${bcFresh(lastCashEntry.date).cls}"${cashOpen ? ` role="button" tabindex="0" style="cursor:pointer;" title="Cash not closed — enter the closing count for ${dChip(lastCashEntry.date)}" onclick="event.stopPropagation(); goCloseCash('${lastCashEntry.date}')"` : ''}><span class="fr-dot"></span>Cash as of ${bcFmtShort(lastCashEntry.date)} · ${bcFresh(lastCashEntry.date).ago.replace(' days ago','d ago').replace(' day ago','d ago')}</div>` : ''}</div>
@@ -5983,7 +5984,7 @@ function fyMonthlySales(anchorISO) {
     const i = idx[day.slice(0, 7)]; if (i === undefined) continue;
     const r = byId[owner[day]]; if (!r) continue;
     const nd = daysInclusive(r.from, r.to);
-    if (nd > 0) { months[i].val += netOfGst((Number(r.gross) || 0) / nd); months[i].hasData = true; }
+    if (nd > 0) { months[i].val += (Number(r.gross) || 0) / nd; months[i].hasData = true; }
   }
   // Per-month operating expense, using the SAME sources & rules as the P&L
   // Expenses tile (cash register + IDFC bank + partner-direct + pre-app ledger
@@ -6000,11 +6001,13 @@ function fyMonthlySales(anchorISO) {
     m.future = (m.yr > tY) || (m.yr === tY && m.mo > tM);
     m.current = (m.yr === tY && m.mo === tM);
     m.val = Math.round(m.val);
-    m.net = m.val - m.exp;
+    m.gst = Math.round(gstOf(m.val));
+    m.net = m.val - m.gst - m.exp;   // profit takes the GST hit
   });
   const ytd = months.reduce((s, m) => s + m.val, 0);
   const expYtd = months.reduce((s, m) => s + m.exp, 0);
-  return { months, ytd, expYtd, netYtd: ytd - expYtd, fyLabel: 'FY ' + fyStart + '–' + String(fyStart + 1).slice(2) };
+  const gstYtd = months.reduce((s, m) => s + m.gst, 0);
+  return { months, ytd, expYtd, netYtd: ytd - gstYtd - expYtd, gstYtd: gstYtd, fyLabel: 'FY ' + fyStart + '–' + String(fyStart + 1).slice(2) };
 }
 // Total operating expense in [from,to], mirroring renderPnlBank()'s totalExp:
 // cash-drawer spend (skipping cash deposits) + IDFC bank spend + partner-direct
@@ -6079,6 +6082,7 @@ function monthlySalesChartHtml(range) {
       <div class="msc-io"><span class="msc-io-amt in">₹${mscShort2(data.ytd)}</span><span class="msc-io-cap">in</span><span class="msc-io-amt out">₹${mscShort2(data.expYtd)}</span><span class="msc-io-cap">out</span></div>
       <div class="msc-netytd-amt ${data.netYtd >= 0 ? 'pos' : 'neg'}">${data.netYtd >= 0 ? '+' : '−'}₹${mscShort2(Math.abs(data.netYtd))}</div>
     </div>
+    <div class="gst-chartnote">In = sales incl. 5% GST · profit shown after GST (₹${mscShort2(data.gstYtd)} this year)</div>
     <div class="msc-chart">
       <div class="msc-row msc-up">${up.join('')}</div>
       <div class="msc-zero"></div>
