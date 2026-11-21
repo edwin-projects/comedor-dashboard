@@ -60,9 +60,10 @@ the second layer. Do not remove either.
    overlaps it, and re-uploads never double-count. P&L income for a dashboard period = each
    report's gross spread evenly across its days, summed over the period. (Pet Pooja's item-wise
    "Gross Sales" already includes 5% GST and matches its "Total Sales" headline.)
-   **The 5% GST is not income.** P&L income, the monthly chart and period comparisons are shown NET of GST
-   (gross × 100/105 via `netOfGst()`); the dashboard shows gross billed and GST (`gstOf()`) as separate lines.
-   GST paid to the government stays out of expenses, so profit = net sales − expenses.
+   **GST is inside that figure.** Income/Sales shows the total as Pet Pooja reports it (incl. 5% GST) with the GST
+   called out beside it (`gstOf()` = gross × 5/105). Only PROFIT takes the hit: net = sales − GST − expenses (also in
+   the monthly chart and comparisons). GST payments to the government stay out of expenses, and the computed GST
+   payment is 5/105 of last month's sales.
 
 9. **Buttons follow the brand.** Primary actions use the gold gradient
    (`linear-gradient(135deg,#F0D488 0%,#C9A040 52%,#A9812C 100%)`, border `#C9A040`, text `#201700`,
