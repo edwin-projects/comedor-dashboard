@@ -1862,7 +1862,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-11-23-3';
+const APP_VERSION = '2026-11-23-4';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -6712,8 +6712,13 @@ function bridgeHtml() {
     var head = '<div class="bridge-h" onclick="toggleBridge()" role="button" tabindex="0"><div class="bridge-t"><span class="bridge-k">Does profit match the money?</span><span class="bridge-s">since ' + dfmt(BRIDGE_START) + '</span></div>';
     var isOpen = true; try { isOpen = localStorage.getItem('comedor_bridge_open') !== '0'; } catch (e) {}
     if (!open) return '<div class="bridge" id="bridge-card"><div class="bridge-h"><div class="bridge-t"><span class="bridge-k">Does profit match the money?</span><span class="bridge-s">Needs a bank statement covering ' + dfmt(isoAdd(BRIDGE_START, -1)) + '</span></div></div></div>';
-    var cur = bridgeAt(todayLocalISO(), open); if (!cur) return '';
+    // Count up to the last CLOSED day: today's sales are live from Pet Pooja, but today's cash, card/UPI and
+    // bank are not in until the register is submitted in the evening, so counting today would show a false gap.
+    var tdy = todayLocalISO(), tEntry = loadEntries().find(function (x) { return x && x.date === tdy; });
+    var asOf = cashDayComplete(tEntry) ? tdy : isoAdd(tdy, -1);
+    var cur = bridgeAt(asOf, open); if (!cur) return '';
     var diff = cur.diff;
+    head = head.replace('since ' + dfmt(BRIDGE_START) + '</span>', 'since ' + dfmt(BRIDGE_START) + ' · counted to ' + dfmt(asOf) + (asOf < tdy ? ' (today not closed yet)' : '') + '</span>');
     var cls = diff === 0 ? 'ok' : 'bad';
     head += '<div class="bridge-d ' + cls + '">' + (diff === 0 ? '₹0 · matches' : inr(diff)) + '</div><span class="bridge-chev">▾</span></div>';
     var line = function (k, v, c) { return '<div class="bridge-l' + (c ? ' ' + c : '') + '"><span>' + k + '</span><b>' + v + '</b></div>'; };
