@@ -154,6 +154,7 @@
   .bridge-l { display:flex; justify-content:space-between; align-items:baseline; gap:10px; padding:7px 0; border-top:1px solid var(--border); font-family:'Inter',sans-serif; font-size:11.5px; color:var(--text2); }
   .bridge-l span { min-width:0; }
   .bridge-l b { font-family:var(--num-font); font-weight:600; font-size:12.5px; color:var(--text); white-space:nowrap; }
+  .bridge-l small { font-size:10px; opacity:.75; }
   .bridge-l.neg b { color:var(--red); }
   .bridge-l.gst, .bridge-l.gst b { color:#1B6E8A; }
   :root[data-theme="dark"] .bridge-l.gst, :root[data-theme="dark"] .bridge-l.gst b { color:#7EC8E3; }
@@ -1826,7 +1827,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-11-22-3';
+const APP_VERSION = '2026-11-22-4';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -6610,7 +6611,8 @@ function bridgeHtml() {
     var body = '<div class="bridge-body">'
       + line('Money on ' + dfmt(isoAdd(BRIDGE_START, -1)), inr(cur.open.total))
       + line('Net profit', inr(cur.t.net), cur.t.net < 0 ? 'neg' : '')
-      + line('GST: in sales ' + inr(cur.t.gst) + ' − paid ' + inr(cur.gstPaid), inr(cur.t.gst - cur.gstPaid), 'gst')
+      + line('+ GST in this month’s sales <small>(paid next month)</small>', inr(cur.t.gst), 'gst')
+      + line('− GST paid now <small>(last month’s GST)</small>', inr(cur.gstPaid), 'gst')
       + line('+ Partners put in', inr(cur.putIn))
       + line('− Partners took out', inr(cur.out))
       + '<div class="bridge-l tot"><span>Money we should have</span><b>' + inr(cur.should) + '</b></div>'
