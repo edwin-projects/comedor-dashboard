@@ -140,8 +140,8 @@
   .gst-hero { margin-top:3px; font-family:'Inter',sans-serif; font-size:10px; color:#1B6E8A; }
   :root[data-theme="dark"] .gst-hero { color:#7EC8E3; }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .gst-hero { color:#7EC8E3; } }
-  .bridge { background:var(--surface); border:1px solid var(--border); border-radius:14px; margin:-2px 0 12px; overflow:hidden; }
-  .bridge-h { display:flex; align-items:center; gap:8px; padding:11px 14px; cursor:pointer; }
+  .bridge { background:var(--surface); border:1.5px solid rgba(201,160,64,.45); border-radius:14px; margin:0 0 14px; overflow:hidden; }
+  .bridge-h { display:flex; align-items:center; gap:8px; padding:11px 14px; cursor:pointer; background:var(--surface2); }
   .bridge-t { flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
   .bridge-k { font-family:'Inter',sans-serif; font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:var(--text3); }
   .bridge-s { font-family:'Inter',sans-serif; font-size:9.5px; color:var(--text3); }
@@ -188,15 +188,19 @@
   .why-v.neg { color:var(--red); } .why-v.pos { color:var(--green); }
   .why-act { margin:6px 0 0 30px; font-family:'Inter',sans-serif; font-size:11px; color:var(--text2); }
   .why-b { margin:8px 0 0 30px; width:calc(100% - 30px); flex:none; }
-  .pls { background:var(--surface); border:1px solid var(--border); border-radius:14px; margin:-2px 0 12px; padding:12px 14px; }
+.pls { background:var(--surface); border:1.5px solid rgba(201,160,64,.45); border-radius:14px; margin:0 0 14px; overflow:hidden; }
+  .pls-h { display:flex; align-items:center; gap:8px; padding:11px 14px; cursor:pointer; background:var(--surface2); }
+  .pls-ht { flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
   .pls-k { font-family:'Inter',sans-serif; font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:var(--text3); }
-  .pls-s { font-family:'Inter',sans-serif; font-size:10px; color:var(--text3); margin:2px 0 6px; }
-  .pls-r { display:grid; grid-template-columns:44px minmax(0,1fr) auto; gap:8px; align-items:baseline; padding:7px 0; border-top:1px solid var(--border); font-family:'Inter',sans-serif; font-size:12px; }
-  .pls-r .m { color:var(--text2); } .pls-r .s { color:var(--text3); font-size:10.5px; }
+  .pls-s { font-family:'Inter',sans-serif; font-size:9.5px; color:var(--text3); }
+  .pls-tot { font-family:var(--num-font); font-weight:600; font-size:16px; color:var(--red); white-space:nowrap; }
+  .pls.open .bridge-chev { transform:rotate(180deg); }
+  .pls-body { display:none; padding:0 14px 12px; } .pls.open .pls-body { display:block; }
+  .pls-r { display:grid; grid-template-columns:40px minmax(0,1fr) auto; gap:8px; align-items:baseline; padding:8px 0; border-top:1px solid var(--border); font-family:'Inter',sans-serif; font-size:12px; }
+  .pls-r .m { color:var(--text); font-weight:600; } .pls-r .s { color:var(--text3); font-size:10.5px; }
   .pls-r b { font-family:var(--num-font); font-weight:600; font-size:13px; color:var(--red); white-space:nowrap; }
   .pls-r b.ok { color:var(--green); }
-  .pls-t { display:flex; justify-content:space-between; align-items:baseline; padding-top:8px; border-top:1px solid var(--border); font-family:'Inter',sans-serif; font-size:12px; font-weight:700; color:var(--text); }
-  .pls-t b { font-family:var(--num-font); font-size:15px; color:var(--red); }
+  .pls-note { border-top:1px solid var(--border); padding-top:8px; font-family:'Inter',sans-serif; font-size:10px; line-height:1.45; color:var(--text3); }
   .bridge-sec { margin-top:14px; font-family:'Inter',sans-serif; font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:var(--text3); }
   .bridge-bars { display:flex; align-items:flex-end; gap:3px; height:42px; margin-top:8px; border-bottom:1px solid var(--border); }
   .bridge-bars i { flex:1; border-radius:2px 2px 0 0; background:var(--red); } .bridge-bars i.z { background:var(--green); }
@@ -1858,7 +1862,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-11-23-1';
+const APP_VERSION = '2026-11-23-2';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -6073,8 +6077,8 @@ function renderPnlBank() {
       ${chipNet}
       ${ppIncome > 0 ? `<div class="hero-sum"><div><span>Sales</span><b>${inr(income)}</b></div><div class="hs-gst"><span>− GST 5%</span><b>${inr(gstInc)}</b></div><div><span>− Expenses</span><b>${inr(totalExp)}</b></div></div>` : ''}
     </div>
-    ${pineShortHtml()}
     ${bridgeHtml()}
+    ${pineShortHtml()}
     <div class="cards2">
       <div class="card card-click tile-avail" onclick="focusLog('bank')"><div class="card-label">Bank Balance</div><div class="card-value">${inr(bankBal||0)}</div><div class="bal-rows"><div class="bal-row"><span>+ Cash in hand</span><b class="bal-cash">${inr(cashBal)}</b></div><div class="bal-row"><span>+ Yet to be credited<small>to bank · card / UPI</small></span><b class="${bankPending > 0 ? 'bal-pos' : ''}">${inr(bankPending)}</b></div></div>${bankSplit && bankSplit.asOf ? `<div class="bal-asof ${bcFresh(bankSplit.asOf).cls}"><span class="fr-dot"></span>Bank as of ${bcFmtShort(bankSplit.asOf)} · ${bcFresh(bankSplit.asOf).ago.replace(' days ago','d ago').replace(' day ago','d ago')}</div>` : ''}${lastCashEntry && lastCashEntry.date ? `<div class="bal-asof ${bcFresh(lastCashEntry.date).cls}"${cashOpen ? ` role="button" tabindex="0" style="cursor:pointer;" title="Cash not closed — enter the closing count for ${dChip(lastCashEntry.date)}" onclick="event.stopPropagation(); goCloseCash('${lastCashEntry.date}')"` : ''}><span class="fr-dot"></span>Cash as of ${bcFmtShort(lastCashEntry.date)} · ${bcFresh(lastCashEntry.date).ago.replace(' days ago','d ago').replace(' day ago','d ago')}</div>` : ''}</div>
       <div class="card card-click tile-upc" onclick="toggleUpcoming(event)"><div class="card-label">Upcoming Expenses</div><div class="card-value ${(!fc.pastPeriod && !upcCovered && fc.expected>0)?'upc-neg':''}">${fc.pastPeriod ? '—' : inr(fc.expected)}</div><div class="card-sub">${upcTileSub}</div>${upcLine}${upcWarn}</div>
@@ -6667,17 +6671,26 @@ function pineShortHtml() {
     }
     var mon = {}; Object.keys(rows).forEach(function (k) { var m = k.slice(0, 7); if (m < PL_FROM || k > L) return; mon[m] = mon[m] || { exp: 0, act: 0 }; mon[m].exp += rows[k].exp; mon[m].act += rows[k].act; });
     var keys = Object.keys(mon).sort(); if (!keys.length) return '';
-    var inr = function (n) { return '₹' + Math.abs(Math.round(n)).toLocaleString('en-IN'); }, tot = 0, totExp = 0;
+    var inr = function (n) { return '₹' + Math.abs(Math.round(n)).toLocaleString('en-IN'); }, tot = 0;
+    // card sales by settlement month (UPI carries no fee, so the share is worked out on card sales only)
+    var cardM = {}; loadEntries().forEach(function (e) { if (!e || !e.date) return; var k = digitalSettleISO(e.date); if (k > L) return; var m = k.slice(0, 7); cardM[m] = (cardM[m] || 0) + (Number(e.card) || 0); });
     var body = keys.map(function (m) {
-      var short = mon[m].exp - (mon[m].act - (adj[m] || 0)); tot += short; totExp += mon[m].exp;
-      var pct = mon[m].exp > 0 ? short / mon[m].exp * 100 : 0;
-      return '<div class="pls-r"><span class="m">' + MON3[+m.slice(5)] + '</span><span class="s">of ' + inr(mon[m].exp) + ' card/UPI sales · ' + pct.toFixed(1) + '%</span><b class="' + (short <= 0 ? 'ok' : '') + '">' + (short <= 0 ? '+' + inr(short) : '−' + inr(short)) + '</b></div>';
+      var short = mon[m].exp - (mon[m].act - (adj[m] || 0)); tot += short;
+      var card = cardM[m] || 0, pct = card > 0 ? short / card * 100 : 0;
+      return '<div class="pls-r"><span class="m">' + MON3[+m.slice(5)] + '</span><span class="s">' + (card > 0 ? pct.toFixed(1) + '% of ' + inr(card) + ' card sales' : '') + '</span><b class="' + (short <= 0 ? 'ok' : '') + '">' + (short <= 0 ? '+' + inr(short) : '−' + inr(short)) + '</b></div>';
     }).join('');
-    return '<div class="pls"><div class="pls-k">Card/UPI not credited by Pine Labs</div><div class="pls-s">Sales the register shows minus deposits received, by month, since ' + MON3[+PL_FROM.slice(5)] + '</div>' + body
-      + '<div class="pls-t"><span>Total not credited</span><b>' + (tot <= 0 ? '+' : '−') + inr(tot) + '</b></div></div>';
+    var isOpen = false; try { isOpen = localStorage.getItem('comedor_pls_open') === '1'; } catch (e) {}
+    var totTxt = (tot <= 0 ? '+' : '−') + inr(tot);
+    return '<div class="pls' + (isOpen ? ' open' : '') + '" id="pls-card"><div class="pls-h" onclick="togglePls()" role="button" tabindex="0"><div class="pls-ht"><span class="pls-k">Card/UPI not credited by Pine Labs</span><span class="pls-s">Since ' + MON3[+PL_FROM.slice(5)] + ' · mainly card fees</span></div><span class="pls-tot">' + totTxt + '</span><span class="bridge-chev">▾</span></div>'
+      + '<div class="pls-body">' + body + '<div class="pls-note">Sales the register shows minus deposits received. UPI payments carry no fee, so the percentage is on card sales only. Months before ' + MON3[+PL_FROM.slice(5)] + ' are left out because guests paid UPI straight into the account then.</div></div></div>';
   } catch (e) { console.warn('pine short failed', e); return ''; }
 }
 
+function togglePls() {
+  var el = document.getElementById('pls-card'); if (!el) return;
+  var open = el.classList.toggle('open');
+  try { localStorage.setItem('comedor_pls_open', open ? '1' : '0'); } catch (e) {}
+}
 function toggleBridge() {
   var el = document.getElementById('bridge-card'); if (!el) return;
   var open = el.classList.toggle('open');
