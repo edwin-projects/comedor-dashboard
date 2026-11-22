@@ -179,6 +179,24 @@
   .why-day { color:#8A6100; text-decoration:underline; cursor:pointer; }
   :root[data-theme="dark"] .why-day { color:#E3B341; }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .why-day { color:#E3B341; } }
+  .why-i { padding:10px 0; border-bottom:1px solid var(--border); }
+  .why-i.main { background:rgba(232,114,106,0.07); margin:0 -14px; padding:10px 14px; }
+  .why-top { display:flex; align-items:flex-start; gap:10px; }
+  .why-n { flex:none; width:20px; height:20px; border-radius:50%; background:var(--text); color:var(--bg); font-family:var(--num-font); font-size:11px; font-weight:600; display:flex; align-items:center; justify-content:center; margin-top:1px; }
+  .why-top .why-k { flex:1; }
+  .why-v { font-family:var(--num-font); font-weight:600; font-size:13px; white-space:nowrap; }
+  .why-v.neg { color:var(--red); } .why-v.pos { color:var(--green); }
+  .why-act { margin:6px 0 0 30px; font-family:'Inter',sans-serif; font-size:11px; color:var(--text2); }
+  .why-b { margin:8px 0 0 30px; width:calc(100% - 30px); flex:none; }
+  .pls { background:var(--surface); border:1px solid var(--border); border-radius:14px; margin:-2px 0 12px; padding:12px 14px; }
+  .pls-k { font-family:'Inter',sans-serif; font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:var(--text3); }
+  .pls-s { font-family:'Inter',sans-serif; font-size:10px; color:var(--text3); margin:2px 0 6px; }
+  .pls-r { display:grid; grid-template-columns:44px minmax(0,1fr) auto; gap:8px; align-items:baseline; padding:7px 0; border-top:1px solid var(--border); font-family:'Inter',sans-serif; font-size:12px; }
+  .pls-r .m { color:var(--text2); } .pls-r .s { color:var(--text3); font-size:10.5px; }
+  .pls-r b { font-family:var(--num-font); font-weight:600; font-size:13px; color:var(--red); white-space:nowrap; }
+  .pls-r b.ok { color:var(--green); }
+  .pls-t { display:flex; justify-content:space-between; align-items:baseline; padding-top:8px; border-top:1px solid var(--border); font-family:'Inter',sans-serif; font-size:12px; font-weight:700; color:var(--text); }
+  .pls-t b { font-family:var(--num-font); font-size:15px; color:var(--red); }
   .bridge-sec { margin-top:14px; font-family:'Inter',sans-serif; font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:var(--text3); }
   .bridge-bars { display:flex; align-items:flex-end; gap:3px; height:42px; margin-top:8px; border-bottom:1px solid var(--border); }
   .bridge-bars i { flex:1; border-radius:2px 2px 0 0; background:var(--red); } .bridge-bars i.z { background:var(--green); }
@@ -1840,7 +1858,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-11-22-5';
+const APP_VERSION = '2026-11-23-1';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -6055,6 +6073,7 @@ function renderPnlBank() {
       ${chipNet}
       ${ppIncome > 0 ? `<div class="hero-sum"><div><span>Sales</span><b>${inr(income)}</b></div><div class="hs-gst"><span>− GST 5%</span><b>${inr(gstInc)}</b></div><div><span>− Expenses</span><b>${inr(totalExp)}</b></div></div>` : ''}
     </div>
+    ${pineShortHtml()}
     ${bridgeHtml()}
     <div class="cards2">
       <div class="card card-click tile-avail" onclick="focusLog('bank')"><div class="card-label">Bank Balance</div><div class="card-value">${inr(bankBal||0)}</div><div class="bal-rows"><div class="bal-row"><span>+ Cash in hand</span><b class="bal-cash">${inr(cashBal)}</b></div><div class="bal-row"><span>+ Yet to be credited<small>to bank · card / UPI</small></span><b class="${bankPending > 0 ? 'bal-pos' : ''}">${inr(bankPending)}</b></div></div>${bankSplit && bankSplit.asOf ? `<div class="bal-asof ${bcFresh(bankSplit.asOf).cls}"><span class="fr-dot"></span>Bank as of ${bcFmtShort(bankSplit.asOf)} · ${bcFresh(bankSplit.asOf).ago.replace(' days ago','d ago').replace(' day ago','d ago')}</div>` : ''}${lastCashEntry && lastCashEntry.date ? `<div class="bal-asof ${bcFresh(lastCashEntry.date).cls}"${cashOpen ? ` role="button" tabindex="0" style="cursor:pointer;" title="Cash not closed — enter the closing count for ${dChip(lastCashEntry.date)}" onclick="event.stopPropagation(); goCloseCash('${lastCashEntry.date}')"` : ''}><span class="fr-dot"></span>Cash as of ${bcFmtShort(lastCashEntry.date)} · ${bcFresh(lastCashEntry.date).ago.replace(' days ago','d ago').replace(' day ago','d ago')}</div>` : ''}</div>
@@ -6632,6 +6651,33 @@ function bridgeWhy(cur) {
   return { A: A, B: B, C: C, D: D, missing: missing, citems: citems, feePct: expDig > 0 ? (-B / expDig * 100) : 0, A_recv: A_recv, A_sales: A_sales };
 }
 
+
+// Card/UPI sales that the bank never received, month by month (register's card+UPI sales minus the deposits that
+// arrived for them). Months before PL_FROM are left out: guests paid UPI straight into the account then.
+var PL_FROM = '2026-08';
+function pineShortHtml() {
+  try {
+    var res = bcCompute(); if (!res || res.empty || !res.tally) return '';
+    var rows = res.tally.rows || {}, L = res.last, today = todayLocalISO(), byD = {};
+    loadEntries().forEach(function (e) { if (e && e.date) byD[e.date] = e; });
+    var adj = {};   // days missing from the register: what the bank paid for them must not count as "extra"
+    for (var d = PL_FROM + '-01'; d < today; d = isoAdd(d, 1)) {
+      var e = byD[d] || {}, reg = (Number(e.cash) || 0) + (Number(e.upi) || 0) + (Number(e.card) || 0);
+      if (reg === 0 && incomeInRange(d, d) > 0.5) { var k = digitalSettleISO(d), r = rows[k]; if (r) adj[k.slice(0, 7)] = (adj[k.slice(0, 7)] || 0) + Math.max(0, r.act - r.exp); }
+    }
+    var mon = {}; Object.keys(rows).forEach(function (k) { var m = k.slice(0, 7); if (m < PL_FROM || k > L) return; mon[m] = mon[m] || { exp: 0, act: 0 }; mon[m].exp += rows[k].exp; mon[m].act += rows[k].act; });
+    var keys = Object.keys(mon).sort(); if (!keys.length) return '';
+    var inr = function (n) { return '₹' + Math.abs(Math.round(n)).toLocaleString('en-IN'); }, tot = 0, totExp = 0;
+    var body = keys.map(function (m) {
+      var short = mon[m].exp - (mon[m].act - (adj[m] || 0)); tot += short; totExp += mon[m].exp;
+      var pct = mon[m].exp > 0 ? short / mon[m].exp * 100 : 0;
+      return '<div class="pls-r"><span class="m">' + MON3[+m.slice(5)] + '</span><span class="s">of ' + inr(mon[m].exp) + ' card/UPI sales · ' + pct.toFixed(1) + '%</span><b class="' + (short <= 0 ? 'ok' : '') + '">' + (short <= 0 ? '+' + inr(short) : '−' + inr(short)) + '</b></div>';
+    }).join('');
+    return '<div class="pls"><div class="pls-k">Card/UPI not credited by Pine Labs</div><div class="pls-s">Sales the register shows minus deposits received, by month, since ' + MON3[+PL_FROM.slice(5)] + '</div>' + body
+      + '<div class="pls-t"><span>Total not credited</span><b>' + (tot <= 0 ? '+' : '−') + inr(tot) + '</b></div></div>';
+  } catch (e) { console.warn('pine short failed', e); return ''; }
+}
+
 function toggleBridge() {
   var el = document.getElementById('bridge-card'); if (!el) return;
   var open = el.classList.toggle('open');
@@ -6646,10 +6692,8 @@ function bridgeHtml() {
     var head = '<div class="bridge-h" onclick="toggleBridge()" role="button" tabindex="0"><div class="bridge-t"><span class="bridge-k">Does profit match the money?</span><span class="bridge-s">since ' + dfmt(BRIDGE_START) + '</span></div>';
     var isOpen = true; try { isOpen = localStorage.getItem('comedor_bridge_open') !== '0'; } catch (e) {}
     if (!open) return '<div class="bridge" id="bridge-card"><div class="bridge-h"><div class="bridge-t"><span class="bridge-k">Does profit match the money?</span><span class="bridge-s">Needs a bank statement covering ' + dfmt(isoAdd(BRIDGE_START, -1)) + '</span></div></div></div>';
-    var days = bridgeDays(), rows = [];
-    days.forEach(function (d) { var r = bridgeAt(d, open); if (r) rows.push({ d: d, r: r }); });
-    if (!rows.length) return '';
-    var cur = rows[rows.length - 1].r, diff = cur.diff;
+    var cur = bridgeAt(todayLocalISO(), open); if (!cur) return '';
+    var diff = cur.diff;
     var cls = diff === 0 ? 'ok' : 'bad';
     head += '<div class="bridge-d ' + cls + '">' + (diff === 0 ? '₹0 · matches' : inr(diff)) + '</div><span class="bridge-chev">▾</span></div>';
     var line = function (k, v, c) { return '<div class="bridge-l' + (c ? ' ' + c : '') + '"><span>' + k + '</span><b>' + v + '</b></div>'; };
@@ -6664,38 +6708,35 @@ function bridgeHtml() {
       + '<div class="bridge-l tot"><span>Money we do have</span><b>' + inr(cur.have.total) + '</b></div>'
       + '<div class="bridge-sub">Bank ' + inr(cur.have.bank) + ' + cash ' + inr(cur.have.cash) + ' + card/UPI on the way ' + inr(cur.have.pending) + '</div>'
       + '<div class="bridge-diff ' + cls + '"><div><span>Difference</span><i>' + (diff === 0 ? 'Everything recorded adds up' : 'Not explained by any recorded entry') + '</i></div><b>' + (diff === 0 ? '₹0' : inr(diff)) + '</b></div>';
-    // why — only when something doesn't add up
+    // why — only when something doesn't add up. Each cause carries its own fix, numbered in order.
     if (diff !== 0) {
       var w = null; try { w = bridgeWhy(cur); } catch (e) { console.warn('why failed', e); }
       if (w) {
         var mfmt = function (n) { return (n >= 0 ? '+' : '−') + inr(Math.abs(n)).replace('−', ''); };
-        var wl = function (k, sub, v) { return '<div class="why-r"><div class="why-k"><b>' + k + '</b><i>' + sub + '</i></div><span class="' + (Math.abs(v) < 1 ? 'ok' : (v < 0 ? 'neg' : 'pos')) + '">' + (Math.abs(v) < 1 ? '₹0' : mfmt(v)) + '</span></div>'; };
-        var recs = [];
-        var mdays = w.missing.map(function (m) { return '<a class="why-day" onclick="event.stopPropagation();openCashDay(\'' + m.d + '\')">' + dfmt(m.d) + '</a>'; }).join(', ');
-        if (w.missing.length) recs.push('Fill the cash register for ' + mdays + '. Pet Pooja has sales on ' + (w.missing.length > 1 ? 'those days' : 'that day') + ' but the register is empty.');
-        if (w.citems.length) recs.push('Clear the ' + w.citems.length + ' unmatched bank item' + (w.citems.length > 1 ? 's' : '') + ' (' + inr(Math.abs(w.C)) + ' net) in the <a class="why-day" onclick="event.stopPropagation();bridgeGo(\'bankexp\')">Bank check</a>.');
-        if (w.B < -1 && w.feePct > 0.1 && w.feePct < 3) recs.push('Card/UPI deposits are ' + inr(Math.abs(w.B)) + ' below the register (about ' + w.feePct.toFixed(2) + '% of card/UPI sales). That pattern usually means the card machine company deducts its fee before paying out. Check the Pine Labs statement and record it as a "Card/UPI fees" expense.');
-        else if (w.B > 1) recs.push('Card/UPI deposits are ' + inr(w.B) + ' above the register. Check the bank credits for money that is not from sales, such as a refund or a deposit.');
-        if (Math.abs(w.D) > 50) recs.push('' + inr(Math.abs(w.D)) + ' is left over after the above. Compare the day-by-day list for the day it moved.');
-        body += '<div class="bridge-sec">Why is there a difference?</div><div class="why">'
-          + wl('Sales not yet in the register', w.missing.length ? 'Pet Pooja ' + inr(w.A_sales) + ', bank already got ' + inr(w.A_recv) : 'None', w.A)
-          + wl('Card/UPI deposits vs register', 'Over ' + dfmt(BRIDGE_START) + ' to ' + dfmt(bcAsOf()) , w.B)
-          + wl('Bank vs app payments', w.citems.length ? w.citems.length + ' unmatched item' + (w.citems.length > 1 ? 's' : '') : 'All matched', w.C)
-          + (Math.abs(w.D) > 1.5 ? wl('Left over', 'Not explained by the above', w.D) : '')
-          + '</div>' + (recs.length ? '<div class="why-rec"><b>What I’d do</b><ol>' + recs.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ol></div>' : '');
+        var items = [], goDay = function (d) { return 'event.stopPropagation();openCashDay(\'' + d + '\')'; };
+        if (w.missing.length) {
+          var first = w.missing[0], names = w.missing.map(function (m) { return dfmt(m.d); }).join(', ');
+          items.push({ main: true, title: names + (w.missing.length > 1 ? ' not filled in' : ' was not filled in'), v: w.A,
+            sub: 'Pet Pooja shows ' + inr(w.A_sales) + ' of sales, but the cash register is empty. The bank already received ' + inr(w.A_recv) + ' of it.',
+            act: 'Fill in ' + dfmt(first.d), onclick: goDay(first.d), btn: true });
+        }
+        if (Math.abs(w.B) >= 1) {
+          items.push({ title: w.B < 0 ? 'Pine Labs paid less than the register' : 'Card/UPI deposits above the register', v: w.B,
+            sub: w.B < 0 ? 'About ' + w.feePct.toFixed(2) + '% of card/UPI sales, ' + dfmt(BRIDGE_START) + ' to ' + dfmt(bcAsOf()) + '. Usually the card machine company’s fee, deducted before paying out.' : 'Check for a refund or a deposit that is not from sales.',
+            act: w.B < 0 ? 'Get the Pine Labs settlement report and record the fee (month-wise figures are shown above).' : 'Look at the bank credits for that period.' });
+        }
+        if (w.citems.length) {
+          items.push({ title: 'Bank payment not in the app', v: w.C,
+            sub: w.citems.length + ' unmatched item' + (w.citems.length > 1 ? 's' : '') + ' in the Bank check.',
+            act: 'Open Bank check', onclick: 'event.stopPropagation();bridgeGo(\'bankexp\')', btn: true });
+        }
+        if (Math.abs(w.D) > 1.5) items.push({ title: 'Left over', v: w.D, sub: 'Not explained by the above.', act: '' });
+        body += '<div class="bridge-sec">Why is there a difference, and what to do</div><div class="why">' + items.map(function (it, n) {
+          return '<div class="why-i' + (it.main ? ' main' : '') + '"><div class="why-top"><span class="why-n">' + (n + 1) + '</span><div class="why-k"><b>' + it.title + '</b><i>' + it.sub + '</i></div><span class="why-v ' + (it.v < 0 ? 'neg' : 'pos') + '">' + mfmt(it.v) + '</span></div>'
+            + (it.act ? (it.btn ? '<button type="button" class="bridge-btn main why-b" onclick="' + it.onclick + '">' + it.act + '</button>' : '<div class="why-act">' + it.act + '</div>') : '') + '</div>';
+        }).join('') + '</div>';
       }
     }
-    // day-by-day
-    var maxAbs = Math.max(1, Math.max.apply(null, rows.map(function (x) { return Math.abs(x.r.diff); })));
-    var bars = rows.map(function (x) { var h = x.r.diff === 0 ? 2 : Math.max(4, Math.round(Math.abs(x.r.diff) / maxAbs * 38)); return '<i class="' + (x.r.diff === 0 ? 'z' : 'n') + '" style="height:' + h + 'px"></i>'; }).join('');
-    var prev = 0, list = [];
-    rows.forEach(function (x) { list.push({ d: x.d, diff: x.r.diff, delta: x.r.diff - prev }); prev = x.r.diff; });
-    var lines = list.slice().reverse().slice(0, 8).map(function (x) {
-      var what = x.delta === 0 ? (x.diff === 0 ? 'Matches' : 'No change') : 'Moved by ' + inr(x.delta);
-      return '<div class="bridge-r' + (x.delta !== 0 ? ' hl' : '') + '"><div class="bridge-rr"><span class="bd">' + dfmt(x.d) + '</span><span class="bw">' + what + '</span><b class="' + (x.diff === 0 ? 'ok' : 'bad') + '">' + (x.diff === 0 ? '₹0' : inr(x.diff)) + '</b></div></div>';
-    }).join('');
-    var tail = '<div class="bridge-hint">A day that moved is usually a bank charge, an entry made on a different day than the bank shows, or a card/UPI settlement that differs from the register. Check the day on:</div><div class="bridge-btns"><button class="bridge-btn main" onclick="event.stopPropagation();bridgeGo(\'bankexp\')">Open Bank check</button><button class="bridge-btn" onclick="event.stopPropagation();bridgeGo(\'entry\')">Open Cash day</button></div>';
-    body += '<div class="bridge-sec">Difference, day by day</div><div class="bridge-bars">' + bars + '</div><div class="bridge-lbl"><span>' + dfmt(rows[0].d) + '</span><span>' + dfmt(rows[rows.length - 1].d) + '</span></div><div class="bridge-list">' + lines + '</div>' + tail + '</div>';
     return '<div class="bridge' + (isOpen ? ' open' : '') + '" id="bridge-card">' + head + body + '</div>';
   } catch (e) { console.warn('bridge failed', e); return ''; }
 }
