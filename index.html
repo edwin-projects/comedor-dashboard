@@ -700,6 +700,18 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 .logcard-body { padding: 0 14px 16px; }
 .logcard-tools { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 2px 0 14px; }
 .log-search { flex: 1; min-width: 180px; background: var(--surface2); border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 10px 14px; font-size: 13px; font-family: 'Inter', sans-serif; outline: none; transition: border-color 0.2s; }
+.ms-none { padding:14px; border:1px dashed var(--border); border-radius:12px; font-family:'Inter',sans-serif; font-size:12px; color:var(--text3); margin-bottom:14px; }
+.ms-list { background:var(--surface); border:1px solid var(--border); border-radius:14px; margin-bottom:14px; overflow:hidden; }
+.ms-row { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; padding:10px 14px; border-top:1px solid var(--border); cursor:pointer; }
+.ms-row:first-child { border-top:none; }
+.ms-main { min-width:0; flex:1; }
+.ms-title { font-family:'Inter',sans-serif; font-size:13px; font-weight:600; color:var(--text); line-height:1.35; word-break:break-word; }
+.ms-sub { font-family:'Inter',sans-serif; font-size:10.5px; color:var(--text3); margin-top:2px; line-height:1.4; }
+.ms-amt { font-family:var(--num-font); font-weight:600; font-size:13px; color:var(--red); white-space:nowrap; }
+.ms-src { display:inline-block; font-size:8.5px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:1px 5px; border-radius:5px; background:rgba(120,130,125,.18); color:var(--text2); }
+.ms-src.ms-cash { background:rgba(111,207,151,.16); color:var(--green); } .ms-src.ms-bank { background:rgba(126,200,227,.16); color:#7EC8E3; } .ms-src.ms-direct { background:rgba(167,139,250,.16); color:#a78bfa; } .ms-src.ms-cap, .ms-src.ms-draw { background:rgba(201,160,64,.18); color:#C9A040; }
+.ms-row mark, .ms-sub mark { background:rgba(227,179,65,.35); color:inherit; border-radius:2px; padding:0 1px; }
+.ms-more { padding:10px 14px; border-top:1px solid var(--border); font-family:'Inter',sans-serif; font-size:11px; color:var(--text3); text-align:center; }
 .log-search:focus { border-color: var(--accent); }
 .log-search-wrap { position: relative; flex: 1; min-width: 180px; display: flex; }
 .log-search-wrap .log-search { flex: 1; min-width: 0; padding-right: 36px; }
@@ -1148,10 +1160,11 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 
   <div class="section-title" style="margin-top:26px;">Logs</div>
   <div class="log-search-wrap" style="margin-bottom:14px;display:flex;">
-    <input class="log-search" id="master-search" placeholder="Search the capital ledger — category, person, amount, date…" oninput="masterSearch(this.value)">
+    <input class="log-search" id="master-search" placeholder="Search every expense — payee, note, category, person, amount, date…" oninput="masterSearch(this.value)">
     <button type="button" class="log-search-x" aria-label="Clear search" onclick="clearSearchBox(this)">✕</button>
   </div>
   <div id="master-search-note" style="font-size:11px;color:var(--text3);font-family:'Inter',sans-serif;margin:-8px 2px 14px;display:none;"></div>
+  <div id="master-search-results"></div>
 
   <!-- Daily cash register and Bank account expenses logs live on the Cash and Bank
        tabs respectively; the dashboard keeps only the summarised category logs. -->
@@ -1862,7 +1875,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-11-23-4';
+const APP_VERSION = '2026-11-24-1';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -2855,23 +2868,69 @@ document.addEventListener('input', e => {
 function masterSearch(v) {
   v = v || '';
   const q = v.trim().toLowerCase();
-  // The Daily-cash and Bank logs now live on the Cash/Bank tabs, so the dashboard
-  // master search drives the Setup & Capital Ledger that remains here.
+  // the ledger log keeps its own filter (ledger entries are searched there)
   LOGF.dledger.search = q;
   const ls = document.getElementById('dledger-search'); if (ls) ls.value = v;
   if (typeof renderLedger === 'function') renderLedger('dledger');
-
   const ledN = document.querySelectorAll('#dledger-list tbody tr').length;
-  // Open a log only if the search is non-empty AND it has a hit; otherwise collapse it.
   const setOpen = (k, has) => { const c = document.getElementById('logcard-' + k); if (c) c.classList.toggle('collapsed', !(q && has)); };
   setOpen('ledger', ledN > 0);
-
-  const note = document.getElementById('master-search-note');
-  if (note) {
-    if (!q) { note.style.display = 'none'; note.textContent = ''; return; }
-    note.textContent = `Matches — ledger ${ledN}`;
-    note.style.display = 'block';
+  // while searching, the category breakdowns are just noise: show the real hits instead
+  ['logcard-expcat', 'logcard-sales'].forEach(id => { const c = document.getElementById(id); if (c) c.style.display = q ? 'none' : ''; });
+  const res = document.getElementById('master-search-results'), note = document.getElementById('master-search-note');
+  if (!q) { if (res) res.innerHTML = ''; if (note) { note.style.display = 'none'; note.textContent = ''; } return; }
+  const hits = searchExpenses(q);
+  const total = hits.reduce((s2, h) => s2 + h.amt, 0), nTxt = hits.length + (hits.length === 1 ? ' match' : ' matches');
+  if (note) { note.textContent = hits.length ? `${_msFuzzy ? 'Close matches (no exact one) · ' : ''}${nTxt} · ${inrSearch(total)} in expenses` + (ledN ? ` · ${ledN} in the capital ledger` : '') : (ledN ? `No expenses · ${ledN} in the capital ledger` : 'No matches'); note.style.display = 'block'; }
+  if (!res) return;
+  if (!hits.length) { res.innerHTML = ledN ? '' : '<div class="ms-none">Nothing found for “' + esc(v.trim()) + '”. Try part of a name, a note, a category, an amount or a date like “12 Nov”.</div>'; return; }
+  const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const dtxt = iso => { const p = iso.split('-'); return (+p[2]) + ' ' + MN[+p[1] - 1] + ' ' + p[0]; };
+  const words = q.split(/\s+/).filter(Boolean);
+  const mark = t => { let o = esc(String(t || '')); words.forEach(w => { if (w.length < 2) return; const re = new RegExp('(' + w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'ig'); o = o.replace(re, '<mark>$1</mark>'); }); return o; };
+  const shown = hits.slice(0, 80);
+  res.innerHTML = '<div class="ms-list">' + shown.map(h => `<div class="ms-row" ${h.go ? `onclick="${h.go}" role="button"` : ''}><div class="ms-main"><div class="ms-title">${mark(h.title)}</div><div class="ms-sub"><span class="ms-src ms-${h.cls}">${h.src}</span> ${mark(h.cat)}${h.who ? ' · ' + mark(h.who) : ''} · ${dtxt(h.date)}</div></div><div class="ms-amt">${inrSearch(h.amt)}</div></div>`).join('') + (hits.length > shown.length ? `<div class="ms-more">Showing ${shown.length} of ${hits.length}. Add another word to narrow it down.</div>` : '') + '</div>';
+}
+var _msFuzzy = false;
+function inrSearch(n) { return '₹' + Math.round(Number(n) || 0).toLocaleString('en-IN'); }
+// Every expense line anywhere in the app: the daily cash register's expenses, bank expenses, partner-paid and
+// drawings. Each word typed must appear somewhere in the line (payee, note, category, person, amount, date).
+function searchExpenses(q) {
+  const words = String(q || '').toLowerCase().split(/\s+/).filter(Boolean); if (!words.length) return [];
+  const MN = ['jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec'], FULL = ['january','february','march','april','may','june','july','august','september','october','november','december'];
+  let rows = [], all = [];
+  const lev = (a, b) => { const m = a.length, n = b.length; if (Math.abs(m - n) > 2) return 9; let prev = []; for (let j = 0; j <= n; j++) prev[j] = j; for (let i = 1; i <= m; i++) { const cur = [i]; for (let j = 1; j <= n; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = cur; } return prev[n]; };
+  // a 1–2 digit number must be a whole number (a day like "12"), not part of 1220; anything longer may match inside a word
+  const hit = (r, w) => /^\d{1,2}$/.test(w) ? r._tok.indexOf(w) >= 0 : r._hay.indexOf(w) >= 0;
+  const add = (r) => {
+    const p = r.date.split('-'), mi = +p[1] - 1, d = +p[2];
+    const amtS = String(Math.round(r.amt)), amtC = Math.round(r.amt).toLocaleString('en-IN').toLowerCase();
+    r._hay = [r.title, r.cat, r.who, r.src, r.date, d + ' ' + MN[mi], d + ' ' + FULL[mi], MN[mi] + ' ' + d, FULL[mi], p[0], amtS, amtC].join(' | ').toLowerCase();
+    all.push(r);
+    r._tok = r._hay.split(/[^a-z0-9]+/).filter(Boolean);
+    if (words.every(w => hit(r, w))) rows.push(r);
+  };
+  loadEntries().forEach(e => {
+    if (!e || !e.date) return;
+    (e.expenses || []).forEach(x => {
+      const amt = parseFloat(x.amount) || 0; if (!amt || isCashDeposit(x)) return;
+      add({ date: e.date, amt: amt, title: x.desc || x.category || 'Cash expense', cat: x.category || '', who: e.editedBy || e.addedBy || '', src: 'Cash', cls: 'cash', go: `openCashDay('${e.date}')` });
+    });
+  });
+  loadBankEntries().forEach(b => {
+    if (!b || !b.date) return;
+    const amt = Number(b.amount) || 0; if (!amt) return;
+    const src = b.capital ? 'Capital in' : b.payout ? 'Drawing' : b.direct ? 'Partner paid' : (typeof isPassThruTax === 'function' && isPassThruTax(b)) ? 'GST' : 'Bank';
+    add({ date: b.date, amt: amt, title: b.desc || b.category || src, cat: b.category || '', who: b.partner || b.addedBy || '', src: src, cls: b.capital ? 'cap' : b.payout ? 'draw' : b.direct ? 'direct' : 'bank', go: `bridgeGo('bankexp')` });
+  });
+  // nothing exact? allow for a typo (e.g. "oxaca" for "Oaxaca"): a word of 4+ letters may be 1–2 letters off
+  _msFuzzy = false;
+  if (!rows.length) {
+    rows = all.filter(r => words.every(w => hit(r, w) || (w.length >= 4 && r._tok.some(t => lev(w, t) <= (w.length >= 7 ? 2 : 1)))));
+    _msFuzzy = rows.length > 0;
   }
+  rows.sort((a, b) => b.date.localeCompare(a.date) || b.amt - a.amt);
+  return rows;
 }
 
 // Who may edit a manual entry: the person who created it, or a partner/owner.
