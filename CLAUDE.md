@@ -75,7 +75,10 @@ the second layer. Do not remove either.
 `bridgeHtml()` checks that profit turns into visible money, from recorded actuals only (no forecasts):
 money we should have = money on the day before `BRIDGE_START` + net profit + (GST in sales − GST payments) + partner
 capital/direct spend − partner withdrawals; money we do have = bank + cash + card/UPI on its way. Any difference is
-shown exactly (no tolerance) with a day-by-day trail. No month close, sign-off or CA pack for now.
+shown exactly (no tolerance) with a day-by-day trail. When there is a difference, `bridgeWhy()` splits it into causes
+(sales missing from the register, card/UPI deposits vs register, unmatched bank items, left over) and recommends fixes.
+No month close, sign-off or CA pack for now. In the bank check, a UPI credit that says returned/refund and matches a
+recent payment to the same payee nets that payment (vendor refund); it is never counted as card/UPI sales.
 
 ## Daily bank check (Bank tab)
 

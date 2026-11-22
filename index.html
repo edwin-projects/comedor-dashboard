@@ -166,6 +166,19 @@
   .bridge-diff span { display:block; font-family:'Inter',sans-serif; font-size:9.5px; letter-spacing:1.2px; text-transform:uppercase; color:var(--text2); }
   .bridge-diff i { display:block; font-style:normal; font-family:'Inter',sans-serif; font-size:10px; color:var(--text3); margin-top:2px; }
   .bridge-diff b { font-family:var(--num-font); font-weight:600; font-size:20px; }
+  .why { border-top:1px solid var(--border); margin-top:8px; }
+  .why-r { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border); }
+  .why-k { min-width:0; display:flex; flex-direction:column; gap:1px; }
+  .why-k b { font-family:'Inter',sans-serif; font-size:12px; font-weight:600; color:var(--text); }
+  .why-k i { font-style:normal; font-family:'Inter',sans-serif; font-size:10px; color:var(--text3); }
+  .why-r span { font-family:var(--num-font); font-weight:600; font-size:13px; white-space:nowrap; }
+  .why-r span.neg { color:var(--red); } .why-r span.pos { color:var(--green); } .why-r span.ok { color:var(--text3); }
+  .why-rec { margin-top:10px; padding:10px 12px; border-radius:10px; background:rgba(201,160,64,.10); border:1px solid rgba(201,160,64,.35); font-family:'Inter',sans-serif; font-size:11.5px; line-height:1.5; color:var(--text2); }
+  .why-rec b { color:var(--text); font-size:11px; letter-spacing:1px; text-transform:uppercase; }
+  .why-rec ol { margin:6px 0 0; padding-left:18px; } .why-rec li { margin-bottom:4px; }
+  .why-day { color:#8A6100; text-decoration:underline; cursor:pointer; }
+  :root[data-theme="dark"] .why-day { color:#E3B341; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .why-day { color:#E3B341; } }
   .bridge-sec { margin-top:14px; font-family:'Inter',sans-serif; font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:var(--text3); }
   .bridge-bars { display:flex; align-items:flex-end; gap:3px; height:42px; margin-top:8px; border-bottom:1px solid var(--border); }
   .bridge-bars i { flex:1; border-radius:2px 2px 0 0; background:var(--red); } .bridge-bars i.z { background:var(--green); }
@@ -1827,7 +1840,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-11-22-4';
+const APP_VERSION = '2026-11-22-5';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -6587,6 +6600,38 @@ function bridgeDays() {
   while (d <= today && g++ < 400) { a.push(d); d = isoAdd(d, 1); }
   return a;
 }
+
+// Why is there a difference? Splits it into causes using only recorded data, so it always adds up:
+//  A  days with sales in Pet Pooja but not in the cash register (net of what the bank already received for them)
+//  B  card/UPI deposits vs what the register says should arrive (processing fees, short or extra payouts)
+//  C  bank payments/receipts that don't line up with an app entry (the Bank check items)
+//  D  anything left over
+function bridgeWhy(cur) {
+  var res = bcCompute(); if (!res || res.empty || !res.tally) return null;
+  var O = isoAdd(BRIDGE_START, -1), L = res.last, today = todayLocalISO(), rows = res.tally.rows || {};
+  var byD = {}; loadEntries().forEach(function (e) { if (e && e.date) byD[e.date] = e; });
+  // A — sales Pet Pooja has, register doesn't
+  var missing = [], A_sales = 0, A_recv = 0;
+  for (var d = BRIDGE_START; d < today; d = isoAdd(d, 1)) {
+    var e = byD[d] || {}, reg = (Number(e.cash) || 0) + (Number(e.upi) || 0) + (Number(e.card) || 0), pp = Math.round(incomeInRange(d, d));
+    if (pp - reg > 0.5 && reg === 0) { var row = rows[digitalSettleISO(d)], got = row ? Math.max(0, row.act - row.exp) : 0; missing.push({ d: d, pp: pp, got: got }); A_sales += pp; A_recv += got; }
+  }
+  var A = -(A_sales - A_recv);
+  // B — deposits vs register on the other days
+  var bAll = 0, expDig = 0;
+  Object.keys(rows).forEach(function (k) { if (k > O && k <= L) { bAll += rows[k].act - rows[k].exp; expDig += rows[k].exp; } });
+  var B = bAll - A_recv;
+  // C — bank check items since the start (up to the statement date)
+  var C = 0, citems = [];
+  res.items.forEach(function (it) {
+    if (it.kind === 'tallyAhead' || !it.d || it.d < BRIDGE_START || it.d > L) return;
+    var sgn = it.kind === 'bankOut' ? -1 : it.kind === 'appOut' ? 1 : it.kind === 'bankIn' ? 1 : it.kind === 'appIn' ? -1 : 0; if (!sgn) return;
+    C += sgn * it.amt; citems.push({ d: it.d, kind: it.kind, amt: it.amt, sgn: sgn });
+  });
+  var D = cur.diff - Math.round(A + B + C);
+  return { A: A, B: B, C: C, D: D, missing: missing, citems: citems, feePct: expDig > 0 ? (-B / expDig * 100) : 0, A_recv: A_recv, A_sales: A_sales };
+}
+
 function toggleBridge() {
   var el = document.getElementById('bridge-card'); if (!el) return;
   var open = el.classList.toggle('open');
@@ -6619,6 +6664,27 @@ function bridgeHtml() {
       + '<div class="bridge-l tot"><span>Money we do have</span><b>' + inr(cur.have.total) + '</b></div>'
       + '<div class="bridge-sub">Bank ' + inr(cur.have.bank) + ' + cash ' + inr(cur.have.cash) + ' + card/UPI on the way ' + inr(cur.have.pending) + '</div>'
       + '<div class="bridge-diff ' + cls + '"><div><span>Difference</span><i>' + (diff === 0 ? 'Everything recorded adds up' : 'Not explained by any recorded entry') + '</i></div><b>' + (diff === 0 ? '₹0' : inr(diff)) + '</b></div>';
+    // why — only when something doesn't add up
+    if (diff !== 0) {
+      var w = null; try { w = bridgeWhy(cur); } catch (e) { console.warn('why failed', e); }
+      if (w) {
+        var mfmt = function (n) { return (n >= 0 ? '+' : '−') + inr(Math.abs(n)).replace('−', ''); };
+        var wl = function (k, sub, v) { return '<div class="why-r"><div class="why-k"><b>' + k + '</b><i>' + sub + '</i></div><span class="' + (Math.abs(v) < 1 ? 'ok' : (v < 0 ? 'neg' : 'pos')) + '">' + (Math.abs(v) < 1 ? '₹0' : mfmt(v)) + '</span></div>'; };
+        var recs = [];
+        var mdays = w.missing.map(function (m) { return '<a class="why-day" onclick="event.stopPropagation();openCashDay(\'' + m.d + '\')">' + dfmt(m.d) + '</a>'; }).join(', ');
+        if (w.missing.length) recs.push('Fill the cash register for ' + mdays + '. Pet Pooja has sales on ' + (w.missing.length > 1 ? 'those days' : 'that day') + ' but the register is empty.');
+        if (w.citems.length) recs.push('Clear the ' + w.citems.length + ' unmatched bank item' + (w.citems.length > 1 ? 's' : '') + ' (' + inr(Math.abs(w.C)) + ' net) in the <a class="why-day" onclick="event.stopPropagation();bridgeGo(\'bankexp\')">Bank check</a>.');
+        if (w.B < -1 && w.feePct > 0.1 && w.feePct < 3) recs.push('Card/UPI deposits are ' + inr(Math.abs(w.B)) + ' below the register (about ' + w.feePct.toFixed(2) + '% of card/UPI sales). That pattern usually means the card machine company deducts its fee before paying out. Check the Pine Labs statement and record it as a "Card/UPI fees" expense.');
+        else if (w.B > 1) recs.push('Card/UPI deposits are ' + inr(w.B) + ' above the register. Check the bank credits for money that is not from sales, such as a refund or a deposit.');
+        if (Math.abs(w.D) > 50) recs.push('' + inr(Math.abs(w.D)) + ' is left over after the above. Compare the day-by-day list for the day it moved.');
+        body += '<div class="bridge-sec">Why is there a difference?</div><div class="why">'
+          + wl('Sales not yet in the register', w.missing.length ? 'Pet Pooja ' + inr(w.A_sales) + ', bank already got ' + inr(w.A_recv) : 'None', w.A)
+          + wl('Card/UPI deposits vs register', 'Over ' + dfmt(BRIDGE_START) + ' to ' + dfmt(bcAsOf()) , w.B)
+          + wl('Bank vs app payments', w.citems.length ? w.citems.length + ' unmatched item' + (w.citems.length > 1 ? 's' : '') : 'All matched', w.C)
+          + (Math.abs(w.D) > 1.5 ? wl('Left over', 'Not explained by the above', w.D) : '')
+          + '</div>' + (recs.length ? '<div class="why-rec"><b>What I’d do</b><ol>' + recs.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ol></div>' : '');
+      }
+    }
     // day-by-day
     var maxAbs = Math.max(1, Math.max.apply(null, rows.map(function (x) { return Math.abs(x.r.diff); })));
     var bars = rows.map(function (x) { var h = x.r.diff === 0 ? 2 : Math.max(4, Math.round(Math.abs(x.r.diff) / maxAbs * 38)); return '<i class="' + (x.r.diff === 0 ? 'z' : 'n') + '" style="height:' + h + 'px"></i>'; }).join('');
@@ -8294,6 +8360,18 @@ function bcUnack(key) {
 // ("LABS PVT LTD/HDFC0000240/… NEFT/HDFCH…/PINE", or its first line glued onto a neighbouring row), so PINE and LABS
 // may be far apart: match the word PINE or Pine Labs' escrow IFSC on its own as well.
 function bcDigitalCredit(t) { return t.cr > 0 && (/PINE LABS|ZOMATO|SWIGGY|RAZORPAY|PAYTM|PHONEPE|CASHFREE|UPI\/CR/i.test(t.n) || (/\bPINE\b|HDFC0000240/i.test(t.n) && !/CASH DEPOSIT/i.test(t.n))); }
+// The payee a UPI credit came from: UPI/CR/<ref>/<NAME>/<bank>/…
+function bcUpiName(n) { var p = String(n || '').split('/'); return (p[3] || '').replace(/\s+/g, '').toUpperCase(); }
+// Find a payment we made (within 90 days, at least as large) to the same payee a UPI credit came from.
+function bcRefundMatch(t, bd) {
+  var nm = bcUpiName(t.n); if (nm.length < 5) return -1;
+  var key = nm.slice(0, 8), best = -1;
+  for (var i = 0; i < bd.length; i++) {
+    var b = bd[i]; if (b.d > t.d || bcDaysBetween(b.d, t.d) > 90 || b.amt - t.cr < -0.5) continue;
+    if (bcPayee(b.t.n).replace(/\s+/g, '').toUpperCase().indexOf(key) === 0) best = i;   // keeps the most recent
+  }
+  return best;
+}
 function bcPayee(n) {
   var s = String(n || '').replace(/\s+/g, ' ');
   var m = s.match(/(?:OPM\/\d+\/|IMPS-? ?OPM\/\d+\/|NEFT\/ ?\S+\/|IMPS\/\d+\/|UPI\/DR\/\d+\/)\s*([A-Za-z0-9 .&'-]+?)\//);
@@ -8332,16 +8410,26 @@ function bcCompute() {
   var S = base ? bcAddDays(base, 1) : stmt[0].d;
   res.S = S; res.last = bcAsOf(); res.closing = stmt[stmt.length - 1].bal;
   var acks = bcAcks();
-  var bd = [], bc = [], bdig = [], bdep = [], brev = [];
+  var bd = [], bc = [], bdig = [], bdep = [], brev = [], bupi = [];
   stmt.forEach(function (t) {
     if (t.d < S) return;
     var amt = t.dr || t.cr;
     if (amt <= 1) { res.ignored++; return; }                       // ₹1 bank test transfers
     if (t.dr) bd.push({ t: t, d: t.d, amt: t.dr });
     else if (/NEFT RETURN|(^|\s)REV\//i.test(t.n)) brev.push({ t: t, d: t.d, amt: t.cr });
+    else if (/UPI\/CR/i.test(t.n) && !/PINE LABS|HDFC0000240/i.test(t.n)) bupi.push(t);   // a person paying by UPI: a guest, or a refund from someone we paid
     else if (bcDigitalCredit(t)) bdig.push(t);
     else if (/CASH DEPOSIT/i.test(t.n)) bdep.push({ t: t, d: t.d, amt: t.cr });
     else bc.push({ t: t, d: t.d, amt: t.cr });
+  });
+  // A UPI credit from someone we recently PAID (a vendor refund, e.g. "…/MAHESH D/…/returned") reduces that
+  // payment instead of counting as card/UPI sales. Any other UPI credit is a guest payment, as before; a credit
+  // that says returned/refund but matches no payment is shown as money in, never as sales.
+  bupi.forEach(function (t) {
+    var said = /RETURN|REFUND|REVERS|CASHBACK|CHARGEBACK/i.test(t.n);
+    var i = said ? bcRefundMatch(t, bd) : -1;   // only when the credit says so: a guest may share a name with a payee
+    if (i >= 0) { bd[i].amt -= t.cr; bd[i].refunded = (bd[i].refunded || 0) + t.cr; res.ignored++; return; }
+    if (said) bc.push({ t: t, d: t.d, amt: t.cr }); else bdig.push(t);
   });
   // bank reversals cancel the debit they undo
   brev.forEach(function (r) {
