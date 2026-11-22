@@ -8,7 +8,7 @@ localStorage. Deployed as a static page (GitHub Pages).
 on `index.html`, so changes otherwise lag on already-open devices. On each change that ships,
 bump `const APP_VERSION` in `index.html` **and** write the identical value into `version.json`.
 The app fetches `version.json` with `cache:'no-store'` on load + on every foreground and reloads
-itself when the live version differs, so stale pages self-heal in ~1s. Keep the two values
+itself when the live version differs, so stale pages self-heal in ~1s. Also bump `APP_BUILD` (the number in the "V65 (2.40 MB)" pill beside the name) by 1 on every deploy. Keep the two values
 identical — if `version.json` is ahead of the deployed `APP_VERSION`, clients reload-loop (the
 per-session guard limits it, but it's still wrong). A network-first service worker (`sw.js`) is
 the second layer. Do not remove either.
