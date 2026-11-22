@@ -140,8 +140,8 @@
   .gst-hero { margin-top:3px; font-family:'Inter',sans-serif; font-size:10px; color:#1B6E8A; }
   :root[data-theme="dark"] .gst-hero { color:#7EC8E3; }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .gst-hero { color:#7EC8E3; } }
-  .bridge { background:var(--surface); border:1.5px solid rgba(201,160,64,.45); border-radius:14px; margin:0 0 14px; overflow:hidden; }
-  .bridge-h { display:flex; align-items:center; gap:8px; padding:11px 14px; cursor:pointer; background:var(--surface2); }
+  .bridge { background:var(--surface); border:1px solid var(--border); border-radius:14px; margin:0 0 12px; overflow:hidden; }
+  .bridge-h { display:flex; align-items:center; gap:8px; padding:11px 14px; cursor:pointer; }
   .bridge-t { flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
   .bridge-k { font-family:'Inter',sans-serif; font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:var(--text3); }
   .bridge-s { font-family:'Inter',sans-serif; font-size:9.5px; color:var(--text3); }
@@ -188,8 +188,8 @@
   .why-v.neg { color:var(--red); } .why-v.pos { color:var(--green); }
   .why-act { margin:6px 0 0 30px; font-family:'Inter',sans-serif; font-size:11px; color:var(--text2); }
   .why-b { margin:8px 0 0 30px; width:calc(100% - 30px); flex:none; }
-.pls { background:var(--surface); border:1.5px solid rgba(201,160,64,.45); border-radius:14px; margin:0 0 14px; overflow:hidden; }
-  .pls-h { display:flex; align-items:center; gap:8px; padding:11px 14px; cursor:pointer; background:var(--surface2); }
+.pls { background:var(--surface); border:1px solid var(--border); border-radius:14px; margin:0 0 12px; overflow:hidden; }
+  .pls-h { display:flex; align-items:center; gap:8px; padding:11px 14px; cursor:pointer; }
   .pls-ht { flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
   .pls-k { font-family:'Inter',sans-serif; font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:var(--text3); }
   .pls-s { font-family:'Inter',sans-serif; font-size:9.5px; color:var(--text3); }
@@ -1862,7 +1862,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-11-23-2';
+const APP_VERSION = '2026-11-23-3';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -5162,7 +5162,14 @@ function deleteEntry(date) {
 // One cell per day for the last 14 days: green = the day is fully submitted (opening cash, end-of-day
 // sales and the closing count), yellow = something is missing. Tap a day to open it and finish it.
 // Tap a day: jump to it with "Date & Opening Balance" open, so staff land on the form for that day.
-function openCashDay(dateISO) {
+function openCashDay(dateISO, _tried) {
+  // From the Dashboard the Cash tab isn't showing yet: switch to it first, then open the day.
+  const pe = document.getElementById('panel-entry');
+  if (pe && !pe.classList.contains('active') && !_tried) {
+    const tab = document.querySelector('.tab[data-panel="entry"]'); if (tab) tab.click();
+    setTimeout(function () { openCashDay(dateISO, true); }, 150);
+    return;
+  }
   const c = document.getElementById('setcard-cashopen');
   const d = document.getElementById('entry-date');
   if (d) d.value = dateISO;
