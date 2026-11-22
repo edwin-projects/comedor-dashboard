@@ -191,9 +191,15 @@
   .cdt-day { display:flex; flex-direction:column; align-items:center; gap:2px; padding:0; background:none; border:0; cursor:pointer; font-family:'Inter',sans-serif; font-size:9px; color:var(--text3); -webkit-tap-highlight-color:transparent; }
   .cdt-day b { width:100%; height:26px; box-sizing:border-box; border-radius:6px; display:flex; align-items:center; justify-content:center; font-family:var(--num-font); font-size:11px; font-weight:400; }
   .cdt-day b.cdt-ok { background:rgba(111,207,151,.14); color:var(--green); }
-  .cdt-day b.cdt-no { border:1.5px dashed #C9A040; color:#8A6100; background:rgba(227,179,65,.08); }
-  :root[data-theme="dark"] .cdt-day b.cdt-no { border-color:#E3B341; color:#E3B341; }
-  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cdt-day b.cdt-no { border-color:#E3B341; color:#E3B341; } }
+  .cdt-day b.cdt-wait { border:1.5px dashed #C9A040; color:#8A6100; background:rgba(227,179,65,.08); }
+  :root[data-theme="dark"] .cdt-day b.cdt-wait { border-color:#E3B341; color:#E3B341; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cdt-day b.cdt-wait { border-color:#E3B341; color:#E3B341; } }
+  .cdt-day b.cdt-miss { border:1.5px dashed #C0392B; color:#C0392B; background:rgba(232,114,106,.10); }
+  :root[data-theme="dark"] .cdt-day b.cdt-miss { border-color:#E8726A; color:#E8726A; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cdt-day b.cdt-miss { border-color:#E8726A; color:#E8726A; } }
+  .cdt-bad { color:#C0392B; }
+  :root[data-theme="dark"] .cdt-bad { color:#E8726A; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cdt-bad { color:#E8726A; } }
   .cmp-wrap { display:flex; flex-direction:row; flex-wrap:wrap; align-items:center; gap:0 5px; margin-top:-5px; }
   .cmp-chip { display:inline-block; padding:1px 6px; border-radius:8px; font-family:'Inter',sans-serif; font-size:9.5px; font-weight:700; line-height:1.4; white-space:nowrap; }
   .cmp-vs { font-family:'Inter',sans-serif; font-size:9px; line-height:1.3; color:var(--text3); }
@@ -1820,7 +1826,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-11-22-2';
+const APP_VERSION = '2026-11-22-3';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -5119,6 +5125,20 @@ function deleteEntry(date) {
 // ─── CASH DAYS TRACKER (top of the Cash tab) ────────────────────────────────
 // One cell per day for the last 14 days: green = the day is fully submitted (opening cash, end-of-day
 // sales and the closing count), yellow = something is missing. Tap a day to open it and finish it.
+// Tap a day: jump to it with "Date & Opening Balance" open, so staff land on the form for that day.
+function openCashDay(dateISO) {
+  const c = document.getElementById('setcard-cashopen');
+  const d = document.getElementById('entry-date');
+  if (d) d.value = dateISO;
+  try { hydrateFormForDate(dateISO, true); } catch (e) {}
+  try { checkOpening(); } catch (e) {}
+  if (c) {
+    const panel = c.closest('.panel');
+    if (panel) { panel.querySelectorAll('.setcard').forEach(o => { if (o !== c) o.classList.add('collapsed'); }); panel.querySelectorAll('.logcard').forEach(o => o.classList.add('collapsed')); }
+    c.classList.remove('collapsed');
+    setTimeout(function () { if (c.scrollIntoView) c.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 60);
+  }
+}
 function cashDayComplete(e) { return !!(e && Number(e.opening) > 0 && Number(e.totalSales) > 0 && !e.partial); }
 function renderCashDayTracker() {
   const el = document.getElementById('cash-days-tracker'); if (!el) return;
@@ -5128,15 +5148,17 @@ function renderCashDayTracker() {
   let cells = '', n = 0, gaps = [], cur = null;
   for (let d = from; d <= today; d = isoAdd(d, 1)) {
     const ok = cashDayComplete(byDate[d]);
+    const state = ok ? 'ok' : (d === today ? 'wait' : 'miss');   // today still to come = yellow; a past day left undone = red
     if (!ok) { if (cur) cur.t = d; else { cur = { f: d, t: d }; gaps.push(cur); } } else cur = null;
     n++;
     const wd = 'SMTWTFS'.charAt(new Date(d + 'T00:00:00').getDay());
-    cells += `<button type="button" class="cdt-day" onclick="goCloseCash('${d}')" aria-label="${d} ${ok ? 'submitted' : 'not submitted'}"><span>${wd}</span><b class="${ok ? 'cdt-ok' : 'cdt-no'}">${parseInt(d.slice(8), 10)}</b></button>`;
+    cells += `<button type="button" class="cdt-day" onclick="openCashDay('${d}')" aria-label="${d} ${ok ? 'submitted' : 'not submitted'}"><span>${wd}</span><b class="cdt-${state}">${parseInt(d.slice(8), 10)}</b></button>`;
   }
   const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
   const sh = iso => { const p = iso.split('-'); return (+p[2]) + ' ' + MN[+p[1] - 1]; };
   const gapTxt = gaps.map(g => { if (g.f === g.t) return sh(g.f); const a = sh(g.f), b = sh(g.t); return a.split(' ')[1] === b.split(' ')[1] ? a.split(' ')[0] + '–' + b : a + ' – ' + b; }).join(', ');
-  const cap = gaps.length ? `<span class="cdt-cap cdt-warn">Not submitted · ${esc(gapTxt)} <em>· tap a yellow day to fill it in</em></span>` : `<span class="cdt-cap cdt-good">✓ All ${n} days submitted</span>`;
+  const anyMiss = gaps.some(g => g.f < today);
+  const cap = gaps.length ? `<span class="cdt-cap ${anyMiss ? 'cdt-bad' : 'cdt-warn'}">Not submitted · ${esc(gapTxt)} <em>· tap a day to open it</em></span>` : `<span class="cdt-cap cdt-good">✓ All ${n} days submitted</span>`;
   el.innerHTML = `<div class="cdt-card">${cap}<div class="cdt-days" style="grid-template-columns:repeat(${n},minmax(0,1fr));">${cells}</div></div>`;
 }
 
