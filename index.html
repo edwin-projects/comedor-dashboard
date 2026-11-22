@@ -70,7 +70,7 @@
   /* HEADER */
   .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 18px 28px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; flex-wrap: wrap; gap: 10px 14px; }
   .header > div { min-width: 0; }
-  .app-pill { font-family:'Inter',sans-serif; font-size:10px; font-weight:600; letter-spacing:1.4px; color:var(--text2); border:1px solid var(--accent2); border-radius:999px; padding:3px 9px; white-space:nowrap; align-self:center; }
+  .app-pill { font-family:'Inter',sans-serif; font-size:8px; font-weight:600; letter-spacing:0.5px; color:var(--text3); border:1px solid rgba(201,160,64,.55); border-radius:999px; padding:1px 6px; white-space:nowrap; align-self:center; line-height:1.4; }
   .logo { font-family: 'Inter', sans-serif; font-size: 21px; font-weight: 600; color: var(--accent); letter-spacing: 5px; }
   .logo span { color: var(--text2); font-weight: 400; font-size: 13px; letter-spacing: 1px; margin-left: 10px; font-family: 'Inter', sans-serif; }
   .period-badge { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; padding: 6px 14px; font-family: 'Inter', sans-serif; font-size: 11px; color: var(--text2); }
@@ -1877,8 +1877,8 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-11-24-2';
-const APP_BUILD = 65;   // shown as "V65" next to the name; bump by 1 with every deploy
+const APP_VERSION = '2026-11-24-3';
+const APP_BUILD = 66;   // shown as "V65" next to the name; bump by 1 with every deploy
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
