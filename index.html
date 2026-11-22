@@ -140,6 +140,47 @@
   .gst-hero { margin-top:3px; font-family:'Inter',sans-serif; font-size:10px; color:#1B6E8A; }
   :root[data-theme="dark"] .gst-hero { color:#7EC8E3; }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .gst-hero { color:#7EC8E3; } }
+  .bridge { background:var(--surface); border:1px solid var(--border); border-radius:14px; margin:-2px 0 12px; overflow:hidden; }
+  .bridge-h { display:flex; align-items:center; gap:8px; padding:11px 14px; cursor:pointer; }
+  .bridge-t { flex:1; min-width:0; display:flex; flex-direction:column; gap:1px; }
+  .bridge-k { font-family:'Inter',sans-serif; font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:var(--text3); }
+  .bridge-s { font-family:'Inter',sans-serif; font-size:9.5px; color:var(--text3); }
+  .bridge-d { font-family:var(--num-font); font-weight:600; font-size:16px; white-space:nowrap; }
+  .bridge-d.ok, .bridge b.ok { color:var(--green); } .bridge-d.bad, .bridge b.bad { color:var(--red); }
+  .bridge-chev { color:var(--text3); font-size:13px; transition:transform .2s; }
+  .bridge.open .bridge-chev { transform:rotate(180deg); }
+  .bridge-body { display:none; padding:0 14px 14px; }
+  .bridge.open .bridge-body { display:block; }
+  .bridge-l { display:flex; justify-content:space-between; align-items:baseline; gap:10px; padding:7px 0; border-top:1px solid var(--border); font-family:'Inter',sans-serif; font-size:11.5px; color:var(--text2); }
+  .bridge-l span { min-width:0; }
+  .bridge-l b { font-family:var(--num-font); font-weight:600; font-size:12.5px; color:var(--text); white-space:nowrap; }
+  .bridge-l.neg b { color:var(--red); }
+  .bridge-l.gst, .bridge-l.gst b { color:#1B6E8A; }
+  :root[data-theme="dark"] .bridge-l.gst, :root[data-theme="dark"] .bridge-l.gst b { color:#7EC8E3; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .bridge-l.gst, :root:not([data-theme="light"]) .bridge-l.gst b { color:#7EC8E3; } }
+  .bridge-l.tot { font-weight:700; color:var(--text); } .bridge-l.tot b { font-size:14.5px; }
+  .bridge-sub { font-family:'Inter',sans-serif; font-size:10px; color:var(--text3); padding-bottom:8px; }
+  .bridge-diff { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:10px 12px; border-radius:10px; background:rgba(232,114,106,0.10); border:1px solid rgba(232,114,106,0.35); }
+  .bridge-diff.ok { background:rgba(111,207,151,0.10); border-color:rgba(111,207,151,0.35); }
+  .bridge-diff span { display:block; font-family:'Inter',sans-serif; font-size:9.5px; letter-spacing:1.2px; text-transform:uppercase; color:var(--text2); }
+  .bridge-diff i { display:block; font-style:normal; font-family:'Inter',sans-serif; font-size:10px; color:var(--text3); margin-top:2px; }
+  .bridge-diff b { font-family:var(--num-font); font-weight:600; font-size:20px; }
+  .bridge-sec { margin-top:14px; font-family:'Inter',sans-serif; font-size:10px; letter-spacing:1.2px; text-transform:uppercase; color:var(--text3); }
+  .bridge-bars { display:flex; align-items:flex-end; gap:3px; height:42px; margin-top:8px; border-bottom:1px solid var(--border); }
+  .bridge-bars i { flex:1; border-radius:2px 2px 0 0; background:var(--red); } .bridge-bars i.z { background:var(--green); }
+  .bridge-lbl { display:flex; justify-content:space-between; font-family:'Inter',sans-serif; font-size:9px; color:var(--text3); margin:3px 0 6px; }
+  .bridge-r { padding:8px 0; border-top:1px solid var(--border); }
+  .bridge-r.hl { background:rgba(232,114,106,0.07); margin:0 -14px; padding:8px 14px; }
+  .bridge-rr { display:grid; grid-template-columns:50px minmax(0,1fr) auto; gap:8px; align-items:baseline; font-family:'Inter',sans-serif; font-size:12px; }
+  .bridge-rr .bd { color:var(--text3); } .bridge-rr .bw { color:var(--text); }
+  .bridge-rr b { font-family:var(--num-font); font-weight:600; font-size:12px; }
+  .bridge-hint { margin:6px 0 8px; font-family:'Inter',sans-serif; font-size:10.5px; line-height:1.45; color:var(--text2); }
+  .bridge-btns { display:flex; gap:8px; }
+  .bridge-btn { flex:1; min-height:34px; border-radius:9px; font-family:'Inter',sans-serif; font-size:12px; font-weight:600; cursor:pointer; color:var(--text); border:1px solid var(--border); background:linear-gradient(135deg,#F4F6F4 0%,#DCE2DD 52%,#C9D1CB 100%); }
+  :root[data-theme="dark"] .bridge-btn { background:linear-gradient(135deg,#46514B 0%,#343E39 52%,#2A332F 100%); color:#E9F2EC; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .bridge-btn { background:linear-gradient(135deg,#46514B 0%,#343E39 52%,#2A332F 100%); color:#E9F2EC; } }
+  .bridge-btn.main, :root[data-theme="dark"] .bridge-btn.main { background:linear-gradient(135deg,#F0D488 0%,#C9A040 52%,#A9812C 100%); border-color:#C9A040; color:#201700; box-shadow:0 2px 9px rgba(201,160,64,0.30); }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .bridge-btn.main { background:linear-gradient(135deg,#F0D488 0%,#C9A040 52%,#A9812C 100%); color:#201700; } }
   .cmp-wrap { display:flex; flex-direction:row; flex-wrap:wrap; align-items:center; gap:0 5px; margin-top:-5px; }
   .cmp-chip { display:inline-block; padding:1px 6px; border-radius:8px; font-family:'Inter',sans-serif; font-size:9.5px; font-weight:700; line-height:1.4; white-space:nowrap; }
   .cmp-vs { font-family:'Inter',sans-serif; font-size:9px; line-height:1.3; color:var(--text3); }
@@ -1765,7 +1806,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-11-21-3';
+const APP_VERSION = '2026-11-22-1';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -5938,6 +5979,7 @@ function renderPnlBank() {
       ${chipNet}
       ${ppIncome > 0 ? `<div class="hero-sum"><div><span>Sales</span><b>${inr(income)}</b></div><div class="hs-gst"><span>− GST 5%</span><b>${inr(gstInc)}</b></div><div><span>− Expenses</span><b>${inr(totalExp)}</b></div></div>` : ''}
     </div>
+    ${bridgeHtml()}
     <div class="cards2">
       <div class="card card-click tile-avail" onclick="focusLog('bank')"><div class="card-label">Bank Balance</div><div class="card-value">${inr(bankBal||0)}</div><div class="bal-rows"><div class="bal-row"><span>+ Cash in hand</span><b class="bal-cash">${inr(cashBal)}</b></div><div class="bal-row"><span>+ Yet to be credited<small>to bank · card / UPI</small></span><b class="${bankPending > 0 ? 'bal-pos' : ''}">${inr(bankPending)}</b></div></div>${bankSplit && bankSplit.asOf ? `<div class="bal-asof ${bcFresh(bankSplit.asOf).cls}"><span class="fr-dot"></span>Bank as of ${bcFmtShort(bankSplit.asOf)} · ${bcFresh(bankSplit.asOf).ago.replace(' days ago','d ago').replace(' day ago','d ago')}</div>` : ''}${lastCashEntry && lastCashEntry.date ? `<div class="bal-asof ${bcFresh(lastCashEntry.date).cls}"${cashOpen ? ` role="button" tabindex="0" style="cursor:pointer;" title="Cash not closed — enter the closing count for ${dChip(lastCashEntry.date)}" onclick="event.stopPropagation(); goCloseCash('${lastCashEntry.date}')"` : ''}><span class="fr-dot"></span>Cash as of ${bcFmtShort(lastCashEntry.date)} · ${bcFresh(lastCashEntry.date).ago.replace(' days ago','d ago').replace(' day ago','d ago')}</div>` : ''}</div>
       <div class="card card-click tile-upc" onclick="toggleUpcoming(event)"><div class="card-label">Upcoming Expenses</div><div class="card-value ${(!fc.pastPeriod && !upcCovered && fc.expected>0)?'upc-neg':''}">${fc.pastPeriod ? '—' : inr(fc.expected)}</div><div class="card-sub">${upcTileSub}</div>${upcLine}${upcWarn}</div>
@@ -6412,6 +6454,122 @@ function computeBankSplit() {
   });
   return { bank: bal, pending: pending };
 }
+
+// ─── PROFIT vs MONEY ────────────────────────────────────────────────────────
+// Does the profit we report turn into money we can see? Formula only, from what is recorded:
+//   money we should have = money on the day before BRIDGE_START
+//                        + net profit (sales − GST − expenses)
+//                        + GST held (GST in sales − GST payments recorded)
+//                        + partner money put in (capital + partner-direct spend) − partner withdrawals
+//   money we do have     = bank + cash + card/UPI still on its way
+// Any difference is shown exactly (no tolerance); the day-by-day trail shows where it opened.
+var BRIDGE_START = '2026-11-01';
+function bridgeBankAt(D) {
+  var pos = bcStatementPosition(); if (!pos) return null;
+  var st = bsLoad(), lastRow = st.length ? st[st.length - 1].d : '';
+  if (D <= pos.lastDate && D <= lastRow) {
+    var bal = null;
+    for (var i = 0; i < st.length; i++) { if (st[i].d <= D) bal = st[i].bal; else break; }
+    return bal;   // null = before the first stored statement row
+  }
+  var sb = pos.closing;
+  if (D > pos.lastDate) {
+    loadBankEntries().forEach(function (bb) {
+      if (bb.direct) return;
+      if (bb.payout && bb.source === 'cash') return;
+      if (bb.date <= pos.lastDate || bb.date > D) return;
+      sb += (bb.capital ? 1 : -1) * (Number(bb.amount) || 0);
+    });
+    loadEntries().forEach(function (e) {
+      if (!e || !e.date || e.date <= pos.lastDate || e.date > D) return;
+      (e.expenses || []).forEach(function (x) { if (isCashDeposit(x)) sb += (parseFloat(x.amount) || 0); });
+    });
+  }
+  return sb;
+}
+function bridgeCashAt(D) {
+  var best = null;
+  loadEntries().forEach(function (e) { if (e && e.date && e.date <= D && (!best || e.date > best.date)) best = e; });
+  var bal = best ? (Number(best.closing) || 0) : 0, since = best ? best.date : '';
+  loadBankEntries().forEach(function (b) { if (b.payout && b.source === 'cash' && b.date <= D && (!since || b.date > since)) bal -= (Number(b.amount) || 0); });
+  return bal;
+}
+function bridgePendingAt(D) {
+  var pos = bcStatementPosition(), cut = pos && pos.lastDate < D ? pos.lastDate : D, p = 0;
+  loadEntries().forEach(function (e) {
+    if (!e || !e.date || e.date > D) return;
+    var dig = (Number(e.upi) || 0) + (Number(e.card) || 0);
+    if (dig && digitalSettleISO(e.date) > cut) p += dig;
+  });
+  return p;
+}
+function bridgeMoneyAt(D) {
+  var bank = bridgeBankAt(D); if (bank == null) return null;
+  var cash = bridgeCashAt(D), pend = bridgePendingAt(D);
+  return { bank: bank, cash: cash, pending: pend, total: bank + cash + pend };
+}
+function bridgeAt(D, openMoney) {
+  var t = pnlTotalsFor(BRIDGE_START, D), gstPaid = 0, putIn = 0, out = 0;
+  loadBankEntries().forEach(function (b) {
+    if (b.date < BRIDGE_START || b.date > D) return;
+    var a = Number(b.amount) || 0;
+    if (b.capital) putIn += a; else if (b.direct) putIn += a; else if (b.payout) out += a; else if (isPassThruTax(b)) gstPaid += a;
+  });
+  var should = openMoney.total + t.net + (t.gst - gstPaid) + putIn - out;
+  var have = bridgeMoneyAt(D); if (!have) return null;
+  return { t: t, gstPaid: gstPaid, putIn: putIn, out: out, open: openMoney, should: should, have: have, diff: Math.round(have.total - should) };
+}
+function bridgeDays() {
+  var a = [], d = BRIDGE_START, today = todayLocalISO(), g = 0;
+  while (d <= today && g++ < 400) { a.push(d); d = isoAdd(d, 1); }
+  return a;
+}
+function toggleBridge() {
+  var el = document.getElementById('bridge-card'); if (!el) return;
+  var open = el.classList.toggle('open');
+  try { localStorage.setItem('comedor_bridge_open', open ? '1' : '0'); } catch (e) {}
+}
+function bridgeGo(tab) { var t = document.querySelector('.tab[data-panel="' + tab + '"]'); if (t) t.click(); }
+function bridgeHtml() {
+  try {
+    var inr = function (n) { n = Math.round(Number(n) || 0); return (n < 0 ? '−' : '') + '₹' + Math.abs(n).toLocaleString('en-IN'); };
+    var dfmt = function (iso) { var p = iso.split('-'); return +p[2] + ' ' + MON3[+p[1]]; };
+    var open = bridgeMoneyAt(isoAdd(BRIDGE_START, -1));
+    var head = '<div class="bridge-h" onclick="toggleBridge()" role="button" tabindex="0"><div class="bridge-t"><span class="bridge-k">Does profit match the money?</span><span class="bridge-s">since ' + dfmt(BRIDGE_START) + '</span></div>';
+    var isOpen = true; try { isOpen = localStorage.getItem('comedor_bridge_open') !== '0'; } catch (e) {}
+    if (!open) return '<div class="bridge" id="bridge-card"><div class="bridge-h"><div class="bridge-t"><span class="bridge-k">Does profit match the money?</span><span class="bridge-s">Needs a bank statement covering ' + dfmt(isoAdd(BRIDGE_START, -1)) + '</span></div></div></div>';
+    var days = bridgeDays(), rows = [];
+    days.forEach(function (d) { var r = bridgeAt(d, open); if (r) rows.push({ d: d, r: r }); });
+    if (!rows.length) return '';
+    var cur = rows[rows.length - 1].r, diff = cur.diff;
+    var cls = diff === 0 ? 'ok' : 'bad';
+    head += '<div class="bridge-d ' + cls + '">' + (diff === 0 ? '₹0 · matches' : inr(diff)) + '</div><span class="bridge-chev">▾</span></div>';
+    var line = function (k, v, c) { return '<div class="bridge-l' + (c ? ' ' + c : '') + '"><span>' + k + '</span><b>' + v + '</b></div>'; };
+    var body = '<div class="bridge-body">'
+      + line('Money on ' + dfmt(isoAdd(BRIDGE_START, -1)), inr(cur.open.total))
+      + line('Net profit', inr(cur.t.net), cur.t.net < 0 ? 'neg' : '')
+      + line('GST: in sales ' + inr(cur.t.gst) + ' − paid ' + inr(cur.gstPaid), inr(cur.t.gst - cur.gstPaid), 'gst')
+      + line('+ Partners put in', inr(cur.putIn))
+      + line('− Partners took out', inr(cur.out))
+      + '<div class="bridge-l tot"><span>Money we should have</span><b>' + inr(cur.should) + '</b></div>'
+      + '<div class="bridge-l tot"><span>Money we do have</span><b>' + inr(cur.have.total) + '</b></div>'
+      + '<div class="bridge-sub">Bank ' + inr(cur.have.bank) + ' + cash ' + inr(cur.have.cash) + ' + card/UPI on the way ' + inr(cur.have.pending) + '</div>'
+      + '<div class="bridge-diff ' + cls + '"><div><span>Difference</span><i>' + (diff === 0 ? 'Everything recorded adds up' : 'Not explained by any recorded entry') + '</i></div><b>' + (diff === 0 ? '₹0' : inr(diff)) + '</b></div>';
+    // day-by-day
+    var maxAbs = Math.max(1, Math.max.apply(null, rows.map(function (x) { return Math.abs(x.r.diff); })));
+    var bars = rows.map(function (x) { var h = x.r.diff === 0 ? 2 : Math.max(4, Math.round(Math.abs(x.r.diff) / maxAbs * 38)); return '<i class="' + (x.r.diff === 0 ? 'z' : 'n') + '" style="height:' + h + 'px"></i>'; }).join('');
+    var prev = 0, list = [];
+    rows.forEach(function (x) { list.push({ d: x.d, diff: x.r.diff, delta: x.r.diff - prev }); prev = x.r.diff; });
+    var lines = list.slice().reverse().slice(0, 8).map(function (x) {
+      var what = x.delta === 0 ? (x.diff === 0 ? 'Matches' : 'No change') : 'Moved by ' + inr(x.delta);
+      return '<div class="bridge-r' + (x.delta !== 0 ? ' hl' : '') + '"><div class="bridge-rr"><span class="bd">' + dfmt(x.d) + '</span><span class="bw">' + what + '</span><b class="' + (x.diff === 0 ? 'ok' : 'bad') + '">' + (x.diff === 0 ? '₹0' : inr(x.diff)) + '</b></div></div>';
+    }).join('');
+    var tail = '<div class="bridge-hint">A day that moved is usually a bank charge, an entry made on a different day than the bank shows, or a card/UPI settlement that differs from the register. Check the day on:</div><div class="bridge-btns"><button class="bridge-btn main" onclick="event.stopPropagation();bridgeGo(\'bankexp\')">Open Bank check</button><button class="bridge-btn" onclick="event.stopPropagation();bridgeGo(\'entry\')">Open Cash day</button></div>';
+    body += '<div class="bridge-sec">Difference, day by day</div><div class="bridge-bars">' + bars + '</div><div class="bridge-lbl"><span>' + dfmt(rows[0].d) + '</span><span>' + dfmt(rows[rows.length - 1].d) + '</span></div><div class="bridge-list">' + lines + '</div>' + tail + '</div>';
+    return '<div class="bridge' + (isOpen ? ' open' : '') + '" id="bridge-card">' + head + body + '</div>';
+  } catch (e) { console.warn('bridge failed', e); return ''; }
+}
+
 // Current IDFC balance = statement base + capital in − expenses/IDFC-drawings out
 // (dated after the statement) + digital sales already settled to the account.
 // Sales still in transit are NOT in this number — see computeBankSplit().pending.

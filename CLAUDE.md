@@ -70,6 +70,13 @@ the second layer. Do not remove either.
    soft gold shadow). Secondary actions use a grey gradient (dark: `#46514B → #343E39 → #2A332F`,
    light: `#F4F6F4 → #DCE2DD → #C9D1CB`). No flat or outlined one-off button styles in new work.
 
+## Profit vs money (Dashboard, under Net profit)
+
+`bridgeHtml()` checks that profit turns into visible money, from recorded actuals only (no forecasts):
+money we should have = money on the day before `BRIDGE_START` + net profit + (GST in sales − GST payments) + partner
+capital/direct spend − partner withdrawals; money we do have = bank + cash + card/UPI on its way. Any difference is
+shown exactly (no tolerance) with a day-by-day trail. No month close, sign-off or CA pack for now.
+
 ## Daily bank check (Bank tab)
 
 Partners upload the IDFC statement (PDF/Excel/CSV, any date range) in the Bank tab. Transactions are
