@@ -181,6 +181,19 @@
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .bridge-btn { background:linear-gradient(135deg,#46514B 0%,#343E39 52%,#2A332F 100%); color:#E9F2EC; } }
   .bridge-btn.main, :root[data-theme="dark"] .bridge-btn.main { background:linear-gradient(135deg,#F0D488 0%,#C9A040 52%,#A9812C 100%); border-color:#C9A040; color:#201700; box-shadow:0 2px 9px rgba(201,160,64,0.30); }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .bridge-btn.main { background:linear-gradient(135deg,#F0D488 0%,#C9A040 52%,#A9812C 100%); color:#201700; } }
+  .cdt-card { background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:8px 12px 10px; margin-bottom:12px; }
+  .cdt-cap { display:block; font-family:'Inter',sans-serif; font-size:11px; line-height:1.3; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cdt-cap em { font-style:normal; color:var(--text3); }
+  .cdt-good { color:var(--green); } .cdt-warn { color:#8A6100; }
+  :root[data-theme="dark"] .cdt-warn { color:#E3B341; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cdt-warn { color:#E3B341; } }
+  .cdt-days { display:grid; gap:2px; margin-top:6px; }
+  .cdt-day { display:flex; flex-direction:column; align-items:center; gap:2px; padding:0; background:none; border:0; cursor:pointer; font-family:'Inter',sans-serif; font-size:9px; color:var(--text3); -webkit-tap-highlight-color:transparent; }
+  .cdt-day b { width:100%; height:26px; box-sizing:border-box; border-radius:6px; display:flex; align-items:center; justify-content:center; font-family:var(--num-font); font-size:11px; font-weight:400; }
+  .cdt-day b.cdt-ok { background:rgba(111,207,151,.14); color:var(--green); }
+  .cdt-day b.cdt-no { border:1.5px dashed #C9A040; color:#8A6100; background:rgba(227,179,65,.08); }
+  :root[data-theme="dark"] .cdt-day b.cdt-no { border-color:#E3B341; color:#E3B341; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .cdt-day b.cdt-no { border-color:#E3B341; color:#E3B341; } }
   .cmp-wrap { display:flex; flex-direction:row; flex-wrap:wrap; align-items:center; gap:0 5px; margin-top:-5px; }
   .cmp-chip { display:inline-block; padding:1px 6px; border-radius:8px; font-family:'Inter',sans-serif; font-size:9.5px; font-weight:700; line-height:1.4; white-space:nowrap; }
   .cmp-vs { font-family:'Inter',sans-serif; font-size:9px; line-height:1.3; color:var(--text3); }
@@ -1164,6 +1177,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 <!-- ===================== DAILY ENTRY (Manager) ===================== -->
 <div id="panel-entry" class="panel content">
 
+  <div id="cash-days-tracker"></div>
   <div id="form-errors"></div>
   <div id="form-success"></div>
 
@@ -1806,7 +1820,7 @@ input[type="date"].field-input::-webkit-datetime-edit { text-align: center; padd
 // Pages HTTP cache cannot intercept) on load and on each foreground; if the live
 // version differs from this baked-in one, the running (stale) page reloads once
 // and revalidates to the fresh build — no waiting out the cache. See CLAUDE.md.
-const APP_VERSION = '2026-11-22-1';
+const APP_VERSION = '2026-11-22-2';
 
 // ─── FIREBASE SYNC ───────────────────────────────────────────────────────────
 // Replace null below with your Firebase config to enable cross-device sync.
@@ -5101,7 +5115,33 @@ function deleteEntry(date) {
 }
 
 // Recent cash entries the current user is allowed to edit (shown in the Cash Expenses tab).
+
+// ─── CASH DAYS TRACKER (top of the Cash tab) ────────────────────────────────
+// One cell per day for the last 14 days: green = the day is fully submitted (opening cash, end-of-day
+// sales and the closing count), yellow = something is missing. Tap a day to open it and finish it.
+function cashDayComplete(e) { return !!(e && Number(e.opening) > 0 && Number(e.totalSales) > 0 && !e.partial); }
+function renderCashDayTracker() {
+  const el = document.getElementById('cash-days-tracker'); if (!el) return;
+  const today = todayLocalISO(), open = (typeof LEDGER_OPEN === 'string' && LEDGER_OPEN) || '2026-03-05';
+  const byDate = {}; loadEntries().forEach(e => { if (e && e.date) byDate[e.date] = e; });
+  let from = isoAdd(today, -13); if (from < open) from = open;
+  let cells = '', n = 0, gaps = [], cur = null;
+  for (let d = from; d <= today; d = isoAdd(d, 1)) {
+    const ok = cashDayComplete(byDate[d]);
+    if (!ok) { if (cur) cur.t = d; else { cur = { f: d, t: d }; gaps.push(cur); } } else cur = null;
+    n++;
+    const wd = 'SMTWTFS'.charAt(new Date(d + 'T00:00:00').getDay());
+    cells += `<button type="button" class="cdt-day" onclick="goCloseCash('${d}')" aria-label="${d} ${ok ? 'submitted' : 'not submitted'}"><span>${wd}</span><b class="${ok ? 'cdt-ok' : 'cdt-no'}">${parseInt(d.slice(8), 10)}</b></button>`;
+  }
+  const MN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const sh = iso => { const p = iso.split('-'); return (+p[2]) + ' ' + MN[+p[1] - 1]; };
+  const gapTxt = gaps.map(g => { if (g.f === g.t) return sh(g.f); const a = sh(g.f), b = sh(g.t); return a.split(' ')[1] === b.split(' ')[1] ? a.split(' ')[0] + '–' + b : a + ' – ' + b; }).join(', ');
+  const cap = gaps.length ? `<span class="cdt-cap cdt-warn">Not submitted · ${esc(gapTxt)} <em>· tap a yellow day to fill it in</em></span>` : `<span class="cdt-cap cdt-good">✓ All ${n} days submitted</span>`;
+  el.innerHTML = `<div class="cdt-card">${cap}<div class="cdt-days" style="grid-template-columns:repeat(${n},minmax(0,1fr));">${cells}</div></div>`;
+}
+
 function renderEntryRecent() {
+  try { renderCashDayTracker(); } catch (e) { console.warn('cash tracker failed', e); }
   const wrap = document.getElementById('entry-recent-wrap');
   const countEl = document.getElementById('count-entry');
   if (!wrap) return;
